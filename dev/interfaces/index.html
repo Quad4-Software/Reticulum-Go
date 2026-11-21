@@ -1,0 +1,2358 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Reticulum network stack in Go">
+      
+      
+      
+        <link rel="canonical" href="https://reticulum-go.quad4.io/dev/interfaces/">
+      
+      
+        <link rel="prev" href="../transport/">
+      
+      
+        <link rel="next" href="../identity-and-destinations/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/favicon.svg">
+      <meta name="generator" content="zensical-0.0.63">
+    
+    
+  
+    <title>Interfaces - Reticulum-Go</title>
+  
+
+    
+      
+        
+      
+      <link rel="stylesheet" href="../assets/stylesheets/modern/main.10763589.min.css">
+      
+        
+          
+        
+        <link rel="stylesheet" href="../assets/stylesheets/modern/palette.812a03bb.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Space+Grotesk:300,300i,400,400i,500,500i,700,700i%7CSpace+Mono:400,400i,700,700i&amp;display=fallback">
+        <style>:root{--md-text-font:"Space Grotesk";--md-code-font:"Space Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../stylesheets/void.css">
+    
+    <script>__md_scope=new URL("..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
+    
+      
+
+    
+    
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Reticulum-Go">
+  <meta property="og:title" content="Interfaces - Reticulum-Go">
+  
+    <meta property="og:description" content="Reticulum network stack in Go">
+  
+  
+    <meta property="og:url" content="https://reticulum-go.quad4.io/dev/interfaces/">
+  
+  <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0a0a0b">
+  <meta name="theme-color" media="(prefers-color-scheme: light)" content="#fafafa">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "WebSite",
+        "name": "Reticulum-Go",
+        "url": "https://reticulum-go.quad4.io/dev/",
+        "description": "Reticulum network stack in Go",
+        "inLanguage": "en"
+      },
+      {
+        "@type": "SoftwareSourceCode",
+        "name": "Reticulum-Go",
+        "url": "https://reticulum-go.quad4.io/dev/",
+        "codeRepository": "https://github.com/Quad4-Software/Reticulum-Go",
+        "programmingLanguage": "Go"
+      }
+    ]
+  }
+  </script>
+
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="void" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer" aria-label="Navigation"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#interfaces" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="./.." title="Reticulum-Go" class="md-header__button md-logo" aria-label="Reticulum-Go" data-md-component="logo">
+      
+  <img src="../assets/logo.svg" alt="Reticulum-Go">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer" aria-label="Navigation">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-menu" viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h16"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Reticulum-Go
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Interfaces
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="void" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-moon" viewBox="0 0 24 24"><path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="paper" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search" aria-label="Search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-search" viewBox="0 0 24 24"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog" aria-label="Search">
+  <button type="button" class="md-search__button">
+    Search
+  </button>
+</div>
+      
+    
+    <div class="md-header__source">
+      
+        <a href="https://github.com/Quad4-Software/Reticulum-Go" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      
+    </div>
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="./.." title="Reticulum-Go" class="md-nav__button md-logo" aria-label="Reticulum-Go" data-md-component="logo">
+      
+  <img src="../assets/logo.svg" alt="Reticulum-Go">
+
+    </a>
+    Reticulum-Go
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/Quad4-Software/Reticulum-Go" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="./.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Home
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../downloads/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Downloads
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Start
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_3">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Start
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Overview
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Architecture
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Getting started
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Configuration
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Develop
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_4">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Develop
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../package-map/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Package map
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  API reference
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Internals
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
+            <label class="md-nav__title" for="__nav_5">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Internals
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../transport/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Transport
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Interfaces
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="././" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Interfaces
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#role" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Role
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#interface-contract" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Interface contract
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#supported-types" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Supported types
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#not-implemented" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Not implemented
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#modem73interface" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Modem73Interface
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sdrinterface" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        SDRInterface
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#serialinterface" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        SerialInterface
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pipeinterface" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        PipeInterface
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#external-interface-plugins" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        External interface plugins
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#localinterface" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        LocalInterface
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#udpinterface" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        UDPInterface
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tcp-client-and-server" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        TCP client and server
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#autointerface" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        AutoInterface
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#interface-modes" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Interface modes
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#i2pinterface" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        I2PInterface
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#backbone" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Backbone
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#websocketinterface" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        WebSocketInterface
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#quicclientinterface-quicserverinterface" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        QUICClientInterface / QUICServerInterface
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#webtransportclientinterface-webtransportserverinterface" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        WebTransportClientInterface / WebTransportServerInterface
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dnsrendezvousinterface" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        DNSRendezvousInterface
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#vsockclientinterface-vsockserverinterface" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        VSOCKClientInterface / VSOCKServerInterface
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#httpsclientinterface-httpsserverinterface" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        HTTPSClientInterface / HTTPSServerInterface
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#awareinterface" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        AwareInterface
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#interface-access-code-ifac" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Interface Access Code (IFAC)
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reconnect-behavior" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Reconnect behavior
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#hot-reload" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Hot reload
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#rate-and-ingress-settings" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Rate and ingress settings
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#operational-notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Operational notes
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#testing" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Testing
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#related-documents" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Related documents
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../identity-and-destinations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Identity and destinations
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../links-channels-and-resources/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Links, channels, and resources
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cryptography/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Cryptography
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Reference
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_6">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Reference
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../security/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Security
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../compatibility/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Compatibility
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../control-api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Control API
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../librns/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  librns
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../utilities/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  CLI utilities
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../embedding-and-wasm/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Embedding and WebAssembly
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../microvm/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Firecracker microvm
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../development-and-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Development and testing
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Examples
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Appendix
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_7">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Appendix
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../deviations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Deviations from Python RNS
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../packet-debug/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Packet debugging
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../interop-timeline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Interop timeline
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+  
+    <a href="https://github.com/Quad4-Software/Reticulum-Go/edit/master/docs/en/interfaces.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-file-pen" viewBox="0 0 24 24"><path d="M12.659 22H18a2 2 0 0 0 2-2V8a2.4 2.4 0 0 0-.706-1.706l-3.588-3.588A2.4 2.4 0 0 0 14 2H6a2 2 0 0 0-2 2v9.34"/><path d="M14 2v5a1 1 0 0 0 1 1h5M10.378 12.622a1 1 0 0 1 3 3.003L8.36 20.637a2 2 0 0 1-.854.506l-2.867.837a.5.5 0 0 1-.62-.62l.836-2.869a2 2 0 0 1 .506-.853z"/></svg>
+    </a>
+  
+  
+
+
+<h1 id="interfaces">Interfaces<a class="headerlink" href="#interfaces" title="Permanent link">&para;</a></h1>
+<h2 id="role">Role<a class="headerlink" href="#role" title="Permanent link">&para;</a></h2>
+<p>Interfaces move Reticulum packets between the transport layer and a physical or virtual medium. All implementations live in pkg/interfaces and conform to the Interface contract defined in interface.go.</p>
+<p>Factory entry point:</p>
+<div class="language-go highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nx">iface</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">interfaces</span><span class="p">.</span><span class="nx">NewFromConfigWithContext</span><span class="p">(</span><span class="nx">ctx</span><span class="p">,</span><span class="w"> </span><span class="nx">name</span><span class="p">,</span><span class="w"> </span><span class="nx">cfg</span><span class="p">)</span>
+</span></code></pre></div>
+<h2 id="interface-contract">Interface contract<a class="headerlink" href="#interface-contract" title="Permanent link">&para;</a></h2>
+<p>Each interface implements:</p>
+<ul>
+<li>Start and Stop for lifecycle</li>
+<li>Send for outbound data</li>
+<li>ProcessIncoming and ProcessOutgoing for IFAC and framing</li>
+<li>Statistics hooks used by the daemon and control API</li>
+</ul>
+<p>Inbound path:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>raw bytes -&gt; ProcessIncoming -&gt; packetCallback -&gt; Transport.HandlePacket
+</span></code></pre></div>
+<p>Outbound path:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>Transport.SendPacket -&gt; Send -&gt; ProcessOutgoing -&gt; wire
+</span></code></pre></div>
+<h2 id="supported-types">Supported types<a class="headerlink" href="#supported-types" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Config type</th>
+<th>Status</th>
+<th>File</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>UDPInterface</td>
+<td>Complete</td>
+<td>udp.go</td>
+</tr>
+<tr>
+<td>TCPClientInterface</td>
+<td>Complete</td>
+<td>tcp.go</td>
+</tr>
+<tr>
+<td>TCPServerInterface</td>
+<td>Complete</td>
+<td>tcp.go</td>
+</tr>
+<tr>
+<td>AutoInterface</td>
+<td>Complete</td>
+<td>auto.go, auto_rescan.go, auto_roam.go</td>
+</tr>
+<tr>
+<td>I2PInterface</td>
+<td>Complete</td>
+<td>i2p.go (SAM in pkg/i2p)</td>
+</tr>
+<tr>
+<td>BackboneInterface</td>
+<td>Complete</td>
+<td>backbone.go</td>
+</tr>
+<tr>
+<td>BackboneClientInterface</td>
+<td>Complete</td>
+<td>backbone_client.go</td>
+</tr>
+<tr>
+<td>PipeInterface</td>
+<td>Complete</td>
+<td>pipe.go</td>
+</tr>
+<tr>
+<td>SerialInterface</td>
+<td>Complete</td>
+<td>serial.go</td>
+</tr>
+<tr>
+<td>LocalInterface / LocalServerInterface</td>
+<td>Complete</td>
+<td>local.go, sharedinstance</td>
+</tr>
+<tr>
+<td>WebSocketInterface</td>
+<td>Go-only</td>
+<td>websocket_native.go, websocket_wasm.go</td>
+</tr>
+<tr>
+<td>QUICClientInterface</td>
+<td>Go-only</td>
+<td>quic.go, quic_tls.go</td>
+</tr>
+<tr>
+<td>QUICServerInterface</td>
+<td>Go-only</td>
+<td>quic.go, quic_tls.go</td>
+</tr>
+<tr>
+<td>WebTransportClientInterface</td>
+<td>Go-only</td>
+<td>webtransport.go</td>
+</tr>
+<tr>
+<td>WebTransportServerInterface</td>
+<td>Go-only</td>
+<td>webtransport.go</td>
+</tr>
+<tr>
+<td>DNSRendezvousInterface</td>
+<td>Go-only</td>
+<td>dns_rendezvous.go</td>
+</tr>
+<tr>
+<td>VSOCKClientInterface</td>
+<td>Go-only (Linux)</td>
+<td>vsock.go</td>
+</tr>
+<tr>
+<td>VSOCKServerInterface</td>
+<td>Go-only (Linux)</td>
+<td>vsock.go</td>
+</tr>
+<tr>
+<td>HTTPSClientInterface</td>
+<td>Go-only</td>
+<td>https.go</td>
+</tr>
+<tr>
+<td>HTTPSServerInterface</td>
+<td>Go-only</td>
+<td>https.go</td>
+</tr>
+<tr>
+<td>Modem73Interface</td>
+<td>Complete</td>
+<td>modem73.go</td>
+</tr>
+<tr>
+<td>SDRInterface</td>
+<td>Complete</td>
+<td>sdr.go, pkg/sdr</td>
+</tr>
+<tr>
+<td>AwareInterface</td>
+<td>Android, driver-injected</td>
+<td>aware.go</td>
+</tr>
+</tbody>
+</table>
+<h2 id="not-implemented">Not implemented<a class="headerlink" href="#not-implemented" title="Permanent link">&para;</a></h2>
+<p>These interface types have no driver in Reticulum-Go:</p>
+<ul>
+<li>RNodeInterface, RNodeMultiInterface</li>
+<li>KISSInterface, AX25KISSInterface</li>
+<li>WeaveInterface</li>
+<li>Android-specific KISS, RNode, Serial variants</li>
+</ul>
+<h2 id="modem73interface">Modem73Interface<a class="headerlink" href="#modem73interface" title="Permanent link">&para;</a></h2>
+<p>KISS TCP data path plus length-prefixed JSON control for a modem73 process.</p>
+<p>Defaults: data 127.0.0.1:8001, control 127.0.0.1:8073, IFAC size 8.</p>
+<div class="language-ini highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">[[MODEM73]]</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="na">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">Modem73Interface</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="na">enabled</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">yes</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="na">target_host</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">127.0.0.1</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="na">target_port</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">8001</span>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="na">control_host</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">127.0.0.1</span>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="na">control_port</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">8073</span>
+</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="na">mtu_overhead</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">15</span>
+</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="na">bitrate</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">400</span>
+</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="na">auto_fragmentation</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">yes</span>
+</span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="na">short_frames</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">auto</span>
+</span><span id="__span-3-12"><a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="na">short_mtu</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">170</span>
+</span><span id="__span-3-13"><a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="na">mode</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">boundary</span>
+</span></code></pre></div>
+<p>DSP stays in the modem73 process. Live: RUN_LIVE_INTEROP=1 with tests/interop/modem73_live_test.go.</p>
+<p>Math-backed TNC simulator (no radio): Modem73Simulator in modem73_sim.go with PHY tables from <a href="https://github.com/RFnexus/modem73">modem73</a> (CONTROL_PORT.md, robust nrows airtime, OFDM payload/bitrate/duration matrices). Shared Modem73Channel applies SNR and BER/FER models for multi-station tests.</p>
+<h2 id="sdrinterface">SDRInterface<a class="headerlink" href="#sdrinterface" title="Permanent link">&para;</a></h2>
+<p>Owns an SDR front end via pkg/sdr and a Go burst modem over baseband IQ.</p>
+<p>Lab / testing disclaimer. This interface is for local mock, simulation, and controlled lab use. It is not a certified radio product and does not grant authority to transmit. Live TX (for example HackRF) can radiate on the tuned frequency. You must follow local license, band, power, and interference rules. Prefer device = mock or the math channel for development. The burst modem is not air-compatible with Modem73 OFDM or RNode. Everyday RF mesh should use purpose-built interfaces when those fit the link.</p>
+<div class="language-ini highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">[[SDR0]]</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="na">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">SDRInterface</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="na">enabled</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">yes</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="na">device</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">mock</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="na">frequency</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">433000000</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="na">sample_rate</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">2000000</span>
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="na">rx_gain</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">20</span>
+</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="na">tx_gain</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">10</span>
+</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="na">modem</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">burst</span>
+</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="na">bitrate</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">1200</span>
+</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="na">mode</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">boundary</span>
+</span></code></pre></div>
+<p>Device values: mock (always), rtltcp, rtlsdr (build tag sdr_rtlsdr), hackrf (build tag sdr_hackrf).</p>
+<p>Default builds need no USB libraries. Burst modem is Go-native and is not air-compatible with Modem73 OFDM.</p>
+<p>Math-backed RF channel: pkg/sdr/channel.go (FreeSpacePathLossDB, thermal noise, AWGN via Box-Muller, SimDevice). Validated by SNR measurement and FSPL property checks.</p>
+<p>Live: RUN_LIVE_SDR=1 with tests/interop/sdr_live_test.go. Optional SDR_DEVICE / SDR_ADDRESS for hardware probes.</p>
+<h2 id="serialinterface">SerialInterface<a class="headerlink" href="#serialinterface" title="Permanent link">&para;</a></h2>
+<p>HDLC-framed serial port (MTU 564, baud as bitrate, default IFAC size 8).</p>
+<p>Go extensions:</p>
+<ul>
+<li>Chunked reads instead of byte-at-a-time</li>
+<li>Configurable inter-byte frame idle drop (frame_idle_ms, default 100)</li>
+<li>max_reconnect_tries and reconnect delay</li>
+<li>Optional RTS/CTS DSR/DTR XON/XOFF keys</li>
+<li>IFAC and receive-only (outgoing = no)</li>
+<li>Live counters (FramesRX/TX, framing errors, reconnects)</li>
+<li>Injectable port opener for tests</li>
+</ul>
+<div class="language-ini highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">[[Radio Serial]]</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="na">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">SerialInterface</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="na">enabled</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">yes</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="na">port</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">/dev/ttyUSB0</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="na">speed</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">115200</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="na">databits</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">8</span>
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="na">parity</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">N</span>
+</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="na">stopbits</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">1</span>
+</span></code></pre></div>
+<p>device = is an alias for the TTY path. Non-numeric port = values are treated as device paths so Python configs load.</p>
+<p>Live Python framing interop: RUN_LIVE_INTEROP=1 with tests/interop/serial_live_test.go.</p>
+<h2 id="pipeinterface">PipeInterface<a class="headerlink" href="#pipeinterface" title="Permanent link">&para;</a></h2>
+<p>Bridges Reticulum to any external program over stdin/stdout using HDLC framing.</p>
+<p>Configuration:</p>
+<ul>
+<li>command (required): program and arguments, split like Python shlex</li>
+<li>respawn_delay (optional): seconds before respawning after subprocess exit (default 5)</li>
+</ul>
+<h2 id="external-interface-plugins">External interface plugins<a class="headerlink" href="#external-interface-plugins" title="Permanent link">&para;</a></h2>
+<p>Python loads .py modules from {config_dir}/interfaces/. Reticulum-Go keeps the same discovery path but uses process isolation and in-process factories instead of executing Python:</p>
+<ol>
+<li>interfaces.RegisterExternalFactory(typeName, factory) for embedders</li>
+<li>{config_dir}/interfaces/{Type}.json (or .manifest) with driver and command (pipe)</li>
+<li>Executable {config_dir}/interfaces/{Type} used as a PipeInterface command</li>
+</ol>
+<p>Example manifest:</p>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="p">{</span><span class="nt">"driver"</span><span class="p">:</span><span class="w"> </span><span class="s2">"pipe"</span><span class="p">,</span><span class="w"> </span><span class="nt">"command"</span><span class="p">:</span><span class="w"> </span><span class="s2">"/usr/local/bin/my-rns-iface"</span><span class="p">,</span><span class="w"> </span><span class="nt">"respawn_delay"</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="p">}</span>
+</span></code></pre></div>
+<p>Config:</p>
+<div class="language-ini highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="k">[[Custom Radio]]</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="na">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">MyRadioIface</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="na">enabled</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">yes</span>
+</span></code></pre></div>
+<h2 id="localinterface">LocalInterface<a class="headerlink" href="#localinterface" title="Permanent link">&para;</a></h2>
+<p>Local shared-instance access uses HDLC over TCP (127.0.0.1:port) or abstract Unix (<code>@rns/&lt;name&gt;</code>).</p>
+<p>Two configuration paths:</p>
+<ol>
+<li>Automatic (Python-compatible): share_instance = yes in [reticulum] via pkg/sharedinstance</li>
+<li>Explicit interface block: type = LocalInterface or type = LocalServerInterface in [[...]]</li>
+</ol>
+<p>Local clients set ConnectedToSharedInstance and skip path-request ingress limiting, matching Python behavior.</p>
+<h2 id="udpinterface">UDPInterface<a class="headerlink" href="#udpinterface" title="Permanent link">&para;</a></h2>
+<p>Connects to a configured peer over UDP.</p>
+<p>Requirements:</p>
+<ul>
+<li>Explicit target_address or target_host (same policy as Python forward_ip)</li>
+<li>Open binds do not adopt the source address of the first inbound packet</li>
+</ul>
+<p>Optional reconnect when max_reconnect_tries &gt; 0 is a Go extension. Python does not reconnect UDP by default.</p>
+<p>Optional <code>keepalive = &lt;seconds&gt;</code> sends a one-byte hold-open datagram to the
+target whenever the link has been idle for one interval, keeping NAT and
+stateful-firewall mappings alive (WireGuard PersistentKeepalive semantics).
+The byte fails packet decode on the remote and is dropped before transport.
+Python and Go peers both ignore it. Off by default.</p>
+<h2 id="tcp-client-and-server">TCP client and server<a class="headerlink" href="#tcp-client-and-server" title="Permanent link">&para;</a></h2>
+<p>TCP uses HDLC framing with a maximum frame size cap (maxHDLC in tcp.go). Client interfaces support:</p>
+<ul>
+<li>Keepalives</li>
+<li>Reconnect via reconnect.go</li>
+<li>Tunnel re-synthesis on reconnect (SetTunnelSynth / onConnected)</li>
+<li>Optional I2P tunneling (i2p_tunneled)</li>
+</ul>
+<p>Server interfaces accept inbound connections and apply IFAC on each session.</p>
+<h2 id="autointerface">AutoInterface<a class="headerlink" href="#autointerface" title="Permanent link">&para;</a></h2>
+<p>AutoInterface discovers peers on a local link using IPv6 link-local multicast.</p>
+<p>Features:</p>
+<ul>
+<li>Peer aging and timeout</li>
+<li>Configurable discovery and data ports</li>
+<li>NIC binding via interface key</li>
+<li>Rescan when watch_interfaces = yes (auto_rescan.go)</li>
+<li>Listener replacement on Wi-Fi roam (auto_roam.go, aligned with Python 1.3.5)</li>
+</ul>
+<h2 id="interface-modes">Interface modes<a class="headerlink" href="#interface-modes" title="Permanent link">&para;</a></h2>
+<p>Modes match Python RNS wire values (full 0x01 through internal 0x07). Set with mode or interface_mode on an interface block.</p>
+<table>
+<thead>
+<tr>
+<th>Mode</th>
+<th>Effect (summary)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>full</td>
+<td>Default. Normal announce and path behavior</td>
+</tr>
+<tr>
+<td>access_point</td>
+<td>Does not rebroadcast announces</td>
+</tr>
+<tr>
+<td>gateway / roaming / internal</td>
+<td>Participate in unknown-path discovery (DISCOVER_PATHS_FOR)</td>
+</tr>
+<tr>
+<td>boundary / roaming / internal</td>
+<td>Extra announce forward filters vs next-hop mode (RNS 1.3.6+)</td>
+</tr>
+</tbody>
+</table>
+<p>recursive_prs = yes forces unknown-path discovery on any mode. announces_from_internal = no blocks rebroadcast of announces learned via an internal-mode next hop.</p>
+<h2 id="i2pinterface">I2PInterface<a class="headerlink" href="#i2pinterface" title="Permanent link">&para;</a></h2>
+<p>Uses I2P SAM (pkg/i2p) for inbound and outbound streams.</p>
+<p>Outbound peers dial with a direct SAM STREAM CONNECT (no local TCP proxy hop). The peer is marked online only after that connect succeeds. Reconnect closes the prior SAM session and opens a new one. Stream sessions use i2cp.leaseSetEncType=6,4 by default.</p>
+<p>Configuration keys: sam_address, peers, connectable, i2p_tunneled.</p>
+<p>Live SAM tests require RUN_LIVE_I2P=1 and a running SAM bridge (I2P_SAM_ADDRESS, default 127.0.0.1:7656). Directory peer smoke fetches online I2P hosts from directory.rns.recipes at runtime (override with I2P_DIRECTORY_URL or INTEROP_DIRECTORY_URL). Do not hardcode public b32 addresses in the tree.</p>
+<p>Go and Python interop lives in tests/interop/i2p_live_test.go (RUN_LIVE_INTEROP=1 plus a reachable SAM).</p>
+<h2 id="backbone">Backbone<a class="headerlink" href="#backbone" title="Permanent link">&para;</a></h2>
+<p>Backbone interfaces multiplex many TCP streams through pkg/backbone hubs. Select poller backend with backbone_io in [reticulum]. <code>client_limit</code> on a BackboneInterface caps accepted clients (default 500, RNS 1.6.1). Clients over the cap are refused and the count frees on disconnect.</p>
+<table>
+<thead>
+<tr>
+<th>Value</th>
+<th>Platform</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>auto</td>
+<td>Best available</td>
+</tr>
+<tr>
+<td>epoll</td>
+<td>Linux</td>
+</tr>
+<tr>
+<td>kqueue</td>
+<td>BSD, macOS</td>
+</tr>
+<tr>
+<td>io_uring</td>
+<td>Linux (when available)</td>
+</tr>
+<tr>
+<td>go</td>
+<td>Portable fallback</td>
+</tr>
+</tbody>
+</table>
+<h2 id="websocketinterface">WebSocketInterface<a class="headerlink" href="#websocketinterface" title="Permanent link">&para;</a></h2>
+<p>Go-only transport for browser WASM clients. Native builds use websocket_native.go. WASM builds use websocket_wasm.go.</p>
+<h2 id="quicclientinterface-quicserverinterface">QUICClientInterface / QUICServerInterface<a class="headerlink" href="#quicclientinterface-quicserverinterface" title="Permanent link">&para;</a></h2>
+<p>Go-only QUIC transport (not available on WASM). HDLC frames ride one bidirectional QUIC stream per connection, matching the TCP interface framing model.</p>
+<p>TLS follows a Yggdrasil-style mesh model:</p>
+<ul>
+<li>Ephemeral self-signed ECDSA P-256 certificates by default</li>
+<li>X.509 CA verification is skipped (InsecureSkipVerify)</li>
+<li>Optional peer_key pins the remote leaf SPKI SHA-256 (hex)</li>
+<li>Optional cert_file / key_file supply persistent PEM material</li>
+<li>Optional sni sets the client TLS ServerName</li>
+<li>ALPN is fixed to rns</li>
+<li>IFAC (network_name / passphrase) still applies above QUIC</li>
+</ul>
+<div class="language-ini highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="k">[[QUIC Hub]]</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="na">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">QUICServerInterface</span>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="na">enabled</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">yes</span>
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="na">listen_ip</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">0.0.0.0</span>
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="na">listen_port</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">4242</span>
+</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>
+</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="k">[[QUIC Uplink]]</span>
+</span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="na">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">QUICClientInterface</span>
+</span><span id="__span-8-9"><a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a><span class="na">enabled</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">yes</span>
+</span><span id="__span-8-10"><a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a><span class="na">target_host</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">hub.example.com</span>
+</span><span id="__span-8-11"><a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a><span class="na">target_port</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">4242</span>
+</span><span id="__span-8-12"><a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a><span class="na">peer_key</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">aabbccdd...</span>
+</span><span id="__span-8-13"><a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a><span class="na">max_reconnect_tries</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">-1</span>
+</span></code></pre></div>
+<p>Client reconnect uses reconnect.go like TCP. Server fan-out writes to all accepted sessions. Live Go-Go tests: RUN_LIVE_INTEROP=1 with tests/interop/quic_live_test.go.</p>
+<h2 id="webtransportclientinterface-webtransportserverinterface">WebTransportClientInterface / WebTransportServerInterface<a class="headerlink" href="#webtransportclientinterface-webtransportserverinterface" title="Permanent link">&para;</a></h2>
+<p>Go-only HTTP/3 WebTransport transport (not on WASM). Prefer datagrams for RNS packets. Optional HDLC stream mode matches QUIC.</p>
+<ul>
+<li>Default path /rns</li>
+<li>transport_mode = datagram (default), stream, or dual</li>
+<li>Application protocol rns</li>
+<li>Same TLS options as QUIC (cert_file, key_file, peer_key, sni)</li>
+<li>IFAC and reconnect supported</li>
+</ul>
+<div class="language-ini highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="k">[[WT Hub]]</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="na">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">WebTransportServerInterface</span>
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="na">enabled</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">yes</span>
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="na">listen_ip</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">0.0.0.0</span>
+</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="na">listen_port</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">4433</span>
+</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="na">path</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">/rns</span>
+</span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="na">transport_mode</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">datagram</span>
+</span><span id="__span-9-8"><a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a>
+</span><span id="__span-9-9"><a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a><span class="k">[[WT Client]]</span>
+</span><span id="__span-9-10"><a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a><span class="na">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">WebTransportClientInterface</span>
+</span><span id="__span-9-11"><a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a><span class="na">enabled</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">yes</span>
+</span><span id="__span-9-12"><a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a><span class="na">target_host</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">hub.example.com</span>
+</span><span id="__span-9-13"><a id="__codelineno-9-13" name="__codelineno-9-13" href="#__codelineno-9-13"></a><span class="na">target_port</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">4433</span>
+</span><span id="__span-9-14"><a id="__codelineno-9-14" name="__codelineno-9-14" href="#__codelineno-9-14"></a><span class="na">path</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">/rns</span>
+</span><span id="__span-9-15"><a id="__codelineno-9-15" name="__codelineno-9-15" href="#__codelineno-9-15"></a><span class="na">transport_mode</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">datagram</span>
+</span><span id="__span-9-16"><a id="__codelineno-9-16" name="__codelineno-9-16" href="#__codelineno-9-16"></a><span class="na">peer_key</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">aabbccdd...</span>
+</span></code></pre></div>
+<h2 id="dnsrendezvousinterface">DNSRendezvousInterface<a class="headerlink" href="#dnsrendezvousinterface" title="Permanent link">&para;</a></h2>
+<p>Go-only rendezvous underlay (not a DNS tunnel). Looks up DNS TXT for peer endpoints, then carries RNS packets over UDP to the discovered address.</p>
+<p>TXT forms accepted:</p>
+<ul>
+<li>rns=udp://1.2.3.4:4242</li>
+<li>rns proto=udp host=1.2.3.4 port=4242</li>
+</ul>
+<p>Hosts must be a parseable IP or DNS name without whitespace. Only udp and tcp schemes are accepted (udp is used by this underlay). Invalid TXT records are ignored.</p>
+<div class="language-ini highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="k">[[DNS Peer]]</span>
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="na">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">DNSRendezvousInterface</span>
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="na">enabled</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">yes</span>
+</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="na">domain</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">peers.example.com</span>
+</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="na">listen_ip</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">0.0.0.0</span>
+</span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="na">listen_port</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">0</span>
+</span><span id="__span-10-7"><a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="na">resolve_interval</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">60</span>
+</span></code></pre></div>
+<p>resolve_interval is seconds between re-queries (default 60). Publish the TXT at domain (or a name your resolver returns for that query). Live Go-Go: RUN_LIVE_INTEROP=1 with tests/interop/dns_rendezvous_live_test.go.</p>
+<h2 id="vsockclientinterface-vsockserverinterface">VSOCKClientInterface / VSOCKServerInterface<a class="headerlink" href="#vsockclientinterface-vsockserverinterface" title="Permanent link">&para;</a></h2>
+<p>Go-only Linux AF_VSOCK transport with HDLC framing (same pattern as TCP). Useful for host-guest and same-host Local CID paths.</p>
+<div class="language-ini highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="k">[[VSOCK Hub]]</span>
+</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="na">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">VSOCKServerInterface</span>
+</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="na">enabled</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">yes</span>
+</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="na">port</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">4242</span>
+</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>
+</span><span id="__span-11-6"><a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="k">[[VSOCK Client]]</span>
+</span><span id="__span-11-7"><a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="na">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">VSOCKClientInterface</span>
+</span><span id="__span-11-8"><a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a><span class="na">enabled</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">yes</span>
+</span><span id="__span-11-9"><a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a><span class="na">context_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">3</span>
+</span><span id="__span-11-10"><a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a><span class="na">port</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">4242</span>
+</span><span id="__span-11-11"><a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a><span class="na">max_reconnect_tries</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">-1</span>
+</span></code></pre></div>
+<p>context_id / cid is the peer CID (1 is Local on Linux). Not available on non-Linux or WASM. Live Local CID: RUN_LIVE_INTEROP=1 with tests/interop/vsock_live_test.go.</p>
+<h2 id="httpsclientinterface-httpsserverinterface">HTTPSClientInterface / HTTPSServerInterface<a class="headerlink" href="#httpsclientinterface-httpsserverinterface" title="Permanent link">&para;</a></h2>
+<p>Go-only TLS long-poll packet underlay for restrictive networks where only HTTPS egress works. Not WebTransport or HTTP/3.</p>
+<ul>
+<li>Default path /rns</li>
+<li>Client POST {path}/send and long-poll GET {path}/poll</li>
+<li>Peer id header X-RNS-Peer</li>
+<li>Same TLS options as QUIC (cert_file, key_file, peer_key, sni)</li>
+<li>long_poll_sec default 25</li>
+</ul>
+<div class="language-ini highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="k">[[HTTPS Hub]]</span>
+</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="na">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">HTTPSServerInterface</span>
+</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="na">enabled</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">yes</span>
+</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="na">listen_ip</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">0.0.0.0</span>
+</span><span id="__span-12-5"><a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="na">listen_port</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">8443</span>
+</span><span id="__span-12-6"><a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a><span class="na">path</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">/rns</span>
+</span><span id="__span-12-7"><a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a><span class="na">cert_file</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">/path/to/cert.pem</span>
+</span><span id="__span-12-8"><a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a><span class="na">key_file</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">/path/to/key.pem</span>
+</span><span id="__span-12-9"><a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a>
+</span><span id="__span-12-10"><a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a><span class="k">[[HTTPS Client]]</span>
+</span><span id="__span-12-11"><a id="__codelineno-12-11" name="__codelineno-12-11" href="#__codelineno-12-11"></a><span class="na">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">HTTPSClientInterface</span>
+</span><span id="__span-12-12"><a id="__codelineno-12-12" name="__codelineno-12-12" href="#__codelineno-12-12"></a><span class="na">enabled</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">yes</span>
+</span><span id="__span-12-13"><a id="__codelineno-12-13" name="__codelineno-12-13" href="#__codelineno-12-13"></a><span class="na">target_host</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">hub.example.com</span>
+</span><span id="__span-12-14"><a id="__codelineno-12-14" name="__codelineno-12-14" href="#__codelineno-12-14"></a><span class="na">target_port</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">8443</span>
+</span><span id="__span-12-15"><a id="__codelineno-12-15" name="__codelineno-12-15" href="#__codelineno-12-15"></a><span class="na">path</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">/rns</span>
+</span><span id="__span-12-16"><a id="__codelineno-12-16" name="__codelineno-12-16" href="#__codelineno-12-16"></a><span class="na">long_poll_sec</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">25</span>
+</span><span id="__span-12-17"><a id="__codelineno-12-17" name="__codelineno-12-17" href="#__codelineno-12-17"></a><span class="na">peer_key</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">aabbccdd...</span>
+</span></code></pre></div>
+<p>Live Go-Go: RUN_LIVE_INTEROP=1 with tests/interop/https_live_test.go.</p>
+<h2 id="awareinterface">AwareInterface<a class="headerlink" href="#awareinterface" title="Permanent link">&para;</a></h2>
+<p>WiFi Aware (NAN) transport, Android only. The host app supplies an AwareDriver (a gomobile bridge to WifiAwareManager). The controller spawns one peer interface per data path and frames it with HDLC identical to TCPClientInterface, so wire behaviour is unchanged.</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>type = AwareInterface
+</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>enabled = yes
+</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>role = subscribe
+</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a>peers = 4
+</span></code></pre></div>
+<ul>
+<li><code>role</code>: <code>publish</code> (responder) or <code>subscribe</code> (initiator). <code>mode = publish|subscribe</code> is also accepted for config compatibility with the Python AwareInterface.</li>
+<li><code>peers</code>: concurrent data-path cap, default 4, max 8.</li>
+</ul>
+<p>The Go side owns only framing and RNS plumbing: discovery, DPREQ exchange, data-path negotiation, and peer sockets live in the platform driver. Without a driver the interface fails at Start, matching the Python bridge raising on non-Android platforms. Embedding apps call <code>node.SetAwareDriver(...)</code> before <code>Start</code>.</p>
+<h2 id="interface-access-code-ifac">Interface Access Code (IFAC)<a class="headerlink" href="#interface-access-code-ifac" title="Permanent link">&para;</a></h2>
+<p>When network_name and passphrase are set on an interface, frames are masked on egress and verified on ingress.</p>
+<p>Policy:</p>
+<ul>
+<li>Wrong or missing IFAC on a configured interface results in silent drop on ingress</li>
+<li>Applied on UDP, TCP, Auto, and other supported types via pkg/common.ApplyIFACInbound and ApplyIFACOutbound</li>
+</ul>
+<p>Details: <a href="../cryptography/#ifac">Cryptography</a>.</p>
+<h2 id="reconnect-behavior">Reconnect behavior<a class="headerlink" href="#reconnect-behavior" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Aspect</th>
+<th>Python RNS</th>
+<th>Reticulum-Go</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>TCP / backbone / QUIC / WebTransport / HTTPS / VSOCK client</td>
+<td>Yes for TCP/backbone, 5 s wait</td>
+<td>Yes via reconnect.go</td>
+</tr>
+<tr>
+<td>Serial</td>
+<td>Yes, 5 s wait</td>
+<td>Yes with max_reconnect_tries</td>
+</tr>
+<tr>
+<td>I2P</td>
+<td>Yes, 15 s wait</td>
+<td>Yes in i2p.go</td>
+</tr>
+<tr>
+<td>UDP / DNS rendezvous</td>
+<td>No</td>
+<td>UDP when max_reconnect_tries &gt; 0. DNS re-resolves on interval</td>
+</tr>
+<tr>
+<td>Default max tries</td>
+<td>Unlimited (None)</td>
+<td>Unlimited (-1 or omitted)</td>
+</tr>
+<tr>
+<td>After exhaustion</td>
+<td>Teardown</td>
+<td>Teardown (Stop)</td>
+</tr>
+</tbody>
+</table>
+<p>ConnectivityNotifier hooks allow embedders to observe reconnect state (Go-only).</p>
+<h2 id="hot-reload">Hot reload<a class="headerlink" href="#hot-reload" title="Permanent link">&para;</a></h2>
+<p>node.ReloadInterfaces swaps interface blocks without restarting the process. On Unix, SIGHUP triggers reload in the daemon.</p>
+<p>On unregister, transport scrubs paths, discovery state, announce bookkeeping, relay rows, and link-table entries for the removed interface.</p>
+<p>Equality checks in pkg/node/reload.go cover type, addresses, I2P settings, IFAC, Auto ports, MTU, bitrate, prefer_ipv6, announce-rate, ingress/egress control, mode, and outgoing.</p>
+<p>Tests: interface_lifecycle_test.go, reload_e2e_test.go.</p>
+<h2 id="rate-and-ingress-settings">Rate and ingress settings<a class="headerlink" href="#rate-and-ingress-settings" title="Permanent link">&para;</a></h2>
+<p>Per-interface keys announce_cap, announce_rate_<em>, ingress_control, and ic_</em> feed pkg/rate limiters consumed by transport ingress handlers. announce_cap also sizes the outgoing announce queue drained when bandwidth is available.</p>
+<h2 id="operational-notes">Operational notes<a class="headerlink" href="#operational-notes" title="Permanent link">&para;</a></h2>
+<p>MTU. Default Reticulum packet MTU is 500 bytes (pkg/packet.MTU). Interface mtu should be consistent with the physical path. Stream underlays still read 64 KiB from the socket so many HDLC frames can arrive in one Read. UDP and DNS rendezvous stay datagram-sized.</p>
+<p>IPv6. prefer_ipv6 affects TCP and Auto binding and discovery.</p>
+<p>Panic on error. panic_on_interface_error = yes can crash the daemon on fatal interface errors. Default is no.</p>
+<h2 id="testing">Testing<a class="headerlink" href="#testing" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Test</th>
+<th>Env / command</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>IFAC live</td>
+<td>RUN_LIVE_INTEROP=1, tests/interop/ifac_live_test.go</td>
+</tr>
+<tr>
+<td>Pipe live</td>
+<td>RUN_LIVE_INTEROP=1, tests/interop/pipe_live_test.go</td>
+</tr>
+<tr>
+<td>Serial live</td>
+<td>RUN_LIVE_INTEROP=1, tests/interop/serial_live_test.go</td>
+</tr>
+<tr>
+<td>DNS rendezvous live</td>
+<td>RUN_LIVE_INTEROP=1, tests/interop/dns_rendezvous_live_test.go</td>
+</tr>
+<tr>
+<td>VSOCK live</td>
+<td>RUN_LIVE_INTEROP=1, tests/interop/vsock_live_test.go (Linux)</td>
+</tr>
+<tr>
+<td>HTTPS live</td>
+<td>RUN_LIVE_INTEROP=1, tests/interop/https_live_test.go</td>
+</tr>
+<tr>
+<td>QUIC / WebTransport live</td>
+<td>RUN_LIVE_INTEROP=1, tests/interop/quic_live_test.go</td>
+</tr>
+<tr>
+<td>Shared RPC live</td>
+<td>RUN_LIVE_INTEROP=1, tests/interop/shared_rpc_live_test.go</td>
+</tr>
+<tr>
+<td>Auto live</td>
+<td>tests/interop/auto_live_test.go</td>
+</tr>
+<tr>
+<td>Backbone live</td>
+<td>tests/interop/backbone_live_test.go</td>
+</tr>
+<tr>
+<td>I2P live</td>
+<td>RUN_LIVE_I2P=1 (directory peers fetched at runtime)</td>
+</tr>
+<tr>
+<td>I2P Go and Python interop</td>
+<td>RUN_LIVE_INTEROP=1 plus reachable SAM, tests/interop/i2p_live_test.go</td>
+</tr>
+<tr>
+<td>Race (Stop vs Send)</td>
+<td>go test -race ./pkg/interfaces/ -run Race plus DNS/VSOCK/HTTPS/I2P unit tests</td>
+</tr>
+<tr>
+<td>Goroutine leak</td>
+<td>go test ./pkg/interfaces/ -run NoGoroutineLeak</td>
+</tr>
+<tr>
+<td>Fuzz (examples)</td>
+<td>go test ./pkg/interfaces/ -run '^$' -fuzz=FuzzParseRNSTXT -fuzztime=20s</td>
+</tr>
+</tbody>
+</table>
+<p>Fuzz targets cover TXT parsing (FuzzParseRNSTXT), HTTPS path/long-poll normalization, WebTransport path/mode, VSOCK CID and HDLC decode, Serial HDLC, peer-key pins, and I2P SAM message or destination resolve (pkg/i2p).</p>
+<h2 id="related-documents">Related documents<a class="headerlink" href="#related-documents" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="../configuration/">Configuration</a> for interface block keys</li>
+<li><a href="../transport/">Transport</a> for registration and forwarding</li>
+<li><a href="../compatibility/">Compatibility</a> for Python interface matrix</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-circle-arrow-up" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m16 12-4-4-4 4M12 16V8"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../transport/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Transport">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Transport
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../identity-and-destinations/" class="md-footer__link md-footer__link--next" aria-label="Next: Identity and destinations">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Identity and destinations
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-right" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      
+      
+        
+        
+      <script id="__config" type="application/json">{"annotate":null,"base":"..","features":["navigation.sections","navigation.footer","navigation.top","toc.integrate","content.action.edit","search.highlight"],"redirect":null,"search":"../assets/javascripts/workers/search.7d14d953.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":{"alias":true,"provider":"mike"}}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.8dcc8e9c.min.js"></script>
+      
+    
+  </body>
+</html>

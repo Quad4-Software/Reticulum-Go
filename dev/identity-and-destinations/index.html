@@ -1,0 +1,1992 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Reticulum network stack in Go">
+      
+      
+      
+        <link rel="canonical" href="https://reticulum-go.quad4.io/dev/identity-and-destinations/">
+      
+      
+        <link rel="prev" href="../interfaces/">
+      
+      
+        <link rel="next" href="../links-channels-and-resources/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/favicon.svg">
+      <meta name="generator" content="zensical-0.0.63">
+    
+    
+  
+    <title>Identity and destinations - Reticulum-Go</title>
+  
+
+    
+      
+        
+      
+      <link rel="stylesheet" href="../assets/stylesheets/modern/main.10763589.min.css">
+      
+        
+          
+        
+        <link rel="stylesheet" href="../assets/stylesheets/modern/palette.812a03bb.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Space+Grotesk:300,300i,400,400i,500,500i,700,700i%7CSpace+Mono:400,400i,700,700i&amp;display=fallback">
+        <style>:root{--md-text-font:"Space Grotesk";--md-code-font:"Space Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../stylesheets/void.css">
+    
+    <script>__md_scope=new URL("..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
+    
+      
+
+    
+    
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Reticulum-Go">
+  <meta property="og:title" content="Identity and destinations - Reticulum-Go">
+  
+    <meta property="og:description" content="Reticulum network stack in Go">
+  
+  
+    <meta property="og:url" content="https://reticulum-go.quad4.io/dev/identity-and-destinations/">
+  
+  <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0a0a0b">
+  <meta name="theme-color" media="(prefers-color-scheme: light)" content="#fafafa">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "WebSite",
+        "name": "Reticulum-Go",
+        "url": "https://reticulum-go.quad4.io/dev/",
+        "description": "Reticulum network stack in Go",
+        "inLanguage": "en"
+      },
+      {
+        "@type": "SoftwareSourceCode",
+        "name": "Reticulum-Go",
+        "url": "https://reticulum-go.quad4.io/dev/",
+        "codeRepository": "https://github.com/Quad4-Software/Reticulum-Go",
+        "programmingLanguage": "Go"
+      }
+    ]
+  }
+  </script>
+
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="void" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer" aria-label="Navigation"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#identity-and-destinations" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="./.." title="Reticulum-Go" class="md-header__button md-logo" aria-label="Reticulum-Go" data-md-component="logo">
+      
+  <img src="../assets/logo.svg" alt="Reticulum-Go">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer" aria-label="Navigation">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-menu" viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h16"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Reticulum-Go
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Identity and destinations
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="void" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-moon" viewBox="0 0 24 24"><path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="paper" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search" aria-label="Search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-search" viewBox="0 0 24 24"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog" aria-label="Search">
+  <button type="button" class="md-search__button">
+    Search
+  </button>
+</div>
+      
+    
+    <div class="md-header__source">
+      
+        <a href="https://github.com/Quad4-Software/Reticulum-Go" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      
+    </div>
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="./.." title="Reticulum-Go" class="md-nav__button md-logo" aria-label="Reticulum-Go" data-md-component="logo">
+      
+  <img src="../assets/logo.svg" alt="Reticulum-Go">
+
+    </a>
+    Reticulum-Go
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/Quad4-Software/Reticulum-Go" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="./.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Home
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../downloads/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Downloads
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Start
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_3">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Start
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Overview
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Architecture
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Getting started
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Configuration
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Develop
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_4">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Develop
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../package-map/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Package map
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  API reference
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Internals
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
+            <label class="md-nav__title" for="__nav_5">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Internals
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../transport/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Transport
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../interfaces/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Interfaces
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Identity and destinations
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="././" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Identity and destinations
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#identity" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Identity
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Identity">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#key-material" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Key material
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#public-form-64-bytes-on-wire" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Public form (64 bytes on wire)
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#identity-hash" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Identity hash
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#software-identity-file-64-bytes-on-disk" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Software identity file (64 bytes on disk)
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#identity-backend-file-secret-service-or-kernel-keyring" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Identity backend (file, Secret Service, or kernel keyring)
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#passphrase-encrypted-identity-file-rne1-optional" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Passphrase-encrypted identity file (RNE1, optional)
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#in-memory-key-handling" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        In-memory key handling
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-this-protects-against" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        What this protects against
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#hardware-bound-descriptor-rhb1-optional" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Hardware-bound descriptor (RHB1, optional)
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#identity-encryption" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Identity encryption
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ratchets" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Ratchets
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#destinations" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Destinations
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Destinations">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#destination-types" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Destination types
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#destination-hash" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Destination hash
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#creating-a-destination" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Creating a destination
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#announces" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Announces
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#request-handlers" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Request handlers
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#incoming-links" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Incoming links
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#resolver" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Resolver
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#storage-layout" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Storage layout
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#signing-without-holding-the-seed" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Signing without holding the seed
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#security-practices" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Security practices
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#related-documents" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Related documents
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../links-channels-and-resources/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Links, channels, and resources
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cryptography/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Cryptography
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Reference
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_6">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Reference
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../security/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Security
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../compatibility/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Compatibility
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../control-api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Control API
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../librns/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  librns
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../utilities/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  CLI utilities
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../embedding-and-wasm/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Embedding and WebAssembly
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../microvm/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Firecracker microvm
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../development-and-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Development and testing
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Examples
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Appendix
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_7">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Appendix
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../deviations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Deviations from Python RNS
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../packet-debug/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Packet debugging
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../interop-timeline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Interop timeline
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+  
+    <a href="https://github.com/Quad4-Software/Reticulum-Go/edit/master/docs/en/identity-and-destinations.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-file-pen" viewBox="0 0 24 24"><path d="M12.659 22H18a2 2 0 0 0 2-2V8a2.4 2.4 0 0 0-.706-1.706l-3.588-3.588A2.4 2.4 0 0 0 14 2H6a2 2 0 0 0-2 2v9.34"/><path d="M14 2v5a1 1 0 0 0 1 1h5M10.378 12.622a1 1 0 0 1 3 3.003L8.36 20.637a2 2 0 0 1-.854.506l-2.867.837a.5.5 0 0 1-.62-.62l.836-2.869a2 2 0 0 1 .506-.853z"/></svg>
+    </a>
+  
+  
+
+
+<h1 id="identity-and-destinations">Identity and destinations<a class="headerlink" href="#identity-and-destinations" title="Permanent link">&para;</a></h1>
+<h2 id="identity">Identity<a class="headerlink" href="#identity" title="Permanent link">&para;</a></h2>
+<p>A Reticulum identity is the root cryptographic principal for signing announces, establishing links, and encrypting identity-layer messages.</p>
+<p>Implementation: pkg/identity with primitives from pkg/cryptography.</p>
+<h3 id="key-material">Key material<a class="headerlink" href="#key-material" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Size</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>X25519 private scalar</td>
+<td>32 bytes</td>
+<td>ECDH, identity encrypt</td>
+</tr>
+<tr>
+<td>Ed25519 seed</td>
+<td>32 bytes</td>
+<td>Signing</td>
+</tr>
+</tbody>
+</table>
+<p>Together these form the 512-bit keyset described in Reticulum documentation.</p>
+<h3 id="public-form-64-bytes-on-wire">Public form (64 bytes on wire)<a class="headerlink" href="#public-form-64-bytes-on-wire" title="Permanent link">&para;</a></h3>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>X25519 public key (32 bytes) || Ed25519 public key (32 bytes)
+</span></code></pre></div>
+<p>Peers learn this blob from announces and proofs.</p>
+<h3 id="identity-hash">Identity hash<a class="headerlink" href="#identity-hash" title="Permanent link">&para;</a></h3>
+<p>SHA-256 over the 64-byte public key, truncated to 128 bits (16 bytes). Used for addressing, HKDF salt context, and storage paths.</p>
+<h3 id="software-identity-file-64-bytes-on-disk">Software identity file (64 bytes on disk)<a class="headerlink" href="#software-identity-file-64-bytes-on-disk" title="Permanent link">&para;</a></h3>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>X25519 private (32) || Ed25519 seed (32)
+</span></code></pre></div>
+<p>Equivalent to Python RNS.Identity software persistence. Anyone with this file can impersonate the identity on the network. Store with restrictive permissions on encrypted media.</p>
+<p>Load helpers:</p>
+<div class="language-go highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nx">id</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">identity</span><span class="p">.</span><span class="nx">LoadIdentityFile</span><span class="p">(</span><span class="nx">path</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span><span class="p">)</span>
+</span></code></pre></div>
+<h3 id="identity-backend-file-secret-service-or-kernel-keyring">Identity backend (file, Secret Service, or kernel keyring)<a class="headerlink" href="#identity-backend-file-secret-service-or-kernel-keyring" title="Permanent link">&para;</a></h3>
+<p>Config key identity_backend in [reticulum]:</p>
+<table>
+<thead>
+<tr>
+<th>Value</th>
+<th>Behavior</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>file (default)</td>
+<td>64-byte plaintext identity files</td>
+</tr>
+<tr>
+<td>secretservice</td>
+<td>Freedesktop Secret Service over D-Bus (GNOME Keyring, KDE Wallet Secret Service bridge, KeePassXC with Secret Service enabled)</td>
+</tr>
+<tr>
+<td>keyring</td>
+<td>Linux kernel keyring (user keyring, no D-Bus). Suitable for headless systemd user or system units</td>
+</tr>
+</tbody>
+</table>
+<p>With secretservice or keyring, ToFile stores the private blob in the backend and writes an 8-byte RSSI marker at the usual path. FromFile and LoadIdentityFile detect the marker and fetch the secret. If the backend is unavailable, persistence fails with a clear error (no silent plaintext fallback).</p>
+<p>keyring is Linux-only. When a persistent user keyring is available, material can survive reboot for the same UID. Otherwise keys are cleared on reboot. Desktop sessions without D-Bus can use keyring instead of secretservice.</p>
+<p>Headless units that cannot use the kernel keyring should keep identity_backend = file, or unlock a Secret Service collection / KeePassXC before start when using secretservice.</p>
+<p>CLI migrate (path via -i):</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>rgoid -i ~/.reticulum-go/storage/transport_identity -to-secretservice
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>rgoid -i ~/.reticulum-go/storage/transport_identity -to-keyring
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>rgoid -i ~/.reticulum-go/storage/transport_identity -to-file
+</span></code></pre></div>
+<h3 id="passphrase-encrypted-identity-file-rne1-optional">Passphrase-encrypted identity file (RNE1, optional)<a class="headerlink" href="#passphrase-encrypted-identity-file-rne1-optional" title="Permanent link">&para;</a></h3>
+<p>RNE1 wraps the standard 64-byte identity blob in an authenticated envelope: Argon2id derives a key from a passphrase, XChaCha20-Poly1305 seals the payload. It is a local storage format only. An identity loaded from RNE1 is byte-identical on the wire to one loaded from plaintext, and -to-file always restores the standard file, so there is no lock-in.</p>
+<p>Two unlock modes exist:</p>
+<ul>
+<li>Passphrase: you supply the passphrase at unlock. Resolved in order: RETICULUM_IDENTITY_PASSPHRASE, the fd named by RETICULUM_IDENTITY_PASSPHRASE_FD (for systemd LoadCredential and similar), a stored wrap secret, then an interactive terminal prompt.</li>
+<li>Wrapped: a random passphrase is generated and stored in the OS credential store, giving encrypted at rest with unattended unlock. Linux uses the kernel keyring then Secret Service, macOS uses Keychain via /usr/bin/security, Windows uses a DPAPI-protected sidecar file. Platforms without a credential store (the BSDs) support passphrase mode only.</li>
+</ul>
+<p>CLI (path via -i):</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>rgoid -i &lt;path&gt; -to-passphrase     # prompt for a new passphrase
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>rgoid -i &lt;path&gt; -to-wrapped        # random passphrase into the OS store
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>rgoid -i &lt;path&gt; -rekey             # change the passphrase
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>rgoid -i &lt;path&gt; -to-file           # decrypt back to the 64-byte format
+</span></code></pre></div>
+<p>Headless rekey uses RETICULUM_IDENTITY_PASSPHRASE for the current passphrase and RETICULUM_IDENTITY_NEW_PASSPHRASE for the new one. Embedders can install identity.SetPassphraseResolver to supply their own unlock UI.</p>
+<p>An RNE1 file that cannot be unlocked is never silently replaced: daemon startup fails with a clear error and the file is left untouched. Rekey drops any stored wrap secret. Run -to-wrapped again to restore unattended unlock.</p>
+<h3 id="in-memory-key-handling">In-memory key handling<a class="headerlink" href="#in-memory-key-handling" title="Permanent link">&para;</a></h3>
+<p>Long-term X25519 and Ed25519 material lives in pkg/securemem buffers with best-effort mlock and wipe on Identity.Close. Callers of GetPrivateKey should wipe the returned slice when finished.</p>
+<h3 id="what-this-protects-against">What this protects against<a class="headerlink" href="#what-this-protects-against" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Control</th>
+<th>Helps against</th>
+<th>Does not stop</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>identity_backend = secretservice</td>
+<td>Casual theft of the identity file path (backup copies, world-readable home dirs, malware that only reads ~/.reticulum-go/storage). Keyring unlock policies and KeePassXC master password raise the bar for offline disk images when the collection is locked.</td>
+<td>Root or same-user malware that can talk to an unlocked Secret Service session. Compelled unlock. Physical access while the keyring is unlocked.</td>
+</tr>
+<tr>
+<td>identity_backend = keyring</td>
+<td>Same file-path theft cases without requiring D-Bus. Fits systemd units that have a user keyring.</td>
+<td>Root or same-UID processes that can call keyctl. Keys may not survive reboot if persistent keyring is unavailable.</td>
+</tr>
+<tr>
+<td>pkg/securemem mlock + wipe</td>
+<td>Keys lingering in swap after process exit, casual core dumps of freed heap (with RLIMIT_CORE=0 in the sandbox), accidental retention after Close.</td>
+<td>Live process memory inspection by root or a debugger attached to the running daemon. Full cold-boot attacks on RAM.</td>
+</tr>
+<tr>
+<td>File permissions 0600 + encrypted disk (operator practice)</td>
+<td>Other local users reading plaintext identity files. Disk theft when FDE is used and the volume is locked.</td>
+<td>Attacks after the volume is unlocked and mounted.</td>
+</tr>
+<tr>
+<td>RNE1 passphrase mode</td>
+<td>File theft at rest in all forms (backups, disk images, other local users), independent of any OS credential store. Argon2id raises offline cracking cost</td>
+<td>A weak passphrase. Keyloggers or memory inspection while unlocked.</td>
+</tr>
+<tr>
+<td>RNE1 wrapped mode</td>
+<td>File theft where the attacker lacks the OS credential store entry (stolen disk, copied home dir). No operator prompt needed</td>
+<td>Same-user malware: the OS store decrypts for the owning user, so wrapped mode protects the file at rest, not a compromised account. Loss of the stored wrap secret (keyring cleared, reinstall) orphans the file permanently unless a passphrase-encrypted copy was also kept.</td>
+</tr>
+</tbody>
+</table>
+<p>None of these replace HSM-backed signing (RHB1 / NewIdentityWithSigner) for high-assurance signing material, or host firewall and sandbox policy for network exposure.</p>
+<h3 id="hardware-bound-descriptor-rhb1-optional">Hardware-bound descriptor (RHB1, optional)<a class="headerlink" href="#hardware-bound-descriptor-rhb1-optional" title="Permanent link">&para;</a></h3>
+<p>Reticulum-Go supports a 72-byte hardware-bound layout:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Size</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Magic RHB1</td>
+<td>4 bytes</td>
+</tr>
+<tr>
+<td>Version</td>
+<td>1 byte</td>
+</tr>
+<tr>
+<td>Reserved</td>
+<td>3 bytes</td>
+</tr>
+<tr>
+<td>X25519 private</td>
+<td>32 bytes</td>
+</tr>
+<tr>
+<td>Ed25519 public</td>
+<td>32 bytes</td>
+</tr>
+</tbody>
+</table>
+<p>Signing uses an external cryptography.Ed25519Signer (for example PKCS#11 or cloud HSM). The on-wire Ed25519 public key matches a software identity so Python peers require no changes.</p>
+<p>Python Identity.from_file does not read RHB1 today. See <a href="../compatibility/">Compatibility</a>.</p>
+<div class="language-go highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nx">id</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">identity</span><span class="p">.</span><span class="nx">NewIdentityWithSigner</span><span class="p">(</span><span class="nx">descriptor</span><span class="p">,</span><span class="w"> </span><span class="nx">signer</span><span class="p">)</span>
+</span></code></pre></div>
+<h3 id="identity-encryption">Identity encryption<a class="headerlink" href="#identity-encryption" title="Permanent link">&para;</a></h3>
+<p>Outbound encrypted tokens use ephemeral X25519, HKDF-SHA256, AES-256-CBC, and HMAC-SHA256. See <a href="../cryptography/#identity-encryption">Cryptography</a>.</p>
+<h3 id="ratchets">Ratchets<a class="headerlink" href="#ratchets" title="Permanent link">&para;</a></h3>
+<p>Identity ratchets are optional, same as Python Destination.enable_ratchets. They are off until the destination calls EnableRatchets or EnableRatchetsInMemory. EnforceRatchets is a separate opt-in, same as Python enforce_ratchets. Python RNS does not enable or enforce ratchets by default.</p>
+<p>When enabled, the destination rotates X25519 ratchet keys and puts the current 32-byte public key in announces (header context flag set). Peers call Identity.RememberRatchet keyed by destination hash. Destination.Encrypt for SINGLE destinations uses Identity.GetRatchet(destHash) when a non-expired key is known, otherwise the static identity encryption key.</p>
+<p>Two kinds of material share the ratchet directory:</p>
+<table>
+<thead>
+<tr>
+<th>Kind</th>
+<th>Path</th>
+<th>Contents</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Local destination private keys</td>
+<td>Path passed to EnableRatchets (pageserver uses storage/ratchets/{destination_hash})</td>
+<td>Signed msgpack list (signature + packed private keys)</td>
+</tr>
+<tr>
+<td>Known-peer public keys</td>
+<td>storage/ratchets/{destination_hash}</td>
+<td ratchet_ received>Python-compatible msgpack</td>
+</tr>
+</tbody>
+</table>
+<p>EnableRatchetsInMemory keeps local private keys in RAM only. Known-peer public keys also stay in RAM when in_memory_storage or shared-instance client mode is on (Identity.RememberRatchet skips disk). Expired known-peer files are dropped after 30 days (RATCHET_EXPIRY). Clean skips destination-private signed files so they are not treated as peer records.</p>
+<p>EnforceRatchets refuses ciphertext that still uses the static identity key. Links do not use identity ratchets. They already exchange ephemeral keys at establishment.</p>
+<p>GROUP destinations use a pre-shared Token key, not identity ratchets. Call CreateKeys or LoadPrivateKey with the 64-byte AES-256 Token key (or a 32-byte AES-128 key). Encrypt / Decrypt match Python Token.encrypt / Token.decrypt (IV || ciphertext || HMAC-SHA256). GROUP dests cannot announce. Outbound GROUP packets are broadcast on local interfaces and are dropped after one hop, same as Python.</p>
+<h2 id="destinations">Destinations<a class="headerlink" href="#destinations" title="Permanent link">&para;</a></h2>
+<p>A destination is an application endpoint on the network. Implementation: pkg/destination.</p>
+<h3 id="destination-types">Destination types<a class="headerlink" href="#destination-types" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Constant</th>
+<th>Use</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Single</td>
+<td>SINGLE</td>
+<td>One-to-one application endpoint</td>
+</tr>
+<tr>
+<td>Group</td>
+<td>GROUP</td>
+<td>Shared-key messaging (Token PSK, not identity ratchets)</td>
+</tr>
+<tr>
+<td>Plain</td>
+<td>PLAIN</td>
+<td>Unencrypted endpoint (rare)</td>
+</tr>
+<tr>
+<td>Link</td>
+<td>LINK</td>
+<td>Link-mode endpoint</td>
+</tr>
+</tbody>
+</table>
+<h3 id="destination-hash">Destination hash<a class="headerlink" href="#destination-hash" title="Permanent link">&para;</a></h3>
+<p>The on-wire destination hash is derived from application name, aspects, and identity hash (for non-plain types) using a truncated SHA-256 construction in calculateHash. The exact byte layout matches Python and is verified in tests/crossref.</p>
+<h3 id="creating-a-destination">Creating a destination<a class="headerlink" href="#creating-a-destination" title="Permanent link">&para;</a></h3>
+<div class="language-go highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nx">dest</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">destination</span><span class="p">.</span><span class="nx">New</span><span class="p">(</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">    </span><span class="nx">id</span><span class="p">,</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">    </span><span class="nx">destination</span><span class="p">.</span><span class="nx">In</span><span class="p">,</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">    </span><span class="nx">destination</span><span class="p">.</span><span class="nx">Single</span><span class="p">,</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="w">    </span><span class="s">"myapp"</span><span class="p">,</span>
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="w">    </span><span class="nx">tr</span><span class="p">,</span>
+</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="w">    </span><span class="s">"subsystem"</span><span class="p">,</span>
+</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="p">)</span>
+</span></code></pre></div>
+<p>Register with transport so inbound packets route to Destination.Receive.</p>
+<h3 id="announces">Announces<a class="headerlink" href="#announces" title="Permanent link">&para;</a></h3>
+<p>Destinations publish signed announces so the network learns paths. Handlers register through pkg/announce:</p>
+<div class="language-go highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nx">transport</span><span class="p">.</span><span class="nx">RegisterAnnounceHandler</span><span class="p">(</span><span class="nx">handler</span><span class="p">)</span>
+</span></code></pre></div>
+<p>Announce payloads can carry application-specific app_data visible to peers.</p>
+<h3 id="request-handlers">Request handlers<a class="headerlink" href="#request-handlers" title="Permanent link">&para;</a></h3>
+<p>Destinations can register request paths. Incoming requests block the link goroutine until the handler responds or a timeout elapses. The control API exposes the same pattern over WebSocket events.</p>
+<h3 id="incoming-links">Incoming links<a class="headerlink" href="#incoming-links" title="Permanent link">&para;</a></h3>
+<p>Register with accepts_links semantics. Incoming link requests dispatch to link.HandleIncomingLinkRequest.</p>
+<h2 id="resolver">Resolver<a class="headerlink" href="#resolver" title="Permanent link">&para;</a></h2>
+<p>pkg/resolver resolves a human-readable full name string to a deterministic identity hash via SHA-256. Useful for configuration and display, not a substitute for trust on first use from announces.</p>
+<h2 id="storage-layout">Storage layout<a class="headerlink" href="#storage-layout" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Artifact</th>
+<th>Path</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Identity blobs</td>
+<td>storage/identities/ (per hash in Go)</td>
+</tr>
+<tr>
+<td>Known destinations</td>
+<td>storage/known_destinations/</td>
+</tr>
+<tr>
+<td>Known-peer ratchet public keys</td>
+<td>storage/ratchets/{destination_hash}</td>
+</tr>
+<tr>
+<td>Local destination ratchet private keys</td>
+<td>Path from EnableRatchets (often under storage/ratchets/)</td>
+</tr>
+</tbody>
+</table>
+<p>Go writes identity files keyed by hash. Python may use per-name files. Go writes and loads Python-compatible known destination tables (16-byte keys) and still loads legacy Go hex-keyed files.</p>
+<h2 id="signing-without-holding-the-seed">Signing without holding the seed<a class="headerlink" href="#signing-without-holding-the-seed" title="Permanent link">&para;</a></h2>
+<p>Integrate HSM or cloud KMS via cryptography.NewEd25519SignerFromCryptoSigner. The public Ed25519 key in announces must match the 64-byte public blob.</p>
+<h2 id="security-practices">Security practices<a class="headerlink" href="#security-practices" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Treat the 64-byte software file like a private key backup</li>
+<li>Use RHB1 when the signing key must not live in process memory</li>
+<li>Do not log identity material at high debug levels in production</li>
+<li>Rotate ratchets according to application policy and storage expiry</li>
+</ul>
+<h2 id="related-documents">Related documents<a class="headerlink" href="#related-documents" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="../api-reference/">API reference</a></li>
+<li><a href="../cryptography/">Cryptography</a></li>
+<li><a href="../transport/">Transport</a> for announce routing</li>
+<li><a href="../links-channels-and-resources/">Links, channels, and resources</a> for link-mode destinations</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-circle-arrow-up" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m16 12-4-4-4 4M12 16V8"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../interfaces/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Interfaces">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Interfaces
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../links-channels-and-resources/" class="md-footer__link md-footer__link--next" aria-label="Next: Links, channels, and resources">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Links, channels, and resources
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-right" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      
+      
+        
+        
+      <script id="__config" type="application/json">{"annotate":null,"base":"..","features":["navigation.sections","navigation.footer","navigation.top","toc.integrate","content.action.edit","search.highlight"],"redirect":null,"search":"../assets/javascripts/workers/search.7d14d953.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":{"alias":true,"provider":"mike"}}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.8dcc8e9c.min.js"></script>
+      
+    
+  </body>
+</html>

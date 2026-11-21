@@ -1,0 +1,2168 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Reticulum network stack in Go">
+      
+      
+      
+        <link rel="canonical" href="https://reticulum-go.quad4.io/dev/examples/">
+      
+      
+        <link rel="prev" href="../development-and-testing/">
+      
+      
+        <link rel="next" href="../deviations/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/favicon.svg">
+      <meta name="generator" content="zensical-0.0.63">
+    
+    
+  
+    <title>Examples - Reticulum-Go</title>
+  
+
+    
+      
+        
+      
+      <link rel="stylesheet" href="../assets/stylesheets/modern/main.10763589.min.css">
+      
+        
+          
+        
+        <link rel="stylesheet" href="../assets/stylesheets/modern/palette.812a03bb.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Space+Grotesk:300,300i,400,400i,500,500i,700,700i%7CSpace+Mono:400,400i,700,700i&amp;display=fallback">
+        <style>:root{--md-text-font:"Space Grotesk";--md-code-font:"Space Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../stylesheets/void.css">
+    
+    <script>__md_scope=new URL("..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
+    
+      
+
+    
+    
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Reticulum-Go">
+  <meta property="og:title" content="Examples - Reticulum-Go">
+  
+    <meta property="og:description" content="Reticulum network stack in Go">
+  
+  
+    <meta property="og:url" content="https://reticulum-go.quad4.io/dev/examples/">
+  
+  <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0a0a0b">
+  <meta name="theme-color" media="(prefers-color-scheme: light)" content="#fafafa">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "WebSite",
+        "name": "Reticulum-Go",
+        "url": "https://reticulum-go.quad4.io/dev/",
+        "description": "Reticulum network stack in Go",
+        "inLanguage": "en"
+      },
+      {
+        "@type": "SoftwareSourceCode",
+        "name": "Reticulum-Go",
+        "url": "https://reticulum-go.quad4.io/dev/",
+        "codeRepository": "https://github.com/Quad4-Software/Reticulum-Go",
+        "programmingLanguage": "Go"
+      }
+    ]
+  }
+  </script>
+
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="void" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer" aria-label="Navigation"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#examples" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="./.." title="Reticulum-Go" class="md-header__button md-logo" aria-label="Reticulum-Go" data-md-component="logo">
+      
+  <img src="../assets/logo.svg" alt="Reticulum-Go">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer" aria-label="Navigation">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-menu" viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h16"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Reticulum-Go
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Examples
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="void" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-moon" viewBox="0 0 24 24"><path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="paper" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search" aria-label="Search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-search" viewBox="0 0 24 24"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog" aria-label="Search">
+  <button type="button" class="md-search__button">
+    Search
+  </button>
+</div>
+      
+    
+    <div class="md-header__source">
+      
+        <a href="https://github.com/Quad4-Software/Reticulum-Go" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      
+    </div>
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="./.." title="Reticulum-Go" class="md-nav__button md-logo" aria-label="Reticulum-Go" data-md-component="logo">
+      
+  <img src="../assets/logo.svg" alt="Reticulum-Go">
+
+    </a>
+    Reticulum-Go
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/Quad4-Software/Reticulum-Go" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="./.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Home
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../downloads/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Downloads
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Start
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_3">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Start
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Overview
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Architecture
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Getting started
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Configuration
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Develop
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_4">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Develop
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../package-map/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Package map
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  API reference
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Internals
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_5">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Internals
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../transport/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Transport
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../interfaces/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Interfaces
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../identity-and-destinations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Identity and destinations
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../links-channels-and-resources/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Links, channels, and resources
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cryptography/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Cryptography
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Reference
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
+            <label class="md-nav__title" for="__nav_6">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Reference
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../security/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Security
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../compatibility/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Compatibility
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../control-api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Control API
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../librns/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  librns
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../utilities/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  CLI utilities
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../embedding-and-wasm/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Embedding and WebAssembly
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../microvm/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Firecracker microvm
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../development-and-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Development and testing
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Examples
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="././" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Examples
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#which-example-to-open" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Which Example to Open
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#minimal" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        minimal
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#announce" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        announce
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#link" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        link
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#resources" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        resources
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#filetransfer" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        filetransfer
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#echo" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        echo
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#page-downloader" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        page-downloader
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pageserver" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        pageserver
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#wasm" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        wasm
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#control-api-client" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Control API Client
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#librns-smoke" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        librns smoke
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#librns-page-fetch-c" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        librns page fetch (C)
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#odin-page-fetch" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Odin page fetch
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#librns-pageserver-c" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        librns pageserver (C)
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#odin-pageserver" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Odin pageserver
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#zig-page-fetch" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Zig page fetch
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#zig-pageserver" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Zig pageserver
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#c-smoke" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        C++ smoke
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#c-page-fetch" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        C++ page fetch
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#c-pageserver" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        C++ pageserver
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#rust-python-lua-swift-java-kotlin-dart-examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Rust / Python / Lua / Swift / Java / Kotlin / Dart examples
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#odin-librns-bindings" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Odin librns bindings
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#zig-librns-bindings" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Zig librns bindings
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#c-librns-bindings" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        C++ librns bindings
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dart-bindings" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Dart bindings
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#module-layout" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Module Layout
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#related-documents" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Related Documents
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Appendix
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_7">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Appendix
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../deviations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Deviations from Python RNS
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../packet-debug/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Packet debugging
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../interop-timeline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Interop timeline
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+  
+    <a href="https://github.com/Quad4-Software/Reticulum-Go/edit/master/docs/en/examples.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-file-pen" viewBox="0 0 24 24"><path d="M12.659 22H18a2 2 0 0 0 2-2V8a2.4 2.4 0 0 0-.706-1.706l-3.588-3.588A2.4 2.4 0 0 0 14 2H6a2 2 0 0 0-2 2v9.34"/><path d="M14 2v5a1 1 0 0 0 1 1h5M10.378 12.622a1 1 0 0 1 3 3.003L8.36 20.637a2 2 0 0 1-.854.506l-2.867.837a.5.5 0 0 1-.62-.62l.836-2.869a2 2 0 0 1 .506-.853z"/></svg>
+    </a>
+  
+  
+
+
+<h1 id="examples">Examples<a class="headerlink" href="#examples" title="Permanent link">&para;</a></h1>
+<p>Sample programs under examples/ show how to use Reticulum-Go as a library.
+They are starting points rather than production services.</p>
+<p>Pair this page with the <a href="../api-reference/">API reference</a>.</p>
+<h2 id="which-example-to-open">Which Example to Open<a class="headerlink" href="#which-example-to-open" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Goal</th>
+<th style="text-align: left;">Start Here</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">Smallest stack bring-up</td>
+<td style="text-align: left;">examples/minimal</td>
+</tr>
+<tr>
+<td style="text-align: left;">Announce callbacks</td>
+<td style="text-align: left;">examples/announce</td>
+</tr>
+<tr>
+<td style="text-align: left;">Encrypted link packets</td>
+<td style="text-align: left;">examples/link</td>
+</tr>
+<tr>
+<td style="text-align: left;">Minimal resource send</td>
+<td style="text-align: left;">examples/resources</td>
+</tr>
+<tr>
+<td style="text-align: left;">File list and download</td>
+<td style="text-align: left;">examples/filetransfer</td>
+</tr>
+<tr>
+<td style="text-align: left;">Prove-all echo</td>
+<td style="text-align: left;">examples/echo</td>
+</tr>
+<tr>
+<td style="text-align: left;">Page request client</td>
+<td style="text-align: left;">examples/page-downloader</td>
+</tr>
+<tr>
+<td style="text-align: left;">Pages and files over Reticulum</td>
+<td style="text-align: left;">reticulum-go pageserver or examples/pageserver</td>
+</tr>
+<tr>
+<td style="text-align: left;">Browser WebSocket client</td>
+<td style="text-align: left;">examples/wasm</td>
+</tr>
+<tr>
+<td style="text-align: left;">Python talking to the daemon</td>
+<td style="text-align: left;">examples/control-client</td>
+</tr>
+<tr>
+<td style="text-align: left;">C / FFI smoke test</td>
+<td style="text-align: left;">bindings/c/examples/smoke</td>
+</tr>
+<tr>
+<td style="text-align: left;">C librns page fetch</td>
+<td style="text-align: left;">bindings/c/examples/page-fetch</td>
+</tr>
+<tr>
+<td style="text-align: left;">C librns pageserver</td>
+<td style="text-align: left;">bindings/c/examples/pageserver</td>
+</tr>
+<tr>
+<td style="text-align: left;">Odin librns smoke</td>
+<td style="text-align: left;">bindings/odin/examples/smoke</td>
+</tr>
+<tr>
+<td style="text-align: left;">Odin librns page fetch</td>
+<td style="text-align: left;">bindings/odin/examples/page-fetch</td>
+</tr>
+<tr>
+<td style="text-align: left;">Odin librns pageserver</td>
+<td style="text-align: left;">bindings/odin/examples/pageserver</td>
+</tr>
+<tr>
+<td style="text-align: left;">Zig librns smoke</td>
+<td style="text-align: left;">bindings/zig/examples/smoke</td>
+</tr>
+<tr>
+<td style="text-align: left;">Zig librns page fetch</td>
+<td style="text-align: left;">bindings/zig/examples/page-fetch</td>
+</tr>
+<tr>
+<td style="text-align: left;">Zig librns pageserver</td>
+<td style="text-align: left;">bindings/zig/examples/pageserver</td>
+</tr>
+<tr>
+<td style="text-align: left;">C++ librns smoke</td>
+<td style="text-align: left;">bindings/cpp/examples/smoke</td>
+</tr>
+<tr>
+<td style="text-align: left;">C++ librns page fetch</td>
+<td style="text-align: left;">bindings/cpp/examples/page-fetch</td>
+</tr>
+<tr>
+<td style="text-align: left;">C++ librns pageserver</td>
+<td style="text-align: left;">bindings/cpp/examples/pageserver</td>
+</tr>
+<tr>
+<td style="text-align: left;">Rust librns smoke</td>
+<td style="text-align: left;">bindings/rust/examples/smoke</td>
+</tr>
+<tr>
+<td style="text-align: left;">Rust librns page fetch</td>
+<td style="text-align: left;">bindings/rust/examples/page-fetch</td>
+</tr>
+<tr>
+<td style="text-align: left;">Rust librns pageserver</td>
+<td style="text-align: left;">bindings/rust/examples/pageserver</td>
+</tr>
+<tr>
+<td style="text-align: left;">Python librns smoke</td>
+<td style="text-align: left;">bindings/python/examples/smoke</td>
+</tr>
+<tr>
+<td style="text-align: left;">Python librns page fetch</td>
+<td style="text-align: left;">bindings/python/examples/page-fetch</td>
+</tr>
+<tr>
+<td style="text-align: left;">Python librns pageserver</td>
+<td style="text-align: left;">bindings/python/examples/pageserver</td>
+</tr>
+<tr>
+<td style="text-align: left;">Lua librns smoke</td>
+<td style="text-align: left;">bindings/lua/examples/smoke</td>
+</tr>
+<tr>
+<td style="text-align: left;">Lua librns page fetch</td>
+<td style="text-align: left;">bindings/lua/examples/page-fetch</td>
+</tr>
+<tr>
+<td style="text-align: left;">Lua librns pageserver</td>
+<td style="text-align: left;">bindings/lua/examples/pageserver</td>
+</tr>
+<tr>
+<td style="text-align: left;">Swift librns smoke</td>
+<td style="text-align: left;">bindings/swift/examples/smoke</td>
+</tr>
+<tr>
+<td style="text-align: left;">Swift librns page fetch</td>
+<td style="text-align: left;">bindings/swift/examples/page-fetch</td>
+</tr>
+<tr>
+<td style="text-align: left;">Swift librns pageserver</td>
+<td style="text-align: left;">bindings/swift/examples/pageserver</td>
+</tr>
+<tr>
+<td style="text-align: left;">Java librns smoke</td>
+<td style="text-align: left;">bindings/java/examples/smoke</td>
+</tr>
+<tr>
+<td style="text-align: left;">Java librns page fetch</td>
+<td style="text-align: left;">bindings/java/examples/page-fetch</td>
+</tr>
+<tr>
+<td style="text-align: left;">Java librns pageserver</td>
+<td style="text-align: left;">bindings/java/examples/pageserver</td>
+</tr>
+<tr>
+<td style="text-align: left;">Kotlin librns smoke</td>
+<td style="text-align: left;">bindings/kotlin/examples/smoke</td>
+</tr>
+<tr>
+<td style="text-align: left;">Kotlin librns page fetch</td>
+<td style="text-align: left;">bindings/kotlin/examples/page-fetch</td>
+</tr>
+<tr>
+<td style="text-align: left;">Kotlin librns pageserver</td>
+<td style="text-align: left;">bindings/kotlin/examples/pageserver</td>
+</tr>
+<tr>
+<td style="text-align: left;">Dart librns FFI smoke</td>
+<td style="text-align: left;">bindings/dart/examples/smoke</td>
+</tr>
+<tr>
+<td style="text-align: left;">Odin librns bindings</td>
+<td style="text-align: left;">bindings/odin</td>
+</tr>
+<tr>
+<td style="text-align: left;">Zig librns bindings</td>
+<td style="text-align: left;">bindings/zig</td>
+</tr>
+<tr>
+<td style="text-align: left;">C++ librns bindings</td>
+<td style="text-align: left;">bindings/cpp</td>
+</tr>
+<tr>
+<td style="text-align: left;">Rust librns bindings</td>
+<td style="text-align: left;">bindings/rust</td>
+</tr>
+<tr>
+<td style="text-align: left;">Python librns bindings</td>
+<td style="text-align: left;">bindings/python</td>
+</tr>
+<tr>
+<td style="text-align: left;">Lua librns bindings</td>
+<td style="text-align: left;">bindings/lua</td>
+</tr>
+<tr>
+<td style="text-align: left;">Swift librns bindings</td>
+<td style="text-align: left;">bindings/swift</td>
+</tr>
+<tr>
+<td style="text-align: left;">Java librns bindings</td>
+<td style="text-align: left;">bindings/java</td>
+</tr>
+<tr>
+<td style="text-align: left;">Kotlin librns bindings</td>
+<td style="text-align: left;">bindings/kotlin</td>
+</tr>
+<tr>
+<td style="text-align: left;">Dart librns FFI and Control API</td>
+<td style="text-align: left;">bindings/dart</td>
+</tr>
+<tr>
+<td style="text-align: left;">Operator CLIs</td>
+<td style="text-align: left;">reticulum-go status | id | probe | path | cp then <a href="../utilities/">CLI Utilities</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="minimal">minimal<a class="headerlink" href="#minimal" title="Permanent link">&para;</a></h2>
+<p>Path: examples/minimal/</p>
+<p>Starts transport, creates an identity and destination, and lets you announce.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nb">cd</span><span class="w"> </span>examples/minimal
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>go<span class="w"> </span>run<span class="w"> </span>.
+</span></code></pre></div>
+<h2 id="announce">announce<a class="headerlink" href="#announce" title="Permanent link">&para;</a></h2>
+<p>Path: examples/announce/</p>
+<p>Registers announce handlers and prints arriving announces with app_data.</p>
+<h2 id="link">link<a class="headerlink" href="#link" title="Permanent link">&para;</a></h2>
+<p>Path: examples/link/</p>
+<p>Client/server encrypted link. Server prints its destination hash. Client connects with -destination and exchanges text packets.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># terminal 1</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>go<span class="w"> </span>run<span class="w"> </span>.<span class="w"> </span>-server<span class="w"> </span>-listen-port<span class="w"> </span><span class="m">4242</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="c1"># terminal 2</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>go<span class="w"> </span>run<span class="w"> </span>.<span class="w"> </span>-destination<span class="w"> </span>&lt;hash&gt;<span class="w"> </span>-listen-port<span class="w"> </span><span class="m">4243</span><span class="w"> </span>-target-port<span class="w"> </span><span class="m">4242</span>
+</span></code></pre></div>
+<h2 id="resources">resources<a class="headerlink" href="#resources" title="Permanent link">&para;</a></h2>
+<p>Path: examples/resources/</p>
+<p>Minimal link resource transfer. Server accepts one resource and prints it. Client sends -payload over SendResource.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># terminal 1</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>go<span class="w"> </span>run<span class="w"> </span>.<span class="w"> </span>-server<span class="w"> </span>-listen-port<span class="w"> </span><span class="m">4242</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="c1"># terminal 2</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>go<span class="w"> </span>run<span class="w"> </span>.<span class="w"> </span>-destination<span class="w"> </span>&lt;hash&gt;<span class="w"> </span>-listen-port<span class="w"> </span><span class="m">4243</span><span class="w"> </span>-target-port<span class="w"> </span><span class="m">4242</span><span class="w"> </span>-payload<span class="w"> </span><span class="s2">"hello"</span>
+</span></code></pre></div>
+<p>Payloads larger than about 1 MiB use split resource advertisements automatically.</p>
+<h2 id="filetransfer">filetransfer<a class="headerlink" href="#filetransfer" title="Permanent link">&para;</a></h2>
+<p>Path: examples/filetransfer/</p>
+<p>Serves a directory over a link and lets a client list and download files as resources.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>go<span class="w"> </span>run<span class="w"> </span>.<span class="w"> </span>-server<span class="w"> </span>-serve<span class="w"> </span>./test_serve<span class="w"> </span>-listen-port<span class="w"> </span><span class="m">4242</span>
+</span></code></pre></div>
+<h2 id="echo">echo<a class="headerlink" href="#echo" title="Permanent link">&para;</a></h2>
+<p>Path: examples/echo/</p>
+<p>Destination with prove-all. Client sends a packet and waits for a proof.</p>
+<h2 id="page-downloader">page-downloader<a class="headerlink" href="#page-downloader" title="Permanent link">&para;</a></h2>
+<p>Path: examples/page-downloader/</p>
+<p>Requests /page/ style content from a pageserver-compatible peer.</p>
+<h2 id="pageserver">pageserver<a class="headerlink" href="#pageserver" title="Permanent link">&para;</a></h2>
+<p>Preferred: reticulum-go pageserver (built into the main binary). Sample pages and files live under examples/pageserver/.</p>
+<p>Serves:</p>
+<ul>
+<li>/page/ for HTML pages</li>
+<li>/file/ for static files</li>
+</ul>
+<p>Live interoperability is tested via tests/interop/pageserver_live_test.go when RUN_LIVE_INTEROP=1 is set.</p>
+<h2 id="wasm">wasm<a class="headerlink" href="#wasm" title="Permanent link">&para;</a></h2>
+<p>Path: examples/wasm/</p>
+<p>Browser chat demo using pkg/wasm.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>make<span class="w"> </span>build-wasm
+</span></code></pre></div>
+<p>See <a href="../embedding-and-wasm/">Embedding and WebAssembly</a>.</p>
+<h2 id="control-api-client">Control API Client<a class="headerlink" href="#control-api-client" title="Permanent link">&para;</a></h2>
+<p>Path: examples/control-client/</p>
+<p>Python client.py for the localhost Control API.</p>
+<div class="language-ini highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="na">enable_control_api</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">yes</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="na">rpc_key</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&lt;64 hex characters&gt;</span>
+</span></code></pre></div>
+<p>See <a href="../control-api/">Control API</a>.</p>
+<h2 id="librns-smoke">librns smoke<a class="headerlink" href="#librns-smoke" title="Permanent link">&para;</a></h2>
+<p>Path: bindings/c/examples/smoke/</p>
+<p>Minimal C program against librns.so and include/rns.h.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>make<span class="w"> </span>build-librns
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>make<span class="w"> </span>-C<span class="w"> </span>bindings/c/examples/smoke
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>./bindings/c/examples/smoke/librns-smoke
+</span></code></pre></div>
+<p>See <a href="../librns/">librns</a>.</p>
+<h2 id="librns-page-fetch-c">librns page fetch (C)<a class="headerlink" href="#librns-page-fetch-c" title="Permanent link">&para;</a></h2>
+<p>Path: bindings/c/examples/page-fetch/</p>
+<p>NomadNet / pageserver style page request over the C ABI. Opens a path, waits for an announce, establishes a link, and prints the /page/... response.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>make<span class="w"> </span>build-librns
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>make<span class="w"> </span>-C<span class="w"> </span>bindings/c/examples/page-fetch
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>./bindings/c/examples/page-fetch/librns-page-fetch<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">  </span>-c<span class="w"> </span>/path/to/config<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="w">  </span>92798ea245a0afcfa559348e42d628c6:/page/index.mu
+</span></code></pre></div>
+<p>Add a TCP or Backbone hub from <a href="https://directory.rns.recipes/">directory.rns.recipes</a> to the config.</p>
+<h2 id="odin-page-fetch">Odin page fetch<a class="headerlink" href="#odin-page-fetch" title="Permanent link">&para;</a></h2>
+<p>Path: bindings/odin/examples/page-fetch/</p>
+<p>Same flow as the C page-fetch example, using the Odin wrappers in bindings/odin.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>make<span class="w"> </span>build-librns
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>make<span class="w"> </span>-C<span class="w"> </span>bindings/odin/examples/page-fetch
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>./bindings/odin/examples/page-fetch/odin-page-fetch<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="w">  </span>-c<span class="w"> </span>/path/to/config<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="w">  </span>92798ea245a0afcfa559348e42d628c6:/page/index.mu
+</span></code></pre></div>
+<h2 id="librns-pageserver-c">librns pageserver (C)<a class="headerlink" href="#librns-pageserver-c" title="Permanent link">&para;</a></h2>
+<p>Path: bindings/c/examples/pageserver/</p>
+<p>NomadNet-compatible nomadnetwork.node destination that serves /page/index.mu over librns request handlers.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>make<span class="w"> </span>build-librns
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>make<span class="w"> </span>-C<span class="w"> </span>bindings/c/examples/pageserver
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>./bindings/c/examples/pageserver/librns-pageserver<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="w">  </span>-c<span class="w"> </span>/path/to/config
+</span></code></pre></div>
+<p>Prints DEST_HASH=... on startup. Fetch with the C, Odin, Zig, or C++ page-fetch example.</p>
+<p>Run helpers (Go is the default demo pageserver):</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>make<span class="w"> </span>build
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>bin/reticulum-go<span class="w"> </span>pageserver
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>make<span class="w"> </span>-C<span class="w"> </span>examples/pageserver<span class="w"> </span>run
+</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>
+</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>make<span class="w"> </span>-C<span class="w"> </span>bindings/c/examples/pageserver<span class="w"> </span>run
+</span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>make<span class="w"> </span>-C<span class="w"> </span>bindings/odin/examples/pageserver<span class="w"> </span>run
+</span><span id="__span-10-7"><a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a>make<span class="w"> </span>-C<span class="w"> </span>bindings/zig/examples/pageserver<span class="w"> </span>run
+</span><span id="__span-10-8"><a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a>make<span class="w"> </span>-C<span class="w"> </span>bindings/cpp/examples/pageserver<span class="w"> </span>run
+</span></code></pre></div>
+<h2 id="odin-pageserver">Odin pageserver<a class="headerlink" href="#odin-pageserver" title="Permanent link">&para;</a></h2>
+<p>Path: bindings/odin/examples/pageserver/</p>
+<p>Same pageserver flow using the Odin bindings.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>make<span class="w"> </span>build-librns
+</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>make<span class="w"> </span>-C<span class="w"> </span>bindings/odin/examples/pageserver
+</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>./bindings/odin/examples/pageserver/odin-pageserver<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="w">  </span>-c<span class="w"> </span>/path/to/config
+</span></code></pre></div>
+<h2 id="zig-page-fetch">Zig page fetch<a class="headerlink" href="#zig-page-fetch" title="Permanent link">&para;</a></h2>
+<p>Path: bindings/zig/examples/page-fetch/</p>
+<p>Same flow as the C page-fetch example, using the Zig wrappers in bindings/zig.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>make<span class="w"> </span>build-librns
+</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>make<span class="w"> </span>-C<span class="w"> </span>bindings/zig/examples/page-fetch
+</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>./bindings/zig/examples/page-fetch/zig-page-fetch<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="w">  </span>-c<span class="w"> </span>/path/to/config<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-12-5"><a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="w">  </span>92798ea245a0afcfa559348e42d628c6:/page/index.mu
+</span></code></pre></div>
+<h2 id="zig-pageserver">Zig pageserver<a class="headerlink" href="#zig-pageserver" title="Permanent link">&para;</a></h2>
+<p>Path: bindings/zig/examples/pageserver/</p>
+<p>Same pageserver flow using the Zig bindings.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>make<span class="w"> </span>build-librns
+</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>make<span class="w"> </span>-C<span class="w"> </span>bindings/zig/examples/pageserver
+</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>./bindings/zig/examples/pageserver/zig-pageserver<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="w">  </span>-c<span class="w"> </span>/path/to/config
+</span></code></pre></div>
+<h2 id="c-smoke">C++ smoke<a class="headerlink" href="#c-smoke" title="Permanent link">&para;</a></h2>
+<p>Path: bindings/cpp/examples/smoke/</p>
+<p>Minimal C++17 lifecycle check against librns.so via bindings/cpp.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>make<span class="w"> </span>build-librns
+</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>make<span class="w"> </span>-C<span class="w"> </span>bindings/cpp/examples/smoke
+</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>./bindings/cpp/examples/smoke/cpp-smoke
+</span></code></pre></div>
+<h2 id="c-page-fetch">C++ page fetch<a class="headerlink" href="#c-page-fetch" title="Permanent link">&para;</a></h2>
+<p>Path: bindings/cpp/examples/page-fetch/</p>
+<p>Same flow as the C page-fetch example, using the C++ wrappers in bindings/cpp.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>make<span class="w"> </span>build-librns
+</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>make<span class="w"> </span>-C<span class="w"> </span>bindings/cpp/examples/page-fetch
+</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>./bindings/cpp/examples/page-fetch/cpp-page-fetch<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="w">  </span>-c<span class="w"> </span>/path/to/config<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-15-5"><a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a><span class="w">  </span>92798ea245a0afcfa559348e42d628c6:/page/index.mu
+</span></code></pre></div>
+<h2 id="c-pageserver">C++ pageserver<a class="headerlink" href="#c-pageserver" title="Permanent link">&para;</a></h2>
+<p>Path: bindings/cpp/examples/pageserver/</p>
+<p>Same pageserver flow using the C++ bindings.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>make<span class="w"> </span>build-librns
+</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>make<span class="w"> </span>-C<span class="w"> </span>bindings/cpp/examples/pageserver
+</span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>./bindings/cpp/examples/pageserver/cpp-pageserver<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-16-4"><a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="w">  </span>-c<span class="w"> </span>/path/to/config
+</span></code></pre></div>
+<h2 id="rust-python-lua-swift-java-kotlin-dart-examples">Rust / Python / Lua / Swift / Java / Kotlin / Dart examples<a class="headerlink" href="#rust-python-lua-swift-java-kotlin-dart-examples" title="Permanent link">&para;</a></h2>
+<p>Each language binding keeps demos under <code>bindings/&lt;lang&gt;/examples/</code>.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>make<span class="w"> </span>build-librns
+</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>make<span class="w"> </span>-C<span class="w"> </span>bindings/rust<span class="w"> </span>examples
+</span><span id="__span-17-3"><a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>make<span class="w"> </span>-C<span class="w"> </span>bindings/python<span class="w"> </span>examples
+</span><span id="__span-17-4"><a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a>make<span class="w"> </span>-C<span class="w"> </span>bindings/lua<span class="w"> </span>examples
+</span><span id="__span-17-5"><a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a>make<span class="w"> </span>-C<span class="w"> </span>bindings/swift<span class="w"> </span>examples
+</span><span id="__span-17-6"><a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a>make<span class="w"> </span>-C<span class="w"> </span>bindings/java<span class="w"> </span>examples
+</span><span id="__span-17-7"><a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a>make<span class="w"> </span>-C<span class="w"> </span>bindings/kotlin<span class="w"> </span>examples
+</span><span id="__span-17-8"><a id="__codelineno-17-8" name="__codelineno-17-8" href="#__codelineno-17-8"></a>make<span class="w"> </span>-C<span class="w"> </span>bindings/dart<span class="w"> </span>examples
+</span></code></pre></div>
+<p>Smoke programs print *-smoke ok. Page-fetch and pageserver match the C demos for Rust, Python, Lua, Swift, Java, and Kotlin. Dart ships FFI smoke under bindings/dart/examples/smoke (Control API sample remains under bindings/dart/example/).</p>
+<h2 id="odin-librns-bindings">Odin librns bindings<a class="headerlink" href="#odin-librns-bindings" title="Permanent link">&para;</a></h2>
+<p>Path: bindings/odin/</p>
+<p>Idiomatic Odin package over librns.so. Requires Odin on PATH and a built shared library.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>make<span class="w"> </span>build-librns
+</span><span id="__span-18-2"><a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>make<span class="w"> </span>test-odin
+</span></code></pre></div>
+<p>Import with a collection rooted at bindings/odin:</p>
+<div class="language-odin highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="nc">import</span><span class="w"> </span><span class="nc">rns</span><span class="w"> </span><span class="s">"rns:rns"</span>
+</span></code></pre></div>
+<p>Wrapped surface includes node lifecycle, identity, destination, path table, link send and request, and event poll. See <a href="../librns/#odin-bindings">librns</a>.</p>
+<h2 id="zig-librns-bindings">Zig librns bindings<a class="headerlink" href="#zig-librns-bindings" title="Permanent link">&para;</a></h2>
+<p>Path: bindings/zig/</p>
+<p>Idiomatic Zig package over librns.so. Requires Zig 0.16.0 or later on PATH and a built shared library.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-20-1"><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>make<span class="w"> </span>build-librns
+</span><span id="__span-20-2"><a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a>make<span class="w"> </span>test-zig
+</span></code></pre></div>
+<p>Import as @import("rns") from a build.zig dependency on bindings/zig. See <a href="../librns/#zig-bindings">librns</a>.</p>
+<h2 id="c-librns-bindings">C++ librns bindings<a class="headerlink" href="#c-librns-bindings" title="Permanent link">&para;</a></h2>
+<p>Path: bindings/cpp/</p>
+<p>Idiomatic C++17 RAII package over librns.so. Requires CMake and a C++17 compiler, plus a built shared library.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-21-1"><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>make<span class="w"> </span>build-librns
+</span><span id="__span-21-2"><a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a>make<span class="w"> </span>test-cpp
+</span></code></pre></div>
+<div class="language-cpp highlight"><pre><span></span><code><span id="__span-22-1"><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;rns/rns.hpp&gt;</span>
+</span><span id="__span-22-2"><a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a>
+</span><span id="__span-22-3"><a id="__codelineno-22-3" name="__codelineno-22-3" href="#__codelineno-22-3"></a><span class="k">auto</span><span class="w"> </span><span class="n">node_r</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">rns</span><span class="o">::</span><span class="n">Node</span><span class="o">::</span><span class="n">create</span><span class="p">(</span><span class="s">""</span><span class="p">);</span>
+</span><span id="__span-22-4"><a id="__codelineno-22-4" name="__codelineno-22-4" href="#__codelineno-22-4"></a><span class="k">auto</span><span class="w"> </span><span class="n">node</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">move</span><span class="p">(</span><span class="n">node_r</span><span class="p">).</span><span class="n">value</span><span class="p">();</span>
+</span><span id="__span-22-5"><a id="__codelineno-22-5" name="__codelineno-22-5" href="#__codelineno-22-5"></a><span class="n">node</span><span class="p">.</span><span class="n">start</span><span class="p">();</span>
+</span></code></pre></div>
+<p>Wrapped surface matches the Odin and Zig bindings. See <a href="../librns/#c-bindings">librns</a>.</p>
+<h2 id="dart-bindings">Dart bindings<a class="headerlink" href="#dart-bindings" title="Permanent link">&para;</a></h2>
+<p>Path: bindings/dart/</p>
+<p>Package rns_control includes librns FFI (ffi.dart) and a Control API client.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-23-1"><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a>make<span class="w"> </span>build-librns
+</span><span id="__span-23-2"><a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a>make<span class="w"> </span>test-dart
+</span><span id="__span-23-3"><a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a>sh<span class="w"> </span>scripts/build-librns-targets.sh<span class="w"> </span>linux<span class="w"> </span>android<span class="w"> </span>windows
+</span></code></pre></div>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-24-1"><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a><span class="nt">dependencies</span><span class="p">:</span>
+</span><span id="__span-24-2"><a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a><span class="w">  </span><span class="nt">rns_control</span><span class="p">:</span>
+</span><span id="__span-24-3"><a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a><span class="w">    </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/path/to/Reticulum-Go/bindings/dart</span>
+</span></code></pre></div>
+<p>See <a href="../librns/#dart-ffi-bindings">librns Dart FFI</a> and <a href="../control-api/#dart-and-flutter">Control API</a>.</p>
+<h2 id="module-layout">Module Layout<a class="headerlink" href="#module-layout" title="Permanent link">&para;</a></h2>
+<p>Most examples keep their own go.mod with a replace pointing at the repository root. examples/wasm and examples/pageserver also vendor dependencies.</p>
+<h2 id="related-documents">Related Documents<a class="headerlink" href="#related-documents" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="../api-reference/">API Reference</a></li>
+<li><a href="../getting-started/">Getting Started</a></li>
+<li><a href="../links-channels-and-resources/">Links, channels, and resources</a></li>
+<li><a href="../embedding-and-wasm/">Embedding and WebAssembly</a></li>
+<li><a href="../control-api/">Control API</a></li>
+<li><a href="../librns/">librns</a></li>
+<li><a href="../utilities/">CLI Utilities</a></li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-circle-arrow-up" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m16 12-4-4-4 4M12 16V8"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../development-and-testing/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Development and testing">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Development and testing
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../deviations/" class="md-footer__link md-footer__link--next" aria-label="Next: Deviations from Python RNS">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Deviations from Python RNS
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-right" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      
+      
+        
+        
+      <script id="__config" type="application/json">{"annotate":null,"base":"..","features":["navigation.sections","navigation.footer","navigation.top","toc.integrate","content.action.edit","search.highlight"],"redirect":null,"search":"../assets/javascripts/workers/search.7d14d953.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":{"alias":true,"provider":"mike"}}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.8dcc8e9c.min.js"></script>
+      
+    
+  </body>
+</html>

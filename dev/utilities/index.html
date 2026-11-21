@@ -1,0 +1,2902 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Reticulum network stack in Go">
+      
+      
+      
+        <link rel="canonical" href="https://reticulum-go.quad4.io/dev/utilities/">
+      
+      
+        <link rel="prev" href="../librns/">
+      
+      
+        <link rel="next" href="../embedding-and-wasm/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/favicon.svg">
+      <meta name="generator" content="zensical-0.0.63">
+    
+    
+  
+    <title>CLI utilities - Reticulum-Go</title>
+  
+
+    
+      
+        
+      
+      <link rel="stylesheet" href="../assets/stylesheets/modern/main.10763589.min.css">
+      
+        
+          
+        
+        <link rel="stylesheet" href="../assets/stylesheets/modern/palette.812a03bb.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Space+Grotesk:300,300i,400,400i,500,500i,700,700i%7CSpace+Mono:400,400i,700,700i&amp;display=fallback">
+        <style>:root{--md-text-font:"Space Grotesk";--md-code-font:"Space Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../stylesheets/void.css">
+    
+    <script>__md_scope=new URL("..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
+    
+      
+
+    
+    
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Reticulum-Go">
+  <meta property="og:title" content="CLI utilities - Reticulum-Go">
+  
+    <meta property="og:description" content="Reticulum network stack in Go">
+  
+  
+    <meta property="og:url" content="https://reticulum-go.quad4.io/dev/utilities/">
+  
+  <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0a0a0b">
+  <meta name="theme-color" media="(prefers-color-scheme: light)" content="#fafafa">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "WebSite",
+        "name": "Reticulum-Go",
+        "url": "https://reticulum-go.quad4.io/dev/",
+        "description": "Reticulum network stack in Go",
+        "inLanguage": "en"
+      },
+      {
+        "@type": "SoftwareSourceCode",
+        "name": "Reticulum-Go",
+        "url": "https://reticulum-go.quad4.io/dev/",
+        "codeRepository": "https://github.com/Quad4-Software/Reticulum-Go",
+        "programmingLanguage": "Go"
+      }
+    ]
+  }
+  </script>
+
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="void" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer" aria-label="Navigation"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#cli-utilities" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="./.." title="Reticulum-Go" class="md-header__button md-logo" aria-label="Reticulum-Go" data-md-component="logo">
+      
+  <img src="../assets/logo.svg" alt="Reticulum-Go">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer" aria-label="Navigation">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-menu" viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h16"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Reticulum-Go
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              CLI utilities
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="void" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-moon" viewBox="0 0 24 24"><path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="paper" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search" aria-label="Search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-search" viewBox="0 0 24 24"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog" aria-label="Search">
+  <button type="button" class="md-search__button">
+    Search
+  </button>
+</div>
+      
+    
+    <div class="md-header__source">
+      
+        <a href="https://github.com/Quad4-Software/Reticulum-Go" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      
+    </div>
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="./.." title="Reticulum-Go" class="md-nav__button md-logo" aria-label="Reticulum-Go" data-md-component="logo">
+      
+  <img src="../assets/logo.svg" alt="Reticulum-Go">
+
+    </a>
+    Reticulum-Go
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/Quad4-Software/Reticulum-Go" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="./.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Home
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../downloads/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Downloads
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Start
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_3">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Start
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Overview
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Architecture
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Getting started
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Configuration
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Develop
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_4">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Develop
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../package-map/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Package map
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  API reference
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Internals
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_5">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Internals
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../transport/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Transport
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../interfaces/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Interfaces
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../identity-and-destinations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Identity and destinations
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../links-channels-and-resources/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Links, channels, and resources
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cryptography/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Cryptography
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Reference
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
+            <label class="md-nav__title" for="__nav_6">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Reference
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../security/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Security
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../compatibility/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Compatibility
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../control-api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Control API
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../librns/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  librns
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  CLI utilities
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="././" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  CLI utilities
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#mixed-python-and-go-tools" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Mixed Python and Go tools
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#shared-instance-rpc-required-for-rgostatus-and-rgopath-table-modes" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Shared-instance RPC (required for rgostatus and rgopath table modes)
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Shared-instance RPC (required for rgostatus and rgopath table modes)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#why-connection-refused-is-common" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Why connection refused is common
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#working-config-for-python-rnsd-go-tools-unix-on-linux" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Working config for Python rnsd + Go tools (Unix on Linux)
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tcp-rpc-all-platforms" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        TCP RPC (all platforms)
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#auth-key-rules" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Auth key rules
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#query-a-go-daemon-instead" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Query a Go daemon instead
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#rgostatus" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        rgostatus
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#rgoslow" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        rgoslow
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#rgospeed" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        rgospeed
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="rgospeed">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#docker-vps-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Docker VPS reference
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#rgoid" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        rgoid
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#rgoprobe" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        rgoprobe
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#rgopath" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        rgopath
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#rgocp" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        rgocp
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#rgox-rnx" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        rgox / rnx
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#rgosh" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        rgosh
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#rgozen" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        rgozen
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="rgozen">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-it-catches" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        What it catches
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reticulum-go-git-rngit" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        reticulum-go git (rngit)
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#troubleshooting" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Troubleshooting
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#debugging" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Debugging
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#related-documents" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Related documents
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../embedding-and-wasm/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Embedding and WebAssembly
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../microvm/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Firecracker microvm
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../development-and-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Development and testing
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Examples
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Appendix
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_7">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Appendix
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../deviations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Deviations from Python RNS
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../packet-debug/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Packet debugging
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../interop-timeline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Interop timeline
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+  
+    <a href="https://github.com/Quad4-Software/Reticulum-Go/edit/master/docs/en/utilities.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-file-pen" viewBox="0 0 24 24"><path d="M12.659 22H18a2 2 0 0 0 2-2V8a2.4 2.4 0 0 0-.706-1.706l-3.588-3.588A2.4 2.4 0 0 0 14 2H6a2 2 0 0 0-2 2v9.34"/><path d="M14 2v5a1 1 0 0 0 1 1h5M10.378 12.622a1 1 0 0 1 3 3.003L8.36 20.637a2 2 0 0 1-.854.506l-2.867.837a.5.5 0 0 1-.62-.62l.836-2.869a2 2 0 0 1 .506-.853z"/></svg>
+    </a>
+  
+  
+
+
+<h1 id="cli-utilities">CLI utilities<a class="headerlink" href="#cli-utilities" title="Permanent link">&para;</a></h1>
+<p>Go-native tools that speak the same shared-instance msgpack RPC, destinations, and identity file formats as Python rnstatus, rnid, rnprobe, rnpath, rncp, rnsh, and rnx. They are not Python clones. Python tools and Go tools both work against rnsd and reticulum-go.</p>
+<p>They ship as subcommands of the single reticulum-go binary:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>make<span class="w"> </span>build
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>./bin/reticulum-go<span class="w"> </span>status
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>./bin/reticulum-go<span class="w"> </span>id<span class="w"> </span>-h
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>./bin/reticulum-go<span class="w"> </span>probe<span class="w"> </span>...
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>./bin/reticulum-go<span class="w"> </span>path<span class="w"> </span>-t
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>./bin/reticulum-go<span class="w"> </span>cp<span class="w"> </span>-l
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>./bin/reticulum-go<span class="w"> </span>x<span class="w"> </span>-l
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>./bin/reticulum-go<span class="w"> </span>sh<span class="w"> </span>-l
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>./bin/reticulum-go<span class="w"> </span>pageserver
+</span></code></pre></div>
+<p>make install also creates legacy symlinks (rgostatus, rgoid, rgoprobe, rgopath, rgocp, rgox, rnx, rgosh, rgopageserver, rgoslow, rgospeed, rgodump, rgosnap, rgoselfcheck, rgozen) that invoke the same binary. Man pages: man reticulum-go, man reticulum-go-status, man reticulum-go-speedtest, man reticulum-go-self-check, and so on.</p>
+<table>
+<thead>
+<tr>
+<th>Tool / subcommand</th>
+<th>Python counterpart</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>reticulum-go status (rgostatus)</td>
+<td>rnstatus</td>
+<td>Interface and transport status over shared-instance RPC</td>
+</tr>
+<tr>
+<td>reticulum-go slow (rgoslow)</td>
+<td>(Go-only)</td>
+<td>Bottleneck and local health findings from interface/path stats</td>
+</tr>
+<tr>
+<td>reticulum-go id (rgoid)</td>
+<td>rnid</td>
+<td>Identity generate, hash, .rsg / .rsm / .rfe</td>
+</tr>
+<tr>
+<td>reticulum-go probe (rgoprobe)</td>
+<td>rnprobe</td>
+<td>Path wait, encrypted probe, RTT</td>
+</tr>
+<tr>
+<td>reticulum-go path (rgopath)</td>
+<td>rnpath</td>
+<td>Path table, drop, blackhole, path request, remote -R</td>
+</tr>
+<tr>
+<td>reticulum-go cp (rgocp)</td>
+<td>rncp</td>
+<td>File send / listen / fetch over links</td>
+</tr>
+<tr>
+<td>reticulum-go x (rgox, rnx)</td>
+<td>rnx</td>
+<td>Remote command execution over links (rnx.execute)</td>
+</tr>
+<tr>
+<td>reticulum-go sh (rgosh)</td>
+<td>rnsh (native + auto rnsh)</td>
+<td>Interactive remote shell over Link+Channel (PTY/pipes)</td>
+</tr>
+<tr>
+<td>reticulum-go git (rgogit, git-remote-rns)</td>
+<td>rngit</td>
+<td>Git-over-Reticulum node and git remote helper</td>
+</tr>
+<tr>
+<td>reticulum-go pageserver</td>
+<td>(example app)</td>
+<td>NomadNet-style page and file server</td>
+</tr>
+<tr>
+<td>reticulum-go self-check (rgoselfcheck)</td>
+<td>(Go-only)</td>
+<td>Host OS preflight for sandbox, crypto, and interfaces</td>
+</tr>
+<tr>
+<td>reticulum-go zen (rgozen)</td>
+<td>(Go-only)</td>
+<td>Static scan for path and link footguns in Go and optional Python sources</td>
+</tr>
+<tr>
+<td>reticulum-go speedtest (rgospeed)</td>
+<td>Examples/Speedtest.py</td>
+<td>Loopback smoke plus cross-host / docker daemon (-daemon, -iface)</td>
+</tr>
+<tr>
+<td>reticulum-go dump (rgodump)</td>
+<td>(Go-only)</td>
+<td>Decode RNS packets from hex or pcap to JSONL</td>
+</tr>
+<tr>
+<td>reticulum-go snapshot (rgosnap)</td>
+<td>(Go-only)</td>
+<td>Path table, links, and health drop counters as JSON</td>
+</tr>
+</tbody>
+</table>
+<p>Library code lives in pkg/rnsutil and pkg/cli. Pageserver logic lives in pkg/pageserver.</p>
+<p>Packet capture and Wireshark docs live in <a href="../packet-debug/">packet-debug.md</a>. The cross-stack INTEROP_EVENT timeline is in <a href="../interop-timeline/">interop-timeline.md</a>.</p>
+<h2 id="mixed-python-and-go-tools">Mixed Python and Go tools<a class="headerlink" href="#mixed-python-and-go-tools" title="Permanent link">&para;</a></h2>
+<p>Python utilities and Go subcommands speak the same destinations, shared-instance RPC, and identity files. Use either tool against either daemon. Point -config at that daemon's config directory (~/.reticulum for Python rnsd, ~/.reticulum-go for reticulum-go unless you aligned them). Align rpc_key / instance_name / shared_instance_type when querying a shared instance.</p>
+<table>
+<thead>
+<tr>
+<th>Task</th>
+<th>Python tool</th>
+<th>Go tool</th>
+<th style="text-align: center;">Against rnsd</th>
+<th style="text-align: center;">Against reticulum-go</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Interface status (local RPC)</td>
+<td>rnstatus</td>
+<td>reticulum-go status</td>
+<td style="text-align: center;">Yes</td>
+<td style="text-align: center;">Yes</td>
+</tr>
+<tr>
+<td>Path table / drop / blackhole (local RPC)</td>
+<td>rnpath</td>
+<td>reticulum-go path</td>
+<td style="text-align: center;">Yes</td>
+<td style="text-align: center;">Yes</td>
+</tr>
+<tr>
+<td>Remote status (-R)</td>
+<td>rnstatus</td>
+<td>reticulum-go status</td>
+<td style="text-align: center;">Yes, if remote has enable_remote_management</td>
+<td style="text-align: center;">Yes, same</td>
+</tr>
+<tr>
+<td>Remote path table / rates (-R)</td>
+<td>rnpath</td>
+<td>reticulum-go path</td>
+<td style="text-align: center;">Yes, if remote has enable_remote_management</td>
+<td style="text-align: center;">Yes, same</td>
+</tr>
+<tr>
+<td>Probe</td>
+<td>rnprobe</td>
+<td>reticulum-go probe</td>
+<td style="text-align: center;">Yes</td>
+<td style="text-align: center;">Yes</td>
+</tr>
+<tr>
+<td>File transfer (rncp.receive)</td>
+<td>rncp</td>
+<td>reticulum-go cp</td>
+<td style="text-align: center;">Yes</td>
+<td style="text-align: center;">Yes</td>
+</tr>
+<tr>
+<td>Remote exec (rnx.execute)</td>
+<td>rnx</td>
+<td>reticulum-go x</td>
+<td style="text-align: center;">Yes</td>
+<td style="text-align: center;">Yes</td>
+</tr>
+<tr>
+<td>Shell on dest app rnsh</td>
+<td>rnsh</td>
+<td>reticulum-go sh (auto)</td>
+<td style="text-align: center;">Yes</td>
+<td style="text-align: center;">Yes (Go listener announces rnsh as well)</td>
+</tr>
+<tr>
+<td>Shell on dest app rgosh</td>
+<td>(no)</td>
+<td>reticulum-go sh</td>
+<td style="text-align: center;">n/a</td>
+<td style="text-align: center;">Go native only</td>
+</tr>
+<tr>
+<td>Git clone/fetch/push (rns://)</td>
+<td>rngit / git-remote-rns</td>
+<td>reticulum-go git, git-remote-rns</td>
+<td style="text-align: center;">Yes</td>
+<td style="text-align: center;">Yes</td>
+</tr>
+</tbody>
+</table>
+<p>Remote drop, path-request, and blackhole mutate over -R exit 255 on both stacks. rnir, rnpkg, and rnodeconf stay Python-only. rgoslow, rgodump, rgosnap, rgoselfcheck, and rgozen stay Go-only.</p>
+<h2 id="shared-instance-rpc-required-for-rgostatus-and-rgopath-table-modes">Shared-instance RPC (required for rgostatus and rgopath table modes)<a class="headerlink" href="#shared-instance-rpc-required-for-rgostatus-and-rgopath-table-modes" title="Permanent link">&para;</a></h2>
+<p>rgostatus and rgopath -t / drop / blackhole modes dial a running shared instance (Python rnsd or reticulum-go) over the same multiprocessing.connection + msgpack protocol Python uses.</p>
+<p>RPC is fully supported on both transports:</p>
+<table>
+<thead>
+<tr>
+<th>shared_instance_type</th>
+<th>Listen / dial address</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>tcp</td>
+<td><code>127.0.0.1:&lt;instance_control_port&gt;</code> (default 37429)</td>
+</tr>
+<tr>
+<td>unix</td>
+<td>Abstract socket <code>@rns/&lt;instance_name&gt;/rpc</code> (Linux)</td>
+</tr>
+<tr>
+<td>unset</td>
+<td>Platform default: unix on Linux, tcp elsewhere (matches Python RNS)</td>
+</tr>
+</tbody>
+</table>
+<p>Go implements both server and client for TCP and Unix. When the type is unset, utilities try the platform default first, then the other transport, so stock Linux Python rnsd works without forcing TCP.</p>
+<h3 id="why-connection-refused-is-common">Why connection refused is common<a class="headerlink" href="#why-connection-refused-is-common" title="Permanent link">&para;</a></h3>
+<p>Issues that usually stack:</p>
+<ol>
+<li>Wrong config directory. Python uses ~/.reticulum. Go defaults to ~/.reticulum-go. Point -config at the directory of the daemon you are querying.</li>
+<li>Explicit transport mismatch. If one side sets shared_instance_type = tcp and the other unix, dials miss. Leave the key unset on Linux, or set the same value on both.</li>
+<li>Daemon not sharing. The process that owns interfaces must have share_instance = yes and be running.</li>
+<li>Auth key mismatch. Align rpc_key, or share the same derived transport_identity.</li>
+</ol>
+<h3 id="working-config-for-python-rnsd-go-tools-unix-on-linux">Working config for Python rnsd + Go tools (Unix on Linux)<a class="headerlink" href="#working-config-for-python-rnsd-go-tools-unix-on-linux" title="Permanent link">&para;</a></h3>
+<p>Stock Linux Python already uses abstract Unix sockets. Point Go tools at that config directory:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>./bin/reticulum-go<span class="w"> </span>status<span class="w"> </span>-config<span class="w"> </span>~/.reticulum
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>./bin/reticulum-go<span class="w"> </span>status<span class="w"> </span>-config<span class="w"> </span>~/.reticulum<span class="w"> </span>-json
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>./bin/reticulum-go<span class="w"> </span>path<span class="w"> </span>-config<span class="w"> </span>~/.reticulum<span class="w"> </span>-t<span class="w"> </span>-json
+</span></code></pre></div>
+<p>Optional shared auth key in both configs (recommended when mixing stacks):</p>
+<div class="language-ini highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">[reticulum]</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="na">share_instance</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">yes</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="na">instance_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">default</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="na">shared_instance_type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">unix</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="na">rpc_key</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&lt;64 hex characters&gt;</span>
+</span></code></pre></div>
+<p>Generate a key once:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>python3<span class="w"> </span>-c<span class="w"> </span><span class="s1">'import secrets; print(secrets.token_hex(32))'</span>
+</span></code></pre></div>
+<p>Restart rnsd after editing rpc_key. Go tools with unset or unix type dial @rns/default/rpc.</p>
+<h3 id="tcp-rpc-all-platforms">TCP RPC (all platforms)<a class="headerlink" href="#tcp-rpc-all-platforms" title="Permanent link">&para;</a></h3>
+<p>Use TCP when you want the same recipe on every OS, or when mixing with an older Go daemon that bound TCP:</p>
+<div class="language-ini highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">[reticulum]</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="na">share_instance</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">yes</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="na">instance_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">default</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="na">shared_instance_type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">tcp</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="na">shared_instance_port</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">37428</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="na">instance_control_port</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">37429</span>
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="na">rpc_key</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&lt;64 hex characters&gt;</span>
+</span></code></pre></div>
+<p>Restart the daemon after editing so it binds TCP 127.0.0.1:37429.</p>
+<h3 id="auth-key-rules">Auth key rules<a class="headerlink" href="#auth-key-rules" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Config</th>
+<th>Authkey used</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>rpc_key set (64 hex chars)</td>
+<td>That exact 32-byte key</td>
+</tr>
+<tr>
+<td>rpc_key empty</td>
+<td>SHA-256 of the daemon storage/transport_identity private key</td>
+</tr>
+</tbody>
+</table>
+<p>Go and Python must agree. Prefer an explicit shared rpc_key when mixing stacks so you do not depend on identical transport identity files.</p>
+<h3 id="query-a-go-daemon-instead">Query a Go daemon instead<a class="headerlink" href="#query-a-go-daemon-instead" title="Permanent link">&para;</a></h3>
+<p>Run reticulum-go with share_instance = yes under ~/.reticulum-go. Unset type follows the platform default (Unix on Linux):</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>./bin/reticulum-go<span class="w"> </span>status<span class="w"> </span>-config<span class="w"> </span>~/.reticulum-go<span class="w"> </span>-json
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>./bin/reticulum-go<span class="w"> </span>path<span class="w"> </span>-config<span class="w"> </span>~/.reticulum-go<span class="w"> </span>-t
+</span></code></pre></div>
+<p>Only one process should own the shared instance ports (or Unix RPC name) at a time.</p>
+<h2 id="rgostatus">rgostatus<a class="headerlink" href="#rgostatus" title="Permanent link">&para;</a></h2>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>rgostatus<span class="w"> </span><span class="o">[</span>flags<span class="o">]</span><span class="w"> </span><span class="o">[</span>filter<span class="o">]</span>
+</span></code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>-config dir</td>
+<td>Config directory (default: ~/.reticulum-go)</td>
+</tr>
+<tr>
+<td>-json</td>
+<td>Emit JSON (bytes as hex, same field names as Python where populated)</td>
+</tr>
+<tr>
+<td>-a</td>
+<td>Include all interfaces (less filtering of local/client peers)</td>
+</tr>
+<tr>
+<td>-n substr</td>
+<td>Filter interface names (positional filter also accepted)</td>
+</tr>
+<tr>
+<td>-l</td>
+<td>Include link count</td>
+</tr>
+<tr>
+<td>-A</td>
+<td>Show announce byte and count stats</td>
+</tr>
+<tr>
+<td>-P</td>
+<td>Show path-request byte and count stats</td>
+</tr>
+<tr>
+<td>-F</td>
+<td>Show filtered traffic stats per interface and in totals (RNS 1.6.1)</td>
+</tr>
+<tr>
+<td>-B</td>
+<td>Only interfaces with active bursts</td>
+</tr>
+<tr>
+<td>-b</td>
+<td>List blocked IPs per interface</td>
+</tr>
+<tr>
+<td>-t</td>
+<td>Show transport traffic totals</td>
+</tr>
+<tr>
+<td>-T</td>
+<td>Show path topology: path table grouped by receiving interface with hops, next-hop hash, age (Go-only)</td>
+</tr>
+<tr>
+<td>-L</td>
+<td>Show transport link traffic share in totals (RNS 1.6.1)</td>
+</tr>
+<tr>
+<td>-u</td>
+<td>Show tunnel ID and remote transport implementation per interface (Python uses -T for this. Here -T is topology)</td>
+</tr>
+<tr>
+<td>-p</td>
+<td>Show packets per second in totals</td>
+</tr>
+<tr>
+<td>-Q</td>
+<td>Show inbound queue pressure (use -Q rather than -q, which is quiet)</td>
+</tr>
+<tr>
+<td>-z</td>
+<td>Show profiling results when the instance provides them</td>
+</tr>
+<tr>
+<td>-m</td>
+<td>Continuously monitor status</td>
+</tr>
+<tr>
+<td>-I sec</td>
+<td>Monitor refresh interval (default 1)</td>
+</tr>
+<tr>
+<td>-d / -D</td>
+<td>List discovered interfaces (details with -D)</td>
+</tr>
+<tr>
+<td>-show-stale</td>
+<td>Include stale discovery entries when listing discovered interfaces</td>
+</tr>
+<tr>
+<td>-show-unknown</td>
+<td>Include discovery entries without implementation/version info</td>
+</tr>
+<tr>
+<td>-attach name</td>
+<td>Attach interface by name via shared-instance RPC (RNS 1.5.5)</td>
+</tr>
+<tr>
+<td>-detach name</td>
+<td>Detach interface by name via shared-instance RPC</td>
+</tr>
+<tr>
+<td>-reload name</td>
+<td>Detach and re-attach interface by name</td>
+</tr>
+<tr>
+<td>-s key</td>
+<td>Sort by rate, rx, tx, rxs, txs, traffic, announce, arx, atx, prx, ptx, held, queue</td>
+</tr>
+<tr>
+<td>-r</td>
+<td>Sort ascending (default descending)</td>
+</tr>
+<tr>
+<td>-timeout dur</td>
+<td>RPC timeout (default 10s)</td>
+</tr>
+<tr>
+<td>-R hash</td>
+<td>Transport identity hash of remote instance</td>
+</tr>
+<tr>
+<td>-i path</td>
+<td>Identity file for remote management</td>
+</tr>
+<tr>
+<td>-W / -w sec</td>
+<td>Timeout for remote queries (0 = adaptive)</td>
+</tr>
+</tbody>
+</table>
+<p>JSON includes per-interface announce and path-request frequencies, held announces, outgoing announce queue, burst flags, and traffic counters when the daemon provides them. Totals include rxpps/txpps when available.</p>
+<p>Against a Go daemon, human and JSON output also include local mesh health fields when counters are non-zero: ifac_fail, hmac_fail, announce_sig_fail, unpack_fail, integrity_fail_rate, stale_closes, keepalive_timeout, and related totals. Python rnsd does not populate these keys. Missing fields mean zero or unknown, not a protocol error.</p>
+<p>Go daemons report announce reject-reason counters per interface (announce_malformed, announce_dest_type, announce_blackholed, announce_key_mismatch, announce_max_hops, announce_held, announce_suppressed) plus per-endpoint dial health on outbound client interfaces (endpoint_dial_failures, endpoint_flaps, endpoint_quarantined, endpoint_quarantine_s). The endpoint fields render as an Endpoint line when non-zero. An endpoint that keeps failing or flapping is quarantined with an escalating cooldown instead of being redialed forever.</p>
+<p>Discovered interface listings show the announced implementation and version in the Stack field. Entries that stopped being announced go stale, and entries whose announce carries no implementation or version are hidden by default. Pass -show-stale / -show-unknown to include them (same defaults as Python rnstatus 1.5.7).</p>
+<p>Interface attach/detach/reload requires <code>enable_interface_management = yes</code> (the default) on the owning instance and only works against a running shared instance. I2P and local shared-instance interfaces cannot be detached, matching Python.</p>
+<h2 id="rgoslow">rgoslow<a class="headerlink" href="#rgoslow" title="Permanent link">&para;</a></h2>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>reticulum-go<span class="w"> </span>slow<span class="w"> </span><span class="o">[</span>flags<span class="o">]</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="c1"># legacy: rgoslow</span>
+</span></code></pre></div>
+<p>Ranks congestion and local health signals that commonly explain stalled transfers or noisy interfaces. Uses the same shared-instance RPC as status (interface_stats plus path table).</p>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>-config dir</td>
+<td>Config directory (default: ~/.reticulum-go)</td>
+</tr>
+<tr>
+<td>-json</td>
+<td>Emit full JSON report</td>
+</tr>
+<tr>
+<td>-a</td>
+<td>Include all interfaces</td>
+</tr>
+<tr>
+<td>-n substr</td>
+<td>Filter interface names</td>
+</tr>
+<tr>
+<td>-l</td>
+<td>Include link count</td>
+</tr>
+<tr>
+<td>-dest hash</td>
+<td>Focus analysis on a destination (32 hex)</td>
+</tr>
+<tr>
+<td>-top n</td>
+<td>Max interfaces to rank (default 12)</td>
+</tr>
+<tr>
+<td>-high-hop n</td>
+<td>Hop count treated as high (default 6)</td>
+</tr>
+<tr>
+<td>-m</td>
+<td>Continuously refresh</td>
+</tr>
+<tr>
+<td>-I dur</td>
+<td>Monitor interval (default 2s)</td>
+</tr>
+<tr>
+<td>-timeout dur</td>
+<td>RPC timeout (default 10s)</td>
+</tr>
+</tbody>
+</table>
+<p>Bottleneck findings cover bitrate utilization, announce/PR bursts, held announces, outgoing announce queues, bandwidth gates, socket RTT, and high-hop paths.</p>
+<p>When talking to a Go daemon, health findings can also appear:</p>
+<table>
+<thead>
+<tr>
+<th>Kind</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>integrity_burst</td>
+<td>Elevated IFAC/HMAC/unpack fail rate vs accepted frames</td>
+</tr>
+<tr>
+<td>auth_pressure</td>
+<td>Announce signature or link proof rejects clustered on an iface</td>
+</tr>
+<tr>
+<td>link_degraded</td>
+<td>Rising stale closes or keepalive timeouts</td>
+</tr>
+<tr>
+<td>ingress_pressure</td>
+<td>Held announces or burst limiters active</td>
+</tr>
+<tr>
+<td>announce_queue</td>
+<td>Outgoing announces waiting for announce_cap</td>
+</tr>
+</tbody>
+</table>
+<p>Counters stay local to the node. slow only observes and scores. It does not change ingress policy or blackhole tables.</p>
+<h2 id="rgospeed">rgospeed<a class="headerlink" href="#rgospeed" title="Permanent link">&para;</a></h2>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>reticulum-go<span class="w"> </span>speedtest<span class="w"> </span><span class="o">[</span>flags<span class="o">]</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="c1"># legacy: rgospeed</span>
+</span></code></pre></div>
+<p>Link throughput test modeled on Python Examples/Speedtest.py.</p>
+<table>
+<thead>
+<tr>
+<th>Mode</th>
+<th>Command</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Loopback smoke (default / CI)</td>
+<td>reticulum-go speedtest or -loopback</td>
+</tr>
+<tr>
+<td>Server (oneshot)</td>
+<td>reticulum-go speedtest -l</td>
+</tr>
+<tr>
+<td>Daemon (VPS / docker)</td>
+<td>reticulum-go speedtest -daemon</td>
+</tr>
+<tr>
+<td>Client (cross-host)</td>
+<td><code>reticulum-go speedtest &lt;server_dest_hash&gt;</code></td>
+</tr>
+</tbody>
+</table>
+<p>Destination is speedtest.server. Server and client must use the same -bytes size. After the transfer the server sends a SPEEDOK ack with the confirmed RX count. Networked clients pace sends (100 us per packet by default) so UDP sockets are not overrun. Loopback does not pace.</p>
+<p>Every run prints a grep-friendly speedtest_result ... line on stdout (visible in docker logs). With -json, a JSON object follows on stdout as well.</p>
+<p>Use a real config with UDP/TCP (or a shared path). share_instance is forced off so the tool owns its interfaces. Python-style forward_ip / forward_port are accepted as aliases for target_host / target_port.</p>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>-loopback</td>
+<td>In-process pipe (CI liveness, default when no args)</td>
+</tr>
+<tr>
+<td>-l</td>
+<td>Listen as server (one client then exit)</td>
+</tr>
+<tr>
+<td>-daemon</td>
+<td>Listen forever (implies -l -m, default announce every 120s)</td>
+</tr>
+<tr>
+<td>-m</td>
+<td>Listen: serve multiple clients</td>
+</tr>
+<tr>
+<td>-iface</td>
+<td>all (default) or comma-separated config section names</td>
+</tr>
+<tr>
+<td>-p</td>
+<td>Print identity / destination hash and exit</td>
+</tr>
+<tr>
+<td>-config dir</td>
+<td>Config directory (default ~/.reticulum-go)</td>
+</tr>
+<tr>
+<td>-identity path</td>
+<td>Persistent identity for listen mode</td>
+</tr>
+<tr>
+<td>-bytes n</td>
+<td>Plaintext bytes to transfer (default 2 MiB)</td>
+</tr>
+<tr>
+<td>-min-bps n</td>
+<td>Fail below this rate (0 disables, loopback defaults to 1e6)</td>
+</tr>
+<tr>
+<td>-timeout sec</td>
+<td>Overall timeout (default 60)</td>
+</tr>
+<tr>
+<td>-announce sec</td>
+<td>Listen announce interval (0 once, &lt;0 never)</td>
+</tr>
+<tr>
+<td>-json</td>
+<td>Emit JSON after each speedtest_result line</td>
+</tr>
+<tr>
+<td>-q</td>
+<td>Quieter debug</td>
+</tr>
+</tbody>
+</table>
+<p>Cross-host example (two machines / configs with a shared path):</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="c1"># server</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>reticulum-go<span class="w"> </span>speedtest<span class="w"> </span>-daemon<span class="w"> </span>-iface<span class="w"> </span>tcp<span class="w"> </span>-bytes<span class="w"> </span><span class="m">4194304</span>
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="c1"># client (paste the 32-hex hash printed by the server)</span>
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>reticulum-go<span class="w"> </span>speedtest<span class="w"> </span>-iface<span class="w"> </span>tcp<span class="w"> </span>-bytes<span class="w"> </span><span class="m">4194304</span><span class="w"> </span>&lt;hash_from_server&gt;
+</span></code></pre></div>
+<h3 id="docker-vps-reference">Docker VPS reference<a class="headerlink" href="#docker-vps-reference" title="Permanent link">&para;</a></h3>
+<p>Build and run a persistent public TCP listener:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>docker<span class="w"> </span>build<span class="w"> </span>-f<span class="w"> </span>docker/Dockerfile.speedtest<span class="w"> </span>-t<span class="w"> </span>reticulum-go:speedtest<span class="w"> </span>.
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>docker<span class="w"> </span>run<span class="w"> </span>-d<span class="w"> </span>--name<span class="w"> </span>rgo-speedtest<span class="w"> </span>-p<span class="w"> </span><span class="m">4242</span>:4242<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="w">  </span>-e<span class="w"> </span><span class="nv">SPEEDTEST_IFACE</span><span class="o">=</span>tcp<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="w">  </span>-v<span class="w"> </span>reticulum-go-speedtest:/data<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="w">  </span>reticulum-go-speedtest:latest
+</span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>docker<span class="w"> </span>logs<span class="w"> </span>-f<span class="w"> </span>rgo-speedtest
+</span></code></pre></div>
+<p>Env knobs: SPEEDTEST_IFACE (all or names), SPEEDTEST_BYTES, SPEEDTEST_ANNOUNCE, SPEEDTEST_PORT, SPEEDTEST_JSON, RNS_CONFIG. Persist /data so the identity (and thus dest hash) stays stable for CI secrets.</p>
+<p>CI client config needs a TCPClientInterface to the VPS host:port and the printed dest hash. Treat measured rates as a path floor (runner to VPS), not a lab loopback number.</p>
+<p>Nightly CI runs make test-link-speed (TestLinkSpeedSmoke) with a 512 KiB loopback cap and a 1 MB/s floor.</p>
+<h2 id="rgoid">rgoid<a class="headerlink" href="#rgoid" title="Permanent link">&para;</a></h2>
+<p>Identity and signing tool. Files are wire-compatible with Python:</p>
+<table>
+<thead>
+<tr>
+<th>Extension</th>
+<th>Format</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>.rid</td>
+<td>64 raw bytes (X25519 private + Ed25519 seed)</td>
+</tr>
+<tr>
+<td>.rsg</td>
+<td>64-byte Ed25519 signature + msgpack envelope (hashtype, hash, meta)</td>
+</tr>
+<tr>
+<td>.rsm</td>
+<td>Same as .rsg with embedded message</td>
+</tr>
+<tr>
+<td>.rfe</td>
+<td>Chunked identity encrypt (same token layout as Python)</td>
+</tr>
+</tbody>
+</table>
+<p>Examples:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>./bin/reticulum-go<span class="w"> </span>id<span class="w"> </span>-g<span class="w"> </span>~/.reticulum-go/id.rid<span class="w"> </span>-p
+</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>./bin/reticulum-go<span class="w"> </span>id<span class="w"> </span>-i<span class="w"> </span>~/.reticulum-go/id.rid<span class="w"> </span>-H<span class="w"> </span>rns.id
+</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>./bin/reticulum-go<span class="w"> </span>id<span class="w"> </span>-i<span class="w"> </span>id.rid<span class="w"> </span>-s<span class="w"> </span>file.bin<span class="w"> </span>-f
+</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>./bin/reticulum-go<span class="w"> </span>id<span class="w"> </span>-i<span class="w"> </span>id.rid<span class="w"> </span>-V<span class="w"> </span>file.bin
+</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>./bin/reticulum-go<span class="w"> </span>id<span class="w"> </span>-i<span class="w"> </span>id.rid<span class="w"> </span>-S<span class="w"> </span><span class="s2">"hello"</span><span class="w"> </span>-w<span class="w"> </span>note<span class="w"> </span>-f
+</span><span id="__span-11-6"><a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>./bin/reticulum-go<span class="w"> </span>id<span class="w"> </span>-i<span class="w"> </span>id.rid<span class="w"> </span>-S<span class="w"> </span>@inventory.txt<span class="w"> </span>-w<span class="w"> </span>reticulum-go.rsm<span class="w"> </span>-f
+</span><span id="__span-11-7"><a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a>./bin/reticulum-go<span class="w"> </span>id<span class="w"> </span>-V<span class="w"> </span>note.rsm
+</span><span id="__span-11-8"><a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a>./bin/reticulum-go<span class="w"> </span>id<span class="w"> </span>-i<span class="w"> </span>6947fc2980d273b51a8ff4bc22b290b1<span class="w"> </span>-V<span class="w"> </span>reticulum-go.rsm<span class="w"> </span>-extract
+</span><span id="__span-11-9"><a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a>./bin/reticulum-go<span class="w"> </span>id<span class="w"> </span>-i<span class="w"> </span>id.rid<span class="w"> </span>-e<span class="w"> </span>secret.txt<span class="w"> </span>-f
+</span><span id="__span-11-10"><a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a>./bin/reticulum-go<span class="w"> </span>id<span class="w"> </span>-i<span class="w"> </span>id.rid<span class="w"> </span>-d<span class="w"> </span>secret.txt.rfe<span class="w"> </span>-f
+</span></code></pre></div>
+<p>-S @path reads the message body from a file (needed for large tree inventories). -extract prints only the embedded RSM message after a successful verify. -i may be a 32-character identity hash when verifying (no private key required).</p>
+<p>Go-signed .rsg / .rsm / .rfe validate with Python rnid, and the reverse also works.</p>
+<h2 id="rgoprobe">rgoprobe<a class="headerlink" href="#rgoprobe" title="Permanent link">&para;</a></h2>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>rgoprobe<span class="w"> </span><span class="o">[</span>flags<span class="o">]</span><span class="w"> </span>&lt;full_name&gt;<span class="w"> </span>&lt;destination_hash_hex&gt;
+</span></code></pre></div>
+<p>Attaches as a shared-instance client (or starts local transport), waits for a path, sends encrypted probes, and prints RTT. Default path wait follows the slowest online interface bitrate instead of a flat 15s. Example:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>./bin/reticulum-go<span class="w"> </span>probe<span class="w"> </span>-config<span class="w"> </span>~/.reticulum<span class="w"> </span>-n<span class="w"> </span><span class="m">3</span><span class="w"> </span>-v<span class="w"> </span>app.aspect<span class="w"> </span>aabbccddeeff00112233445566778899
+</span></code></pre></div>
+<h2 id="rgopath">rgopath<a class="headerlink" href="#rgopath" title="Permanent link">&para;</a></h2>
+<p>Path table and blackhole management over shared-instance RPC, plus a default path-request mode that attaches like rgoprobe.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>rgopath<span class="w"> </span><span class="o">[</span>flags<span class="o">]</span><span class="w"> </span><span class="o">[</span>destination_hash<span class="o">]</span>
+</span></code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>-config dir</td>
+<td>Config directory</td>
+</tr>
+<tr>
+<td>-t</td>
+<td>Show path table (optional hash filter)</td>
+</tr>
+<tr>
+<td>-r</td>
+<td>Show announce rate info</td>
+</tr>
+<tr>
+<td>-a</td>
+<td>Show in-use paths only (RNS 1.6.1)</td>
+</tr>
+<tr>
+<td>-u</td>
+<td>Show per-path usage time (RNS 1.6.1)</td>
+</tr>
+<tr>
+<td>-V</td>
+<td>Show via transport IDs (RNS 1.6.1)</td>
+</tr>
+<tr>
+<td>-E</td>
+<td>Show path expiry times (RNS 1.6.1)</td>
+</tr>
+<tr>
+<td>-M value</td>
+<td>Only show paths whose announce stamp value is at or above this number (RNS 1.6.1)</td>
+</tr>
+<tr>
+<td>-A / -capture path</td>
+<td>Analyze tables, optionally writing a capture file (stub, same as Python)</td>
+</tr>
+<tr>
+<td>-json / -j</td>
+<td>JSON for -t / -r / -b</td>
+</tr>
+<tr>
+<td>-m N</td>
+<td>Max hops filter for path table</td>
+</tr>
+<tr>
+<td>-d</td>
+<td>Drop path to hash</td>
+</tr>
+<tr>
+<td>-D / -q</td>
+<td>Drop announce queues (Python -D, Go also accepts -q)</td>
+</tr>
+<tr>
+<td>-x</td>
+<td>Drop all paths via transport hash</td>
+</tr>
+<tr>
+<td>-w sec</td>
+<td>Path request timeout (0 = adaptive from slowest online bitrate, default)</td>
+</tr>
+<tr>
+<td>-R hash</td>
+<td>Transport identity hash of remote instance</td>
+</tr>
+<tr>
+<td>-i path</td>
+<td>Identity file for remote management</td>
+</tr>
+<tr>
+<td>-W sec</td>
+<td>Timeout for remote queries (default 15)</td>
+</tr>
+<tr>
+<td>-b / -blackholed</td>
+<td>List blackholed identities</td>
+</tr>
+<tr>
+<td>-B / -blackhole</td>
+<td>Blackhole identity hash</td>
+</tr>
+<tr>
+<td>-U / -unblackhole</td>
+<td>Lift blackhole</td>
+</tr>
+<tr>
+<td>-p</td>
+<td>View published blackhole list for a remote transport identity</td>
+</tr>
+<tr>
+<td>-duration / -for hours</td>
+<td>Blackhole duration (0 = indefinite)</td>
+</tr>
+<tr>
+<td>-reason str</td>
+<td>Blackhole reason</td>
+</tr>
+<tr>
+<td>-filter substr</td>
+<td>Filter blackhole list lines</td>
+</tr>
+</tbody>
+</table>
+<p>Go extras (compat preserved): -json on path and blackhole lists, drop-via count in the success line, clearer path-found summary after a successful request.</p>
+<p>Remote table and rates use the same rnstransport.remote.management destination as Python rnpath, so rnpath -t -R works against a Go daemon and rgopath -t -R works against Python rnsd. Enable it on the remote daemon with enable_remote_management = yes and <code>remote_management_allowed = &lt;identity hashes&gt;</code>. Remote drop, path-request, and blackhole mutate are not implemented (Python also exits 255).</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>rgopath<span class="w"> </span>-t<span class="w"> </span>-R<span class="w"> </span>&lt;transport_identity_hash&gt;<span class="w"> </span>-i<span class="w"> </span>~/.reticulum-go/storage/identities/rgosh
+</span></code></pre></div>
+<h2 id="rgocp">rgocp<a class="headerlink" href="#rgocp" title="Permanent link">&para;</a></h2>
+<p>File transfer over links. Destination name is rncp.receive so Go and Python peers interoperate.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>rgocp<span class="w"> </span><span class="o">[</span>flags<span class="o">]</span><span class="w"> </span>&lt;file&gt;<span class="w"> </span>&lt;destination_hash&gt;<span class="w">     </span><span class="c1"># send</span>
+</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>rgocp<span class="w"> </span>-l<span class="w"> </span><span class="o">[</span>flags<span class="o">]</span><span class="w">                            </span><span class="c1"># listen</span>
+</span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>rgocp<span class="w"> </span>-f<span class="w"> </span><span class="o">[</span>flags<span class="o">]</span><span class="w"> </span>&lt;remote_path&gt;<span class="w"> </span>&lt;hash&gt;<span class="w">       </span><span class="c1"># fetch</span>
+</span></code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>-config dir</td>
+<td>Config directory</td>
+</tr>
+<tr>
+<td>-i / -identity path</td>
+<td>Identity file (default storage/identities/rncp)</td>
+</tr>
+<tr>
+<td>-l</td>
+<td>Listen for pushes</td>
+</tr>
+<tr>
+<td>-f</td>
+<td>Fetch remote file (<code>-f &lt;remote_path&gt; &lt;dest&gt;</code>)</td>
+</tr>
+<tr>
+<td>-a hash</td>
+<td>Allowed identity (repeatable, listen)</td>
+</tr>
+<tr>
+<td>-n / -no-auth</td>
+<td>Accept requests from anyone (listen)</td>
+</tr>
+<tr>
+<td>-F / -allow-fetch</td>
+<td>Enable fetch_file requests (listen)</td>
+</tr>
+<tr>
+<td>-j / -jail dir</td>
+<td>Restrict fetch paths</td>
+</tr>
+<tr>
+<td>-s / -save dir</td>
+<td>Save directory for received files</td>
+</tr>
+<tr>
+<td>-O / -overwrite</td>
+<td>Overwrite on receive</td>
+</tr>
+<tr>
+<td>-C / -no-compress</td>
+<td>Disable auto compression</td>
+</tr>
+<tr>
+<td>-b / -announce sec</td>
+<td>Announce interval (0 once, &lt;0 never)</td>
+</tr>
+<tr>
+<td>-w sec</td>
+<td>Path/link timeout (0 = adaptive, default)</td>
+</tr>
+<tr>
+<td>-S / -silent</td>
+<td>Silent progress</td>
+</tr>
+<tr>
+<td>-P / -phy-rates</td>
+<td>Show physical-layer style rates in progress</td>
+</tr>
+<tr>
+<td>-p</td>
+<td>Print identity and destination hash</td>
+</tr>
+</tbody>
+</table>
+<p>Allow lists are loaded from /etc/rncp/allowed_identities, ~/.config/rncp/, ~/.rncp/, plus Go-specific ~/.config/rgocp/ and ~/.rgocp/.</p>
+<p>Go extras: cleaner progress lines on stderr, -json is not used (transfer is binary), unique .N rename when not overwriting.</p>
+<h2 id="rgox-rnx">rgox / rnx<a class="headerlink" href="#rgox-rnx" title="Permanent link">&para;</a></h2>
+<p>Remote command execution over links. Destination name is rnx.execute, request path command (wire-compatible with Python rnx).</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>reticulum-go<span class="w"> </span>x<span class="w"> </span>-l<span class="w"> </span><span class="o">[</span>flags<span class="o">]</span><span class="w">                         </span><span class="c1"># listen</span>
+</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>reticulum-go<span class="w"> </span>x<span class="w"> </span><span class="o">[</span>flags<span class="o">]</span><span class="w"> </span>&lt;destination_hash&gt;<span class="w"> </span>&lt;cmd&gt;<span class="w">   </span><span class="c1"># execute</span>
+</span><span id="__span-17-3"><a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>reticulum-go<span class="w"> </span>x<span class="w"> </span>-x<span class="w"> </span><span class="o">[</span>flags<span class="o">]</span><span class="w"> </span>&lt;destination_hash&gt;<span class="w">      </span><span class="c1"># interactive</span>
+</span></code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>-config dir</td>
+<td>Config directory</td>
+</tr>
+<tr>
+<td>-i path</td>
+<td>Identity file (default storage/identities/rnx)</td>
+</tr>
+<tr>
+<td>-l</td>
+<td>Listen for commands</td>
+</tr>
+<tr>
+<td>-x</td>
+<td>Interactive REPL</td>
+</tr>
+<tr>
+<td>-a hash</td>
+<td>Allowed identity (repeatable, listen)</td>
+</tr>
+<tr>
+<td>-n</td>
+<td>Accept from anyone (listen)</td>
+</tr>
+<tr>
+<td>-N</td>
+<td>Do not identify to listener</td>
+</tr>
+<tr>
+<td>-b</td>
+<td>Skip announce on listen start</td>
+</tr>
+<tr>
+<td>-m</td>
+<td>Mirror remote exit code</td>
+</tr>
+<tr>
+<td>-d</td>
+<td>Detailed timing/size summary</td>
+</tr>
+<tr>
+<td>-w sec</td>
+<td>Path/link/command timeout (0 = adaptive path and link)</td>
+</tr>
+<tr>
+<td>-W sec</td>
+<td>Max result download time</td>
+</tr>
+<tr>
+<td>--stdin str</td>
+<td>Remote stdin</td>
+</tr>
+<tr>
+<td>--stdout N / --stderr N</td>
+<td>Max returned bytes</td>
+</tr>
+<tr>
+<td>-json</td>
+<td>Structured JSON result (Go)</td>
+</tr>
+<tr>
+<td>-p</td>
+<td>Print identity and destination hash</td>
+</tr>
+</tbody>
+</table>
+<p>Allow lists: /etc/rnx/, ~/.config/rnx/, ~/.rnx/, plus ~/.config/rgox/ and ~/.rgox/.</p>
+<p>Exit codes match Python rnx (241-249 for client failures, -m mirrors remote).</p>
+<h2 id="rgosh">rgosh<a class="headerlink" href="#rgosh" title="Permanent link">&para;</a></h2>
+<p>Interactive remote shell over Link + Channel. Native protocol uses destination app rgosh. Connecting to a Python rnsh destination hash selects that protocol automatically. --compat forces the rnsh dest and wire types. Listen without --compat accepts both rgosh and rnsh on the same identity.</p>
+<p>Interactive sessions stay up until the remote process exits. Ctrl-C is forwarded to the remote PTY. Disconnect with ~. (tilde then period, right after a newline). ~L toggles line mode. ~~ sends a literal tilde. -w is path/link handshake only.</p>
+<p>Unix listeners (Linux, macOS, FreeBSD, OpenBSD, NetBSD, Dragonfly) use a PTY. Windows listeners fall back to pipes (ComSpec / cmd.exe) and cannot host vim-style TTY programs. A Windows client can still attach to a Unix listener. Console resize is polled on Windows (no SIGWINCH).</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>reticulum-go<span class="w"> </span>sh<span class="w"> </span>-l<span class="w"> </span><span class="o">[</span>flags<span class="o">]</span><span class="w"> </span><span class="o">[</span>command...<span class="o">]</span><span class="w">                 </span><span class="c1"># listen (rgosh + rnsh)</span>
+</span><span id="__span-18-2"><a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>reticulum-go<span class="w"> </span>sh<span class="w"> </span><span class="o">[</span>flags<span class="o">]</span><span class="w"> </span>&lt;destination_hash&gt;<span class="w"> </span><span class="o">[</span>command...<span class="o">]</span><span class="w"> </span><span class="c1"># connect (auto-detect)</span>
+</span><span id="__span-18-3"><a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a>reticulum-go<span class="w"> </span>sh<span class="w"> </span>--compat<span class="w"> </span>-l<span class="w">                             </span><span class="c1"># rnsh dest only</span>
+</span></code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>-config dir</td>
+<td>Config directory</td>
+</tr>
+<tr>
+<td>-i path</td>
+<td>Identity file</td>
+</tr>
+<tr>
+<td>-s name</td>
+<td>Service name (identity file suffix)</td>
+</tr>
+<tr>
+<td>-l</td>
+<td>Listen for sessions</td>
+</tr>
+<tr>
+<td>-a hash</td>
+<td>Allowed identity (repeatable, listen)</td>
+</tr>
+<tr>
+<td>-n</td>
+<td>Accept from anyone (listen)</td>
+</tr>
+<tr>
+<td>-N</td>
+<td>Do not identify to listener</td>
+</tr>
+<tr>
+<td>-b PERIOD</td>
+<td>Announce interval seconds (default 900, 0 once at start)</td>
+</tr>
+<tr>
+<td>--no-announce</td>
+<td>Never announce (listen)</td>
+</tr>
+<tr>
+<td>-A</td>
+<td>Append remote cmdline to the default command</td>
+</tr>
+<tr>
+<td>-C</td>
+<td>Reject a remote cmdline. Empty cmdline still runs the default command</td>
+</tr>
+<tr>
+<td>--compat</td>
+<td>Force Python rnsh dest and wire protocol</td>
+</tr>
+<tr>
+<td>--line / --raw</td>
+<td>Force line-buffered or raw stdin</td>
+</tr>
+<tr>
+<td>-m</td>
+<td>Mirror remote exit code</td>
+</tr>
+<tr>
+<td>-w sec</td>
+<td>Path/link handshake timeout (0 = adaptive, default)</td>
+</tr>
+<tr>
+<td>-p</td>
+<td>Print identity and destination hash</td>
+</tr>
+</tbody>
+</table>
+<p>Allow lists: /etc/rgosh/, ~/.config/rgosh/, ~/.rgosh/, plus Python rnsh paths. Files are re-read on each new link. Auto line mode engages when link RTT is high unless --raw. Stream sends wait for the channel window and compress to MDU so slow links do not flood.</p>
+<p>Live interop:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="nv">RUN_LIVE_INTEROP</span><span class="o">=</span><span class="m">1</span><span class="w"> </span><span class="nv">PYTHON_INTEROP</span><span class="o">=</span>python3<span class="w"> </span><span class="nv">RETICULUM_PATH</span><span class="o">=</span>/path/to/reticulum<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-19-2"><a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a><span class="w">  </span>go<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-v<span class="w"> </span>./tests/interop/<span class="w"> </span>-run<span class="w"> </span><span class="s1">'Rgosh|Rnsh'</span>
+</span></code></pre></div>
+<h2 id="rgozen">rgozen<a class="headerlink" href="#rgozen" title="Permanent link">&para;</a></h2>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-20-1"><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>reticulum-go<span class="w"> </span>zen<span class="w"> </span><span class="o">[</span>flags<span class="o">]</span><span class="w"> </span><span class="o">[</span>packages...<span class="o">]</span>
+</span><span id="__span-20-2"><a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a><span class="c1"># legacy: rgozen</span>
+</span></code></pre></div>
+<p>Static source checker for Reticulum path and link footguns. Think go vet or go fix for common mistakes that lead to throttling, handshake storms, or path resolved but link never opens. No daemon or network access is required.</p>
+<p>Default scan is ./... from the current module. Pass package patterns the same way as go test.</p>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>-fix</td>
+<td>Apply safe automatic fixes (today: check RequestPath errors in functions that return error)</td>
+</tr>
+<tr>
+<td>-json</td>
+<td>Emit a JSON report</td>
+</tr>
+<tr>
+<td>-list-rules</td>
+<td>Print all rule IDs, severity, and hints, then exit</td>
+</tr>
+<tr>
+<td>-plain</td>
+<td>Plain output without colors</td>
+</tr>
+<tr>
+<td>-test</td>
+<td>Include *_test.go files</td>
+</tr>
+<tr>
+<td>-python</td>
+<td>Also scan .py files under the module root</td>
+</tr>
+<tr>
+<td>-C dir</td>
+<td>Module root directory (default: cwd)</td>
+</tr>
+</tbody>
+</table>
+<p>Exit code is 0 when clean, 1 when errors are present or warnings remain without -fix, 2 on flag errors.</p>
+<h3 id="what-it-catches">What it catches<a class="headerlink" href="#what-it-catches" title="Permanent link">&para;</a></h3>
+<p>Go rules cover spinning on RequestPath, HasPath, or AwaitPath, Establish or NewLink inside loops, link use before the established callback, announce bursts, hard-coded 15 second timeouts, RequestPath with on_interface overrides, and Recall before a path wait.</p>
+<p>With -python, the same anti-patterns are checked in RNS Python apps: has_path and request_path loops, await_path inside retry loops, link_ready and link.status polling, request_path followed by has_path spin, Recall before await_path, on_interface overrides, and require_shared_instance without a running rnsd.</p>
+<p>Each finding prints file, line, rule ID, why it fails, a fix hint, and doc references. Run -list-rules for the full catalog.</p>
+<p>Example:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-21-1"><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>reticulum-go<span class="w"> </span>zen<span class="w"> </span>./pkg/myapp/...
+</span><span id="__span-21-2"><a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a>reticulum-go<span class="w"> </span>zen<span class="w"> </span>-python<span class="w"> </span>-C<span class="w"> </span>~/my-rns-app
+</span><span id="__span-21-3"><a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a>reticulum-go<span class="w"> </span>zen<span class="w"> </span>-fix<span class="w"> </span>./...
+</span><span id="__span-21-4"><a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a>reticulum-go<span class="w"> </span>zen<span class="w"> </span>-json<span class="w"> </span>./pkg/...<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span>.
+</span></code></pre></div>
+<p>Use this during development and in CI before shipping apps that talk to shared instances or slow radios. See also <a href="../api-reference/">API reference</a> path and link guidance and <a href="../development-and-testing/#static-footgun-scan">Development and testing</a>.</p>
+<h2 id="reticulum-go-git-rngit">reticulum-go git (rngit)<a class="headerlink" href="#reticulum-go-git-rngit" title="Permanent link">&para;</a></h2>
+<p><code>reticulum-go git</code> runs an rngit-compatible repository node. The git protocol destination is <code>git.repositories</code> on the node identity and handles list, fetch, push, delete, create, fork, mirror, sync, permissions, releases, and work documents.</p>
+<p>When <code>serve_nomadnet = yes</code> is set in the <code>[pages]</code> section of the server config, a second destination <code>nomadnetwork.node</code> serves the browseable page surface that NomadNet clients load:</p>
+<ul>
+<li><code>/page/index.mu</code>, <code>group.mu</code>, <code>repo.mu</code>, <code>tree.mu</code>, <code>blob.mu</code>, <code>commits.mu</code>, <code>commit.mu</code>, <code>refs.mu</code>, <code>stats.mu</code>, <code>releases.mu</code>, <code>release.mu</code>, <code>work.mu</code>, <code>work_doc.mu</code></li>
+<li><code>/file/artifact</code>, <code>/file/download</code>, <code>/file/workdoc</code> for release artifacts, raw blobs, and work document downloads</li>
+<li><code>/media</code> is a Reticulum-Go extension for repository blobs with optional WebP conversion (media_conversion config). The reference implementation has no such route</li>
+</ul>
+<p>Page requests carry NomadNet <code>var_*</code> fields (var_g, var_r, var_ref, var_path, var_scope, var_id, var_t, var_a, var_thanks, var_page, var_type, var_h, var_raw, var_render). Unidentified peers resolve as the null identity <code>d7db22f63b453c23bb0688dde565b7c1</code> and can be refused entirely by listing it under <code>blocked_identities</code>.</p>
+<p>Templates come from <code>&lt;configdir&gt;/templates/&lt;name&gt;.mu</code> with defaults compiled in. Supported names: base, front, group, repo, tree, blob, commits, commit, refs, stats, releases, release, work, work_doc, no_ident. Placeholders: <code>{PAGE_CONTENT}</code> in every template, plus <code>{NODE_NAME}</code>, <code>{VERSION}</code>, <code>{NAVIGATION}</code>, and <code>{GEN_TIME}</code> in base. A template file with the executable bit set is run and its stdout becomes the template, bounded by a 5 second timeout and a 1 MiB output cap.</p>
+<p>Markdown files (README, work documents) are converted to Micron, and blob pages apply syntax highlighting unless <code>syntax_highlight = no</code>. With <code>record_stats = yes</code> the node persists Python-compatible daily counters and renders a stats page with activity scoring. <code>stats_ignore_identities</code> and <code>stats_push_ignore_identities</code> exclude identities from counting.</p>
+<p>Deliberate differences from the Python reference:</p>
+<ul>
+<li>Git subprocesses for pages are bounded by an 8 second timeout and blob display is capped at 256 KiB, same limits, but executable templates and blob head reads are bounded where the reference is not</li>
+<li><code>stats_push_ignore_identities</code> is honored. The reference parses it but never applies it</li>
+<li>rperms rechecks repository admin permission, not group permission (reference bug)</li>
+<li>Work document delete on a missing document returns Not Found instead of failing</li>
+<li>Missing release artifacts return no response instead of slipping through a no-op guard</li>
+</ul>
+<h2 id="troubleshooting">Troubleshooting<a class="headerlink" href="#troubleshooting" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Symptom</th>
+<th>Fix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>dial tcp 127.0.0.1:37429: connection refused</td>
+<td>Start the daemon. If type is explicit tcp, the daemon must also be TCP. With unset type, utilities also try Unix. Use -config for that daemon's config dir.</td>
+</tr>
+<tr>
+<td>dial unix @rns/...: connection refused</td>
+<td>Daemon is on TCP only, or instance_name differs. Align shared_instance_type and instance_name, or leave type unset so tools try both.</td>
+</tr>
+<tr>
+<td>rpc auth failure</td>
+<td>Align rpc_key, or use the same storage/transport_identity when keys are derived.</td>
+</tr>
+<tr>
+<td>Empty or missing announce rates from Python</td>
+<td>Field is present but may be 0 until traffic accumulates. Sorting and JSON keys still work.</td>
+</tr>
+<tr>
+<td>Top-level rxb/txb are 0 while interfaces show traffic</td>
+<td>Python aggregate totals often omit some parent interfaces. Prefer per-interface counters.</td>
+</tr>
+<tr>
+<td>Identity load log lines on stderr</td>
+<td>Harmless debug from loading transport_identity for derived auth when resolving keys. Prefer explicit rpc_key to avoid that path when possible.</td>
+</tr>
+<tr>
+<td>rgocp transfer ignored</td>
+<td>Listener needs -n or an allow-list entry (<code>-a</code>) matching the sender identity hash. Metadata (name) is required on the wire.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="debugging">Debugging<a class="headerlink" href="#debugging" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Tool</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>reticulum-go status</td>
+<td>Interface stats over shared-instance RPC (-json, -q), including Go integrity counters when present</td>
+</tr>
+<tr>
+<td>reticulum-go slow</td>
+<td>Bottleneck and local health findings (integrity_burst, auth_pressure, link_degraded, ...)</td>
+</tr>
+<tr>
+<td>reticulum-go path -t</td>
+<td>Path table dump</td>
+</tr>
+<tr>
+<td>reticulum-go debug</td>
+<td>Effective config path, log level, platform, RPC reachability (-rates, -json)</td>
+</tr>
+<tr>
+<td>reticulum-go self-check</td>
+<td>Host OS preflight checklist (--json, --quick, --full, --strict)</td>
+</tr>
+<tr>
+<td>reticulum-go zen</td>
+<td>Static path and link footgun scan (-fix, -json, -list-rules, -python)</td>
+</tr>
+<tr>
+<td>reticulum-go probe</td>
+<td>Connectivity / RTT (-json)</td>
+</tr>
+<tr>
+<td>Control API</td>
+<td>HTTP /v1/health (liveness), /v1/status (iface stats plus integrity fields), /v1/paths when enable_control_api = yes</td>
+</tr>
+<tr>
+<td>Daemon -debug N</td>
+<td>Override config loglevel for one run (0 silent through 7 packets)</td>
+</tr>
+</tbody>
+</table>
+<p>TTY colors (status Up/Down, probe/path/cp/id outcomes, pageserver banner, daemon text log levels) honor NO_COLOR (off) and FORCE_COLOR / CLICOLOR_FORCE (on). JSON output and file logs stay plain.</p>
+<h2 id="related-documents">Related documents<a class="headerlink" href="#related-documents" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="../configuration/">Configuration</a> for share_instance, ports, and rpc_key</li>
+<li><a href="../compatibility/">Compatibility</a> for Python utility parity</li>
+<li><a href="../getting-started/">Getting started</a> for first daemon run</li>
+<li><a href="../package-map/">Package map</a> for pkg/rnsutil</li>
+<li><a href="../links-channels-and-resources/">Links, channels, and resources</a> for resource wire details</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-circle-arrow-up" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m16 12-4-4-4 4M12 16V8"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../librns/" class="md-footer__link md-footer__link--prev" aria-label="Previous: librns">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                librns
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../embedding-and-wasm/" class="md-footer__link md-footer__link--next" aria-label="Next: Embedding and WebAssembly">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Embedding and WebAssembly
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-right" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      
+      
+        
+        
+      <script id="__config" type="application/json">{"annotate":null,"base":"..","features":["navigation.sections","navigation.footer","navigation.top","toc.integrate","content.action.edit","search.highlight"],"redirect":null,"search":"../assets/javascripts/workers/search.7d14d953.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":{"alias":true,"provider":"mike"}}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.8dcc8e9c.min.js"></script>
+      
+    
+  </body>
+</html>

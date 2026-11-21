@@ -1,0 +1,2186 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Reticulum network stack in Go">
+      
+      
+      
+        <link rel="canonical" href="https://reticulum-go.quad4.io/dev/compatibility/">
+      
+      
+        <link rel="prev" href="../security/">
+      
+      
+        <link rel="next" href="../control-api/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/favicon.svg">
+      <meta name="generator" content="zensical-0.0.63">
+    
+    
+  
+    <title>Compatibility - Reticulum-Go</title>
+  
+
+    
+      
+        
+      
+      <link rel="stylesheet" href="../assets/stylesheets/modern/main.10763589.min.css">
+      
+        
+          
+        
+        <link rel="stylesheet" href="../assets/stylesheets/modern/palette.812a03bb.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Space+Grotesk:300,300i,400,400i,500,500i,700,700i%7CSpace+Mono:400,400i,700,700i&amp;display=fallback">
+        <style>:root{--md-text-font:"Space Grotesk";--md-code-font:"Space Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../stylesheets/void.css">
+    
+    <script>__md_scope=new URL("..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
+    
+      
+
+    
+    
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Reticulum-Go">
+  <meta property="og:title" content="Compatibility - Reticulum-Go">
+  
+    <meta property="og:description" content="Reticulum network stack in Go">
+  
+  
+    <meta property="og:url" content="https://reticulum-go.quad4.io/dev/compatibility/">
+  
+  <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0a0a0b">
+  <meta name="theme-color" media="(prefers-color-scheme: light)" content="#fafafa">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "WebSite",
+        "name": "Reticulum-Go",
+        "url": "https://reticulum-go.quad4.io/dev/",
+        "description": "Reticulum network stack in Go",
+        "inLanguage": "en"
+      },
+      {
+        "@type": "SoftwareSourceCode",
+        "name": "Reticulum-Go",
+        "url": "https://reticulum-go.quad4.io/dev/",
+        "codeRepository": "https://github.com/Quad4-Software/Reticulum-Go",
+        "programmingLanguage": "Go"
+      }
+    ]
+  }
+  </script>
+
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="void" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer" aria-label="Navigation"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#compatibility-with-python-reticulum" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="./.." title="Reticulum-Go" class="md-header__button md-logo" aria-label="Reticulum-Go" data-md-component="logo">
+      
+  <img src="../assets/logo.svg" alt="Reticulum-Go">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer" aria-label="Navigation">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-menu" viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h16"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Reticulum-Go
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Compatibility
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="void" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-moon" viewBox="0 0 24 24"><path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="paper" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search" aria-label="Search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-search" viewBox="0 0 24 24"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog" aria-label="Search">
+  <button type="button" class="md-search__button">
+    Search
+  </button>
+</div>
+      
+    
+    <div class="md-header__source">
+      
+        <a href="https://github.com/Quad4-Software/Reticulum-Go" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      
+    </div>
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="./.." title="Reticulum-Go" class="md-nav__button md-logo" aria-label="Reticulum-Go" data-md-component="logo">
+      
+  <img src="../assets/logo.svg" alt="Reticulum-Go">
+
+    </a>
+    Reticulum-Go
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/Quad4-Software/Reticulum-Go" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="./.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Home
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../downloads/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Downloads
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Start
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_3">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Start
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Overview
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Architecture
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Getting started
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Configuration
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Develop
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_4">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Develop
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../package-map/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Package map
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  API reference
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Internals
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_5">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Internals
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../transport/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Transport
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../interfaces/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Interfaces
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../identity-and-destinations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Identity and destinations
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../links-channels-and-resources/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Links, channels, and resources
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cryptography/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Cryptography
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Reference
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
+            <label class="md-nav__title" for="__nav_6">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Reference
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../security/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Security
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Compatibility
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="././" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Compatibility
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#reference-target" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Reference target
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#component-parity" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Component parity
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#interfaces" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Interfaces
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#python-12x-to-142-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Python 1.2.x to 1.4.2 changes
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#known-gaps" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Known gaps
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#go-only-extensions" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Go-only extensions
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#config-differences" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Config differences
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#utilities" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Utilities
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#verification-workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Verification workflow
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#running-alongside-python" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Running alongside Python
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#related-documents" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Related documents
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../control-api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Control API
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../librns/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  librns
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../utilities/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  CLI utilities
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../embedding-and-wasm/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Embedding and WebAssembly
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../microvm/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Firecracker microvm
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../development-and-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Development and testing
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Examples
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Appendix
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_7">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Appendix
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../deviations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Deviations from Python RNS
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../packet-debug/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Packet debugging
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../interop-timeline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Interop timeline
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+  
+    <a href="https://github.com/Quad4-Software/Reticulum-Go/edit/master/docs/en/compatibility.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-file-pen" viewBox="0 0 24 24"><path d="M12.659 22H18a2 2 0 0 0 2-2V8a2.4 2.4 0 0 0-.706-1.706l-3.588-3.588A2.4 2.4 0 0 0 14 2H6a2 2 0 0 0-2 2v9.34"/><path d="M14 2v5a1 1 0 0 0 1 1h5M10.378 12.622a1 1 0 0 1 3 3.003L8.36 20.637a2 2 0 0 1-.854.506l-2.867.837a.5.5 0 0 1-.62-.62l.836-2.869a2 2 0 0 1 .506-.853z"/></svg>
+    </a>
+  
+  
+
+
+<h1 id="compatibility-with-python-reticulum">Compatibility with Python Reticulum<a class="headerlink" href="#compatibility-with-python-reticulum" title="Permanent link">&para;</a></h1>
+<h2 id="reference-target">Reference target<a class="headerlink" href="#reference-target" title="Permanent link">&para;</a></h2>
+<p>Reticulum-Go is tested against Python RNS 1.6.1, plus the <a href="https://reticulum.network/manual/reference.html">official network API reference</a>.</p>
+<p>Crossref vectors clone the reference from rns://7649a50d84610232d1416b41d2896aff/reticulum/reticulum via <a href="https://reticulum.network/manual/git.html">rngit</a> (tests/crossref/run_crossref.sh). The GitHub mirror is not used for vectors.</p>
+<p>The detailed matrix with config key tables lives in <a href="https://github.com/Quad4-Software/Reticulum-Go/blob/master/COMPATIBILITY.md">COMPATIBILITY.md</a>. This page summarizes the key differences and design choices.</p>
+<h2 id="component-parity">Component parity<a class="headerlink" href="#component-parity" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Status</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Crypto</td>
+<td>Complete</td>
+<td>Curve25519, AES-256-CBC, HMAC-SHA256, HKDF. Crossref verified</td>
+</tr>
+<tr>
+<td>Identity</td>
+<td>Complete</td>
+<td>Optional RHB1 hardware descriptor. Python from_file is 64-byte software only. Known-peer ratchets persist under storage/ratchets/</td>
+</tr>
+<tr>
+<td>Destination</td>
+<td>Complete</td>
+<td>SINGLE, GROUP, PLAIN, LINK. Identity ratchets opt-in via EnableRatchets. GROUP uses shared Token keys (CreateKeys / LoadPrivateKey)</td>
+</tr>
+<tr>
+<td>Packet</td>
+<td>Complete</td>
+<td>Header types 1 and 2, all packet types and contexts</td>
+</tr>
+<tr>
+<td>Transport</td>
+<td>Complete</td>
+<td>Path table, announces, relay, persistence, ingress control, random-blob path selection</td>
+</tr>
+<tr>
+<td>IFAC</td>
+<td>Complete</td>
+<td>UDP, TCP, Auto. Live tests in tests/interop/ifac_live_test.go</td>
+</tr>
+<tr>
+<td>Link</td>
+<td>Complete</td>
+<td>Both directions, RTT, request/response, channel, buffer, resources</td>
+</tr>
+<tr>
+<td>Resource</td>
+<td>Complete</td>
+<td>Multi-part, hashmaps, RESOURCE_PRF, bzip2, split advertisements</td>
+</tr>
+<tr>
+<td>Channel</td>
+<td>Complete</td>
+<td>Ghost-envelope fix, RX sequence ring, TX window and MDU gates. Tests in pkg/channel</td>
+</tr>
+<tr>
+<td>Buffer</td>
+<td>Complete</td>
+<td>Stream buffer over channel</td>
+</tr>
+<tr>
+<td>Interfaces</td>
+<td>Partial</td>
+<td>See below</td>
+</tr>
+<tr>
+<td>Discovery</td>
+<td>Complete</td>
+<td>Wire, listen, announcer, LXStamper, autoconnect for Backbone, TCP, and I2P when autoconnect_discovered_interfaces &gt; 0</td>
+</tr>
+<tr>
+<td>Blackhole</td>
+<td>Complete</td>
+<td>Local table, announce drop, LINKIDENTIFY teardown, publish /list, sources updater</td>
+</tr>
+<tr>
+<td>Node lifecycle</td>
+<td>Go-only</td>
+<td>pkg/node embedder API, no Python equivalent</td>
+</tr>
+<tr>
+<td>librns C ABI</td>
+<td>Go-only</td>
+<td>pkg/librns, include/rns.h. See <a href="../librns/">librns</a></td>
+</tr>
+<tr>
+<td>Odin librns bindings</td>
+<td>Go-only host</td>
+<td>bindings/odin (Linux). See <a href="../librns/#odin-bindings">librns</a></td>
+</tr>
+<tr>
+<td>Dart librns FFI</td>
+<td>Go-only host</td>
+<td>bindings/dart. Linux, Android, Windows. See <a href="../librns/#dart-ffi-bindings">librns</a></td>
+</tr>
+<tr>
+<td>Dart Control API client</td>
+<td>Go-only host</td>
+<td>bindings/dart. See <a href="../control-api/#dart-and-flutter">Control API</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="interfaces">Interfaces<a class="headerlink" href="#interfaces" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Python</th>
+<th>Reticulum-Go</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>UDPInterface</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td>TCPClientInterface, TCPServerInterface</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td>AutoInterface</td>
+<td>Yes (includes 1.3.5 roam listener swap)</td>
+</tr>
+<tr>
+<td>I2PInterface</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td>BackboneInterface</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td>RNode, KISS, AX25KISS, Weave</td>
+<td>No</td>
+</tr>
+<tr>
+<td>SerialInterface</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td>Modem73Interface</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td>SDRInterface</td>
+<td>Yes (lab/testing Go-native burst modem, mock/rtltcp, optional tagged USB backends)</td>
+</tr>
+<tr>
+<td>PipeInterface</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td>LocalInterface</td>
+<td>Yes via share_instance and config LocalInterface / LocalServerInterface</td>
+</tr>
+<tr>
+<td>External plugins</td>
+<td>Yes (Go-native factories, manifests, executables under interfaces/)</td>
+</tr>
+<tr>
+<td>WebSocket</td>
+<td>Go-only</td>
+</tr>
+<tr>
+<td>QUIC</td>
+<td>Go-only (QUICClientInterface / QUICServerInterface)</td>
+</tr>
+<tr>
+<td>WebTransport</td>
+<td>Go-only (WebTransportClientInterface / WebTransportServerInterface)</td>
+</tr>
+<tr>
+<td>DNSRendezvous</td>
+<td>Go-only (DNSRendezvousInterface)</td>
+</tr>
+<tr>
+<td>VSOCK</td>
+<td>Go-only Linux (VSOCKClientInterface / VSOCKServerInterface)</td>
+</tr>
+<tr>
+<td>HTTPS</td>
+<td>Go-only (HTTPSClientInterface / HTTPSServerInterface)</td>
+</tr>
+</tbody>
+</table>
+<p>UDP requires explicit target_host or target_address (Python forward_ip policy).</p>
+<p>Opt-in UDP reconnect when max_reconnect_tries &gt; 0 is a Go extension.</p>
+<p>Opt-in <code>keepalive = &lt;seconds&gt;</code> on UDPInterface is a Go extension. It emits a
+one-byte hold-open datagram while idle (NAT binding keepalive). Peers drop it
+at decode, so it is safe to enable against Python endpoints.</p>
+<p>Reconnect backoff carries jitter and reconnects kick early on underlay
+network changes (Linux rtnetlink). Both are local timing behavior only. No
+wire changes.</p>
+<h2 id="python-12x-to-142-changes">Python 1.2.x to 1.4.2 changes<a class="headerlink" href="#python-12x-to-142-changes" title="Permanent link">&para;</a></h2>
+<p>Wire format is stable across 1.2.x to 1.4.x. Notable behavior differences:</p>
+<table>
+<thead>
+<tr>
+<th>Python change</th>
+<th>Version</th>
+<th>Go</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>BZ2 bomb limits</td>
+<td>1.1.9</td>
+<td>Covered</td>
+</tr>
+<tr>
+<td>Path-request ingress/egress control</td>
+<td>1.2.5</td>
+<td>Covered</td>
+</tr>
+<tr>
+<td>Path table random-blob selection</td>
+<td>1.2.x+</td>
+<td>Covered</td>
+</tr>
+<tr>
+<td>Announce dedup when dest in path table</td>
+<td>1.3.4</td>
+<td>Covered</td>
+</tr>
+<tr>
+<td>Blackhole link teardown at LINKIDENTIFY</td>
+<td>1.3.2</td>
+<td>Covered</td>
+</tr>
+<tr>
+<td>AutoInterface roam listener replacement</td>
+<td>1.3.5</td>
+<td>Covered</td>
+</tr>
+<tr>
+<td>Channel ghost envelopes</td>
+<td>1.3.0</td>
+<td>Covered</td>
+</tr>
+<tr>
+<td>Channel RX sequence ring and send window/MDU</td>
+<td>Python Channel</td>
+<td>Covered</td>
+</tr>
+<tr>
+<td>Shared-instance RPC msgpack</td>
+<td>1.3.4</td>
+<td>Covered</td>
+</tr>
+<tr>
+<td>MODE_INTERNAL / recursive_prs / announce mode rules</td>
+<td>1.3.6</td>
+<td>Covered</td>
+</tr>
+<tr>
+<td>Ephemeral transport identity / static_transport_identity</td>
+<td>1.3.6</td>
+<td>Covered</td>
+</tr>
+<tr>
+<td>local_hops_delta hop mangling</td>
+<td>1.3.6 / 1.3.7</td>
+<td>Covered</td>
+</tr>
+<tr>
+<td>Reject unpack when hops &gt;= PATHFINDER_M</td>
+<td>1.3.8</td>
+<td>Covered</td>
+</tr>
+<tr>
+<td>Link expected_hops on both sides / LRPROOF hop gate</td>
+<td>1.3.8</td>
+<td>Covered</td>
+</tr>
+<tr>
+<td>Discovery on MODE_INTERNAL / location_cmd</td>
+<td>1.3.9</td>
+<td>Covered</td>
+</tr>
+<tr>
+<td>LINKIDENTIFY once / receiver RESOURCE_RCL</td>
+<td>1.3.9</td>
+<td>Covered</td>
+</tr>
+<tr>
+<td>Resource ADV size / empty HMU / Backbone flap block</td>
+<td>1.3.9</td>
+<td>Covered</td>
+</tr>
+<tr>
+<td>Default discovery stamp 16 / stamp caches</td>
+<td>1.4.0</td>
+<td>Covered</td>
+</tr>
+<tr>
+<td>Link keepalive when remote continuously transmits</td>
+<td>1.4.0</td>
+<td>Covered (lastKeepaliveNs)</td>
+</tr>
+<tr>
+<td>Backbone blocked_ips / blocked_ip_list in ifstats</td>
+<td>1.4.0</td>
+<td>Covered</td>
+</tr>
+<tr>
+<td>Known-destination background cleaning</td>
+<td>1.4.0</td>
+<td>Covered (Go path/age rules)</td>
+</tr>
+<tr>
+<td>Interface gravity contests</td>
+<td>1.4.1</td>
+<td>Covered (Go pathingAffinity unique)</td>
+</tr>
+<tr>
+<td>announces_to_internal / boundary search modes</td>
+<td>1.4.1</td>
+<td>Covered</td>
+</tr>
+<tr>
+<td>LRPROOF path rebalance</td>
+<td>1.4.1</td>
+<td>Covered (Go dampening + gravity sticky)</td>
+</tr>
+<tr>
+<td>max_request_size / max_response_size</td>
+<td>1.4.1</td>
+<td>Covered</td>
+</tr>
+<tr>
+<td>Recursive PR online gate</td>
+<td>1.4.2</td>
+<td>Covered (Go also bitrate-gates + emit re-check)</td>
+</tr>
+<tr>
+<td>Discovery blackhole filtering</td>
+<td>1.4.2</td>
+<td>Covered (mutation-invalidated set, receive-time drop)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="known-gaps">Known gaps<a class="headerlink" href="#known-gaps" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Gap</th>
+<th>Impact</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Discovery TCPClient/I2P autoconnect</td>
+<td>Go implements TCP client and I2P peer autoconnect from discovery. Python still stubs these paths</td>
+</tr>
+<tr>
+<td>Remote management mutate</td>
+<td>Remote /path table and rates plus /status work. Remote drop, path-request, and blackhole mutate are unimplemented (Python also exits 255)</td>
+</tr>
+<tr>
+<td>RNode and radio serial drivers</td>
+<td>RNodeInterface and RNodeMultiInterface with KISS framing are present (serial and tcp://). Generic KISSInterface, AX25KISSInterface, and WeaveInterface are not in this tree. SerialInterface, Modem73Interface, and SDRInterface are present</td>
+</tr>
+<tr>
+<td>Utilities rnir rnpkg</td>
+<td>Not ported</td>
+</tr>
+<tr>
+<td>rngit</td>
+<td>Ported (reticulum-go git, git-remote-rns)</td>
+</tr>
+<tr>
+<td>Python-only utilities</td>
+<td>rnir, rnpkg, rnodeconf are not ported</td>
+</tr>
+</tbody>
+</table>
+<h2 id="go-only-extensions">Go-only extensions<a class="headerlink" href="#go-only-extensions" title="Permanent link">&para;</a></h2>
+<p>These do not change the wire format. For local hardening bounds and
+wire-visible extensions see <a href="../deviations/">deviations.md</a>:</p>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Package / location</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Interface hot reload</td>
+<td>pkg/node/reload.go, SIGHUP</td>
+</tr>
+<tr>
+<td>Interface attach/detach/reload</td>
+<td>pkg/node/manage.go, shared-instance RPC, rgostatus -attach/-detach/-reload (RNS 1.5.5)</td>
+</tr>
+<tr>
+<td>Endpoint quarantine</td>
+<td>pkg/interfaces/endpoint_health.go, backoff + flap scoring on outbound clients (Go-only)</td>
+</tr>
+<tr>
+<td>Announce reject counters</td>
+<td>Per-reason announce drop counts in interface_stats (Go-only)</td>
+</tr>
+<tr>
+<td>Path topology view</td>
+<td>rgostatus -T, paths grouped by interface (Go-only)</td>
+</tr>
+<tr>
+<td>watch_interfaces NIC polling</td>
+<td>pkg/node/netmon.go</td>
+</tr>
+<tr>
+<td>Node lifecycle API</td>
+<td>OnNetworkAvailable, OnNetworkLost, RefreshPaths</td>
+</tr>
+<tr>
+<td>UDP reconnect (opt-in)</td>
+<td>pkg/interfaces/reconnect.go</td>
+</tr>
+<tr>
+<td>Backbone I/O multiplexing</td>
+<td>pkg/backbone</td>
+</tr>
+<tr>
+<td>WebSocket interface</td>
+<td>pkg/interfaces/websocket_*.go</td>
+</tr>
+<tr>
+<td>QUIC interface</td>
+<td>pkg/interfaces/quic.go, quic_tls.go</td>
+</tr>
+<tr>
+<td>Control API</td>
+<td>pkg/controlapi</td>
+</tr>
+<tr>
+<td>librns C ABI</td>
+<td>pkg/librns, include/rns.h (<a href="../librns/">librns</a>)</td>
+</tr>
+<tr>
+<td>Odin librns bindings</td>
+<td>bindings/odin (<a href="../librns/#odin-bindings">librns</a>)</td>
+</tr>
+<tr>
+<td>Zig librns bindings</td>
+<td>bindings/zig (<a href="../librns/#zig-bindings">librns</a>)</td>
+</tr>
+<tr>
+<td>C++ librns bindings</td>
+<td>bindings/cpp (<a href="../librns/#c-bindings">librns</a>)</td>
+</tr>
+<tr>
+<td>Dart librns FFI</td>
+<td>bindings/dart (<a href="../librns/#dart-ffi-bindings">librns</a>)</td>
+</tr>
+<tr>
+<td>Dart Control API client</td>
+<td>bindings/dart (<a href="../control-api/#dart-and-flutter">Control API</a>)</td>
+</tr>
+<tr>
+<td>Runtime sandbox</td>
+<td>pkg/sandbox</td>
+</tr>
+<tr>
+<td>Sandbox profiles and extra paths</td>
+<td>sandbox_profile, sandbox_extra_paths, sandbox_strict, sandbox_exec_rlimits</td>
+</tr>
+<tr>
+<td>Control API Unix socket</td>
+<td>control_api_socket in addition to TCP</td>
+</tr>
+<tr>
+<td>Local mesh health counters</td>
+<td>pkg/health, status RPC fields, reticulum-go slow findings</td>
+</tr>
+<tr>
+<td>Pathing affinity / rebalance dampening</td>
+<td>Gravity contests use live iface penalty. LRPROOF rebalance capped per dest and gravity-sticky</td>
+</tr>
+<tr>
+<td>Local DoS protection</td>
+<td>pkg/protect, config dos_protection (off/detect/prevent/auto), storage/dos_protect.mpack</td>
+</tr>
+<tr>
+<td>RAM-only path tables</td>
+<td>in_memory_path_table, in_memory_known_destinations</td>
+</tr>
+<tr>
+<td>Fully ephemeral storage</td>
+<td>in_memory_storage, RETICULUM_IN_MEMORY_STORAGE, soft caps</td>
+</tr>
+<tr>
+<td>Stream read chunk</td>
+<td>64 KiB socket reads on TCP/QUIC/VSOCK/WebTransport/I2P/Local/Pipe/backbone. Packet MTU unchanged</td>
+</tr>
+<tr>
+<td>HandlePacket worker pool</td>
+<td>Fixed workers and bounded queue (max_packet_handlers). Overflow always sheds</td>
+</tr>
+<tr>
+<td>node_profile</td>
+<td>default, core_router, embedded. Fills unset knobs only</td>
+</tr>
+<tr>
+<td>Packet hashlist</td>
+<td>Compact open-addressing generations. Rotate at max/2. Default 1M when transport is on</td>
+</tr>
+</tbody>
+</table>
+<h2 id="config-differences">Config differences<a class="headerlink" href="#config-differences" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Topic</th>
+<th>Python</th>
+<th>Reticulum-Go</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Default config dir</td>
+<td>~/.reticulum, /etc/reticulum</td>
+<td>~/.reticulum-go</td>
+</tr>
+<tr>
+<td>Parser</td>
+<td>configobj</td>
+<td>Hand-rolled in pkg/reticulumconfig</td>
+</tr>
+<tr>
+<td>Unknown keys</td>
+<td>Errors</td>
+<td>Ignored</td>
+</tr>
+<tr>
+<td>Comments</td>
+<td>#</td>
+<td># and ;</td>
+</tr>
+<tr>
+<td>Identity storage</td>
+<td>Per-name blobs</td>
+<td>Per-hash blobs (loads Python known dest files)</td>
+</tr>
+<tr>
+<td>Log destination</td>
+<td>stdout / file / callback</td>
+<td>stderr, file, both, syslog, journald (and combinations)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="utilities">Utilities<a class="headerlink" href="#utilities" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Python</th>
+<th>Reticulum-Go</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>rnsd</td>
+<td>reticulum-go daemon</td>
+</tr>
+<tr>
+<td>rnstatus</td>
+<td>rgostatus (same RPC and remote -R dest as Python, extra Go integrity fields)</td>
+</tr>
+<tr>
+<td>(none)</td>
+<td>rgoslow / reticulum-go slow (bottleneck and local health findings, Go-only)</td>
+</tr>
+<tr>
+<td>(none)</td>
+<td>rgozen / reticulum-go zen (static path and link footgun scan for Go and optional Python, Go-only)</td>
+</tr>
+<tr>
+<td>Examples/Speedtest.py</td>
+<td>rgospeed / reticulum-go speedtest (loopback link throughput smoke)</td>
+</tr>
+<tr>
+<td>rnid</td>
+<td>rgoid (.rid/.rsg/.rsm/.rfe compatible)</td>
+</tr>
+<tr>
+<td>rnprobe</td>
+<td>rgoprobe</td>
+</tr>
+<tr>
+<td>rnpath</td>
+<td>rgopath (same RPC and remote -R dest as Python)</td>
+</tr>
+<tr>
+<td>rncp</td>
+<td>rgocp (send/listen/fetch on rncp.receive)</td>
+</tr>
+<tr>
+<td>rnir, rnodeconf, rnpkg</td>
+<td>Not ported (deferred post-1.0). rnx is reticulum-go x. rngit is reticulum-go git</td>
+</tr>
+<tr>
+<td>rnsh</td>
+<td>Python rnsh talks to a Go listener on dest app rnsh. reticulum-go sh auto-detects that dest. Native rgosh dest is Go-only. Listen -b PERIOD / -A / -C match Python rnsh. Unix PTY. Windows listener is pipes only.</td>
+</tr>
+<tr>
+<td>WASM</td>
+<td>reticulum-wasm (Go-only)</td>
+</tr>
+<tr>
+<td>librns</td>
+<td>librns.so + rns.h (Go-only, Linux first)</td>
+</tr>
+<tr>
+<td>Odin bindings</td>
+<td>bindings/odin (links librns.so, <a href="../librns/#odin-bindings">librns</a>)</td>
+</tr>
+<tr>
+<td>Dart client</td>
+<td>bindings/dart (rns_control FFI and Control API)</td>
+</tr>
+</tbody>
+</table>
+<p>Setup for mixing Python and Go tools against either daemon is documented in <a href="../utilities/#mixed-python-and-go-tools">CLI utilities</a>.</p>
+<h2 id="verification-workflow">Verification workflow<a class="headerlink" href="#verification-workflow" title="Permanent link">&para;</a></h2>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Unit and package tests</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>make<span class="w"> </span><span class="nb">test</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="c1"># Crossref against Python vectors</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>./tests/crossref/run_crossref.sh<span class="w"> </span>all
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="c1"># Live Go/Python side by side</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="nv">RUN_LIVE_INTEROP</span><span class="o">=</span><span class="m">1</span><span class="w"> </span>go<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-v<span class="w"> </span>./tests/interop/...
+</span></code></pre></div>
+<h2 id="running-alongside-python">Running alongside Python<a class="headerlink" href="#running-alongside-python" title="Permanent link">&para;</a></h2>
+<p>Use separate config directories (~/.reticulum-go vs ~/.reticulum). Point interfaces at the same peers with matching IFAC and ports. Shared instance ports must not conflict if both try to own the same interface.</p>
+<p>To let rgostatus query Python rnsd, point -config at ~/.reticulum and align rpc_key when set. On Linux both stacks default to Unix RPC when shared_instance_type is unset. Go tools also fall back to TCP when the type is unset. See <a href="../utilities/">CLI utilities</a>.</p>
+<h2 id="related-documents">Related documents<a class="headerlink" href="#related-documents" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="https://github.com/Quad4-Software/Reticulum-Go/blob/master/COMPATIBILITY.md">COMPATIBILITY.md</a> full tables</li>
+<li><a href="../utilities/">CLI utilities</a> for Go CLI tools and RPC setup</li>
+<li><a href="../interfaces/">Interfaces</a></li>
+<li><a href="../cryptography/">Cryptography</a></li>
+<li><a href="../development-and-testing/">Development and testing</a></li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-circle-arrow-up" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m16 12-4-4-4 4M12 16V8"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../security/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Security">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Security
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../control-api/" class="md-footer__link md-footer__link--next" aria-label="Next: Control API">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Control API
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-right" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      
+      
+        
+        
+      <script id="__config" type="application/json">{"annotate":null,"base":"..","features":["navigation.sections","navigation.footer","navigation.top","toc.integrate","content.action.edit","search.highlight"],"redirect":null,"search":"../assets/javascripts/workers/search.7d14d953.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":{"alias":true,"provider":"mike"}}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.8dcc8e9c.min.js"></script>
+      
+    
+  </body>
+</html>

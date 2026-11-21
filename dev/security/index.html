@@ -1,0 +1,1851 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Reticulum network stack in Go">
+      
+      
+      
+        <link rel="canonical" href="https://reticulum-go.quad4.io/dev/security/">
+      
+      
+        <link rel="prev" href="../cryptography/">
+      
+      
+        <link rel="next" href="../compatibility/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/favicon.svg">
+      <meta name="generator" content="zensical-0.0.63">
+    
+    
+  
+    <title>Security - Reticulum-Go</title>
+  
+
+    
+      
+        
+      
+      <link rel="stylesheet" href="../assets/stylesheets/modern/main.10763589.min.css">
+      
+        
+          
+        
+        <link rel="stylesheet" href="../assets/stylesheets/modern/palette.812a03bb.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Space+Grotesk:300,300i,400,400i,500,500i,700,700i%7CSpace+Mono:400,400i,700,700i&amp;display=fallback">
+        <style>:root{--md-text-font:"Space Grotesk";--md-code-font:"Space Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../stylesheets/void.css">
+    
+    <script>__md_scope=new URL("..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
+    
+      
+
+    
+    
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Reticulum-Go">
+  <meta property="og:title" content="Security - Reticulum-Go">
+  
+    <meta property="og:description" content="Reticulum network stack in Go">
+  
+  
+    <meta property="og:url" content="https://reticulum-go.quad4.io/dev/security/">
+  
+  <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0a0a0b">
+  <meta name="theme-color" media="(prefers-color-scheme: light)" content="#fafafa">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "WebSite",
+        "name": "Reticulum-Go",
+        "url": "https://reticulum-go.quad4.io/dev/",
+        "description": "Reticulum network stack in Go",
+        "inLanguage": "en"
+      },
+      {
+        "@type": "SoftwareSourceCode",
+        "name": "Reticulum-Go",
+        "url": "https://reticulum-go.quad4.io/dev/",
+        "codeRepository": "https://github.com/Quad4-Software/Reticulum-Go",
+        "programmingLanguage": "Go"
+      }
+    ]
+  }
+  </script>
+
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="void" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer" aria-label="Navigation"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#security" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="./.." title="Reticulum-Go" class="md-header__button md-logo" aria-label="Reticulum-Go" data-md-component="logo">
+      
+  <img src="../assets/logo.svg" alt="Reticulum-Go">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer" aria-label="Navigation">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-menu" viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h16"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Reticulum-Go
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Security
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="void" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-moon" viewBox="0 0 24 24"><path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="paper" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search" aria-label="Search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-search" viewBox="0 0 24 24"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog" aria-label="Search">
+  <button type="button" class="md-search__button">
+    Search
+  </button>
+</div>
+      
+    
+    <div class="md-header__source">
+      
+        <a href="https://github.com/Quad4-Software/Reticulum-Go" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      
+    </div>
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="./.." title="Reticulum-Go" class="md-nav__button md-logo" aria-label="Reticulum-Go" data-md-component="logo">
+      
+  <img src="../assets/logo.svg" alt="Reticulum-Go">
+
+    </a>
+    Reticulum-Go
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/Quad4-Software/Reticulum-Go" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="./.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Home
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../downloads/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Downloads
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Start
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_3">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Start
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Overview
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Architecture
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Getting started
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Configuration
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Develop
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_4">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Develop
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../package-map/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Package map
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  API reference
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Internals
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_5">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Internals
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../transport/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Transport
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../interfaces/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Interfaces
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../identity-and-destinations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Identity and destinations
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../links-channels-and-resources/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Links, channels, and resources
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cryptography/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Cryptography
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Reference
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
+            <label class="md-nav__title" for="__nav_6">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Reference
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Security
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="././" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Security
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#reporting-vulnerabilities" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Reporting vulnerabilities
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#threat-model-practical-summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Threat model (practical summary)
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#runtime-sandbox" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Runtime sandbox
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cryptography" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Cryptography
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#supply-chain" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Supply chain
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#releases" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Releases
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#static-analysis-in-development" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Static analysis in development
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#logging-and-secrets" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Logging and secrets
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#secret-memory-handling-pkgsecuremem" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Secret memory handling (pkg/securemem)
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dos-protection-local-idsips" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        DoS protection (local IDS/IPS)
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#local-mesh-health-observe-only" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Local mesh health (observe only)
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#control-api-exposure" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Control API exposure
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#bz2-bomb-limits" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        BZ2 bomb limits
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#rgosh-remote-shell" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        rgosh remote shell
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#hop-field-validation-rns-138" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Hop field validation (RNS 1.3.8)
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#related-documents" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Related documents
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../compatibility/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Compatibility
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../control-api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Control API
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../librns/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  librns
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../utilities/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  CLI utilities
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../embedding-and-wasm/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Embedding and WebAssembly
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../microvm/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Firecracker microvm
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../development-and-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Development and testing
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Examples
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Appendix
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_7">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Appendix
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../deviations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Deviations from Python RNS
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../packet-debug/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Packet debugging
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../interop-timeline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Interop timeline
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+  
+    <a href="https://github.com/Quad4-Software/Reticulum-Go/edit/master/docs/en/security.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-file-pen" viewBox="0 0 24 24"><path d="M12.659 22H18a2 2 0 0 0 2-2V8a2.4 2.4 0 0 0-.706-1.706l-3.588-3.588A2.4 2.4 0 0 0 14 2H6a2 2 0 0 0-2 2v9.34"/><path d="M14 2v5a1 1 0 0 0 1 1h5M10.378 12.622a1 1 0 0 1 3 3.003L8.36 20.637a2 2 0 0 1-.854.506l-2.867.837a.5.5 0 0 1-.62-.62l.836-2.869a2 2 0 0 1 .506-.853z"/></svg>
+    </a>
+  
+  
+
+
+<h1 id="security">Security<a class="headerlink" href="#security" title="Permanent link">&para;</a></h1>
+<p>This page summarizes security practices for Reticulum-Go. The repository root <a href="https://github.com/Quad4-Software/Reticulum-Go/blob/master/SECURITY.md">SECURITY.md</a> remains the authoritative source for reporting contacts and detailed CI paths. <a href="../cryptography/">Cryptography</a> covers algorithms and key handling.</p>
+<h2 id="reporting-vulnerabilities">Reporting vulnerabilities<a class="headerlink" href="#reporting-vulnerabilities" title="Permanent link">&para;</a></h2>
+<p>Report security issues privately before public disclosure.</p>
+<table>
+<thead>
+<tr>
+<th>Channel</th>
+<th>Contact</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Reticulum LXMF</td>
+<td>f489752fbef161c64d65e385a4e9fc74</td>
+</tr>
+<tr>
+<td>Email</td>
+<td><a href="&#109;&#97;&#105;&#108;&#116;&#111;&#58;&#115;&#101;&#99;&#117;&#114;&#105;&#116;&#121;&#64;&#113;&#117;&#97;&#100;&#52;&#46;&#105;&#111;">&#115;&#101;&#99;&#117;&#114;&#105;&#116;&#121;&#64;&#113;&#117;&#97;&#100;&#52;&#46;&#105;&#111;</a></td>
+</tr>
+</tbody>
+</table>
+<p>Include enough detail to reproduce the issue: component, expected behavior, actual behavior, and environment.</p>
+<h2 id="threat-model-practical-summary">Threat model (practical summary)<a class="headerlink" href="#threat-model-practical-summary" title="Permanent link">&para;</a></h2>
+<p>Reticulum-Go assumes:</p>
+<ul>
+<li>Attackers can send arbitrary packets on configured interfaces</li>
+<li>Long-term identity keys must remain confidential</li>
+<li>Operators configure IFAC passphrases and network names as shared secrets for interface segments</li>
+<li>Host OS hardening is the operator responsibility outside the daemon sandbox</li>
+</ul>
+<p>The stack provides cryptographic authentication and encryption per the Reticulum protocol. It does not replace firewall policy, physical security, or application-level authorization.</p>
+<h2 id="runtime-sandbox">Runtime sandbox<a class="headerlink" href="#runtime-sandbox" title="Permanent link">&para;</a></h2>
+<p>The reticulum-go daemon calls sandbox.Apply from pkg/sandbox after config load, transport start, shared-instance attach, and Control API bind. Privileged initialization and listeners complete first so FreeBSD CapEnter and OpenBSD pledge do not block those sockets.</p>
+<p>Default: enable_sandbox = yes in [reticulum]. Set enable_sandbox = no to disable (not recommended for production).</p>
+<p>On Linux, enable_seccomp defaults to yes when the sandbox is enabled. Set enable_seccomp = no to skip the seccomp filter. Install prefers process-wide SECCOMP_FILTER_FLAG_TSYNC, then falls back to per-OS-thread install (AllThreadsSyscall), then prctl(PR_SET_SECCOMP) on kernels without the seccomp syscall. Any remaining failure soft-fails so older kernels and constrained environments keep running.</p>
+<p>sandbox_strict = yes makes Landlock, seccomp, OpenBSD unveil lock, and FreeBSD CapEnter failures fatal. Default is no. WASM and other stub platforms still start.</p>
+<p>sandbox_profile = router omits /bin, /usr/bin, and /usr/local/bin from Linux Landlock. Default full keeps those trees so PipeInterface, discovery scripts, dynamic .mu pages, and rgosh can exec. Do not pair router with those features. The profile is never inferred from node_profile.</p>
+<p>sandbox_extra_paths adds operator paths (serial devices, custom binaries, TLS files already inferred from interface config). Landlock also allowlists interface Device, pipe command, discovery location_cmd, and QUIC cert paths automatically.</p>
+<p>Packaged systemd units add ProtectSystem, ProtectKernel*, LockPersonality, RestrictRealtime, RestrictSUIDSGID, and UMask=0077. They do not switch to a dedicated user. An optional drop-in example lives at /usr/share/doc/reticulum-go/reticulum-go.user.conf.example.</p>
+<table>
+<thead>
+<tr>
+<th>OS</th>
+<th>Mechanism</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Linux</td>
+<td>Landlock, seccomp-bpf, PR_SET_NO_NEW_PRIVS, rlimits</td>
+<td>Whitelists config and storage paths (including $XDG_RUNTIME_DIR for Secret Service), denies high-risk syscalls such as ptrace/mount/module load, limits caps</td>
+</tr>
+<tr>
+<td>OpenBSD</td>
+<td>unveil, pledge</td>
+<td>Restricts visible paths and syscalls</td>
+</tr>
+<tr>
+<td>FreeBSD</td>
+<td>cap_enter, rlimits</td>
+<td>Capability mode after resource limits</td>
+</tr>
+<tr>
+<td>Darwin</td>
+<td>rlimits</td>
+<td>Memory, FD, core dump, stack, process limits</td>
+</tr>
+<tr>
+<td>Windows</td>
+<td>Job object</td>
+<td>Limits breakaway, processes, working set</td>
+</tr>
+<tr>
+<td>Other / WASM</td>
+<td>no-op</td>
+<td>Logs unsupported, continues</td>
+</tr>
+</tbody>
+</table>
+<p>Landlock requires Linux kernel 5.13 or newer. Older kernels skip Landlock gracefully where possible. Seccomp soft-fails on install error or ENOSYS.</p>
+<p>The WASM build (reticulum-wasm) does not use this sandbox. It relies on the browser or host runtime instead.</p>
+<p>Sandboxing is defense in depth. It is not a substitute for a MicroVM or strong host isolation. It does not fix weak passphrases, leaked identity files, or misconfigured interfaces.</p>
+<h2 id="cryptography">Cryptography<a class="headerlink" href="#cryptography" title="Permanent link">&para;</a></h2>
+<p>All protocol crypto details: <a href="../cryptography/">Cryptography</a>.</p>
+<p>Application code should use pkg/cryptography and pkg/identity. IFAC configuration is part of interface security, not a substitute for link encryption.</p>
+<h2 id="supply-chain">Supply chain<a class="headerlink" href="#supply-chain" title="Permanent link">&para;</a></h2>
+<p>Vendored dependencies. Third-party source is committed in vendor/. Ordinary builds use GOFLAGS=-mod=vendor and GOPROXY=off so compile time does not fetch modules from the network.</p>
+<p>CI security scans. GitHub Actions runs Gosec, govulncheck, and Trivy on pushes and pull requests to master/dev. CodeQL covers Go, JavaScript/TypeScript, Python, and Actions workflows. Pull requests also run dependency-review.yml. Trivy is installed from a pinned release with SHA256 verification (scripts/ci/setup-trivy.sh).</p>
+<p>Reproducibility. CI includes a reproducibility check (make reproducibility).</p>
+<p>Actions pinning. Third-party actions are pinned to full commit SHAs.</p>
+<p>Tree integrity. Root file reticulum-go.rsm is an rnid signed message embedding SHA-256 hashes of tracked files (excluding vendor/ trees). CI verifies signer 6947fc2980d273b51a8ff4bc22b290b1 and rechecks bytes at job start and end (make tree-rsm-verify).</p>
+<h2 id="releases">Releases<a class="headerlink" href="#releases" title="Permanent link">&para;</a></h2>
+<p>Tagged releases publish from .github/workflows/publish.yml on GitHub Actions.</p>
+<p>Each release asset has a cosign attestation bundle (*.cosign.bundle) signed with the project key and anchored in the Rekor transparency log. Public key: cosign.pub in the repository.</p>
+<p>Verify:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>sh<span class="w"> </span>scripts/ci/verify-release-attestation.sh<span class="w"> </span>PATH/TO/blob<span class="w"> </span>PATH/TO/blob.cosign.bundle
+</span></code></pre></div>
+<p>Assets also carry GitHub OIDC build provenance (SLSA Build L3), signed by the GitHub attestation service against the release workflow run rather than a repo secret:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>gh<span class="w"> </span>attestation<span class="w"> </span>verify<span class="w"> </span>PATH/TO/blob<span class="w"> </span>--repo<span class="w"> </span>Quad4-Software/Reticulum-Go
+</span></code></pre></div>
+<p>SHA256 listings in release notes are an informal backup. Prefer cosign or attestation verification.</p>
+<p>SBOMs (SPDX and CycloneDX) are attached to tagged releases via Trivy (make sbom).</p>
+<h2 id="static-analysis-in-development">Static analysis in development<a class="headerlink" href="#static-analysis-in-development" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Tool</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Gosec</td>
+<td>Go security linter</td>
+</tr>
+<tr>
+<td>govulncheck</td>
+<td>Go vulnerability database with reachability</td>
+</tr>
+<tr>
+<td>Trivy</td>
+<td>Filesystem and dependency scan</td>
+</tr>
+<tr>
+<td>revive</td>
+<td>Style and lint (make lint)</td>
+</tr>
+</tbody>
+</table>
+<p>Run locally:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>make<span class="w"> </span>vulncheck
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>make<span class="w"> </span>lint
+</span></code></pre></div>
+<p>Full check target:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>make<span class="w"> </span>check
+</span></code></pre></div>
+<h2 id="logging-and-secrets">Logging and secrets<a class="headerlink" href="#logging-and-secrets" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Log destination supports stderr, file, both, syslog, journald, and combinations such as syslog+stderr. Set logfile when using a file path.</li>
+<li>High debug levels may print packet hex. Use loglevel 4 or lower in production unless diagnosing an incident.</li>
+<li>rpc_key protects the control API and shared-instance RPC. Generate with cryptographic random bytes. Do not commit keys to version control.</li>
+<li>identity_backend = secretservice keeps identity private blobs in the desktop keyring (Secret Service) instead of plaintext files. Requires an unlocked session collection.</li>
+<li>identity_backend = keyring stores the same blobs in the Linux kernel keyring (no D-Bus), suitable for systemd units. See <a href="../identity-and-destinations/">Identity and destinations</a> for threat coverage.</li>
+<li>Identity private keys are held in locked memory when the OS allows (pkg/securemem). This is defense in depth, not a substitute for disk encryption or HSM signing.</li>
+</ul>
+<h2 id="secret-memory-handling-pkgsecuremem">Secret memory handling (pkg/securemem)<a class="headerlink" href="#secret-memory-handling-pkgsecuremem" title="Permanent link">&para;</a></h2>
+<p>Long-term secret material (identity private keys, link session keys) lives outside the Go heap:</p>
+<ul>
+<li>Small buffers are carved from shared 256 KiB anonymous mappings so per-link allocation does not syscall. Each mapping has PROT_NONE guard pages on both ends, is mlock'd when the OS allows it, is marked MADV_DONTDUMP and MADV_WIPEONFORK on Linux, and uses MAP_CONCEAL on OpenBSD. Cells carry 16-byte canaries that are checked on every operation and on Close.</li>
+<li>NewProtected gives one dedicated mapping per buffer in the same guard-page shape. The region is PROT_NONE while idle and becomes read-write only inside Use, CopyFrom, CopyOut, and Wipe. Intended for high-value long-term secrets, not per-packet keys.</li>
+<li>Close wipes the cell or region before release. A finalizer wipes as a safety net when Close is forgotten, but it may run long after the secret was last used.</li>
+<li>The daemon calls securemem.HardenProcess at startup: PR_SET_DUMPABLE off and RLIMIT_CORE zero on Linux, RLIMIT_CORE zero on other Unix. Core dumps cannot carry secrets out of the process. Set RETICULUM_DISABLE_HARDEN=1 when debugging.</li>
+<li>securemem.Do wraps runtime/secret.Do when the binary is built with -tags goexperiment.runtimesecret, so register and stack copies of secrets are erased after the scoped call.</li>
+</ul>
+<p>What is not covered, so you can plan around it:</p>
+<ul>
+<li>crypto APIs take key bytes and keep them in Go-heap and stack memory the package cannot wipe. Signing copies the key to a heap buffer for the call and wipes it (stdlib ed25519 requires a heap pointer for its FIPS weak-handle cache). x/crypto primitives read the mapped bytes directly.</li>
+<li>Bytes() hands out the live region. Callers must not retain it, and CopyOut explicitly produces a heap copy the caller must wipe with WipeBytes.</li>
+<li>mlock keeps pages out of swap only. It does not stop a root debugger, ptrace peer, hibernation image, or VM host from reading memory.</li>
+<li>Canaries detect writes past a live cell. Writes into a freed cell land on already-wiped bytes and are not distinguishable until the cell is reallocated.</li>
+<li>On js/wasm, haiku, and plan9 the package falls back to wiped heap buffers with no OS-level protection.</li>
+</ul>
+<h2 id="dos-protection-local-idsips">DoS protection (local IDS/IPS)<a class="headerlink" href="#dos-protection-local-idsips" title="Permanent link">&para;</a></h2>
+<p>Go-only. Config key dos_protection in [reticulum] (default off). Implementation: pkg/protect.</p>
+<p>This is node-local overload control. It is off until you opt in, because a false positive on a public transport drops path requests and can freeze a shared UDP interface. Mesh announce and path-request de-dup still run in Transport. When enabled it sheds work on this process so floods, accept storms, crypto spam, handshake spam, resource pile-ups, and memory pressure do not freeze the daemon. It is not a network-wide IDS and does not stop Sybil join storms across the mesh (for example mass fake peers on an anonymity overlay). Pair it with IFAC, careful public-face exposure, and operator policy.</p>
+<table>
+<thead>
+<tr>
+<th>Mode</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>off</td>
+<td>No gates</td>
+</tr>
+<tr>
+<td>detect</td>
+<td>Observe and warn only</td>
+</tr>
+<tr>
+<td>prevent</td>
+<td>Observe, warn, and block or shed</td>
+</tr>
+<tr>
+<td>auto</td>
+<td>Learn baselines quietly, persist them, arm prevent, relearn on interface set change or moderate traffic drift</td>
+</tr>
+</tbody>
+</table>
+<p>Adaptive baselines use EWMA of once-per-second peak pps/bps. Flood samples are ignored while learning so an attack cannot become the quiet baseline. Persistence path: storage/dos_protect.mpack.</p>
+<p>Trips emit rate-limited stdout warnings and increment dos_* health counters. Full key reference and gate table: <a href="../configuration/#dos_protection-go-only">Configuration</a>. Tests: <a href="../development-and-testing/#dos_protection-tests">Development and testing</a>.</p>
+<p>Handler pool exhaustion always sheds packets (never sync-dispatches on the ingress thread). Announce-class floods shed at the adaptive trip line. Path requests, data, and established link or proof traffic ride out bursts over that line (up to 2x, or the advertised bitrate if higher). That band is counted in health trips but does not arm interface cool-down. Interface-wide cool-down stays off by default so a busy public listener is not blackholed. Traffic above the band still sheds. A single flooder can still be peer-cooled.</p>
+<p>Memory pressure shedding (heap watermark) enforces immediately in prevent and in auto, regardless of learning phase. It does not wait for auto to arm, since heap exhaustion is a safety valve rather than a flood-learning signal. Explicit detect still never blocks, matching its observe-only contract.</p>
+<p>Rate, byte, and cool-down accounting run per remote peer as well as per interface. A single sender sharing a listener (a busy TCP/QUIC/VSOCK/I2P accept loop, a UDP socket, or the HTTPS long-poll transport) is capped at half of the bitrate-scaled trip line for announce-class traffic, so one hostile peer cannot exhaust the whole interface budget and cool down every other peer on it. Established link-class traffic from that peer uses the same prefer-keep headroom as the interface path. Peer sub-buckets are bounded and idle ones are pruned so the mitigation cannot itself become a memory-growth vector.</p>
+<p>On FreeBSD with sandbox enabled, SIGHUP re-execs the daemon so CapEnter does not block config reload. Other platforms keep in-process ReloadInterfaces.</p>
+<p>Linux Landlock or seccomp soft-fail emits WARNING: sandbox soft-unavailable mechanism=... on stdout once per mechanism per 30 seconds.</p>
+<h2 id="local-mesh-health-observe-only">Local mesh health (observe only)<a class="headerlink" href="#local-mesh-health-observe-only" title="Permanent link">&para;</a></h2>
+<p>Reticulum-Go keeps node-local integrity and link-health counters in pkg/health. They stay on this node. Nothing is flooded to the mesh or sent to a cloud collector.</p>
+<p>Counters increment at existing drop and fail sites (IFAC verify, link HMAC, unpack errors, announce signature rejects, link proof rejects, request timestamp skew, blackhole hits, link stale closes, resource stalls, NIC flaps, duplicate announces, suppressed PATH_RESPONSE answers, duplicate path requests, missing announce cache for path answers, and unknown-iface link relay drops). Accept and reject behavior is unchanged.</p>
+<p>Operators see the numbers through:</p>
+<table>
+<thead>
+<tr>
+<th>Surface</th>
+<th>What you get</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>reticulum-go status</td>
+<td>Per-interface integrity totals and fail rate when non-zero</td>
+</tr>
+<tr>
+<td>reticulum-go status -json</td>
+<td>Same fields in JSON (ifac_fail, hmac_fail, integrity_fail_rate, stale_closes, announce_dup, ...)</td>
+</tr>
+<tr>
+<td>reticulum-go snapshot (rgosnap)</td>
+<td>Paths, active links, and full transport health JSON including path drop counters</td>
+</tr>
+<tr>
+<td>reticulum-go slow</td>
+<td>Scored findings such as integrity_burst, auth_pressure, link_degraded, ingress_pressure</td>
+</tr>
+<tr>
+<td>Control API GET /v1/status</td>
+<td>Integrity and drop fields on each interface object</td>
+</tr>
+<tr>
+<td>Shared-instance RPC interface_stats</td>
+<td>Same msgpack keys (Go daemon only populates them)</td>
+</tr>
+</tbody>
+</table>
+<p>Scoring prefers fail ratios and bitrate-aware thresholds. High latency alone on a low-bitrate radio is not treated as critical. There is no auto blackhole or auto interface offline in this release. The operator decides whether to adjust IFAC keys, enable ingress control, blackhole an identity, or take an interface down.</p>
+<p>See <a href="../utilities/">CLI utilities</a> for status and slow, <a href="../packet-debug/">packet-debug</a> for dump and snapshot, and <a href="../control-api/">Control API</a> for HTTP fields.</p>
+<h2 id="control-api-exposure">Control API exposure<a class="headerlink" href="#control-api-exposure" title="Permanent link">&para;</a></h2>
+<p>The control API binds to 127.0.0.1 by default. It is disabled unless enable_control_api = yes. Do not expose it to untrusted networks without additional TLS and auth layers (not provided by this package).</p>
+<h2 id="bz2-bomb-limits">BZ2 bomb limits<a class="headerlink" href="#bz2-bomb-limits" title="Permanent link">&para;</a></h2>
+<p>Resource and buffer decompression enforce size limits aligned with Python 1.1.9 to resist compression bombs. The rgosh stream path also caps decompressed channel chunks (MaxDecompressed) and rejects oversize inflate attempts.</p>
+<h2 id="rgosh-remote-shell">rgosh remote shell<a class="headerlink" href="#rgosh-remote-shell" title="Permanent link">&para;</a></h2>
+<p>reticulum-go sh / rgosh authenticates sessions with Reticulum link identity allowlists. Deny tears the link down and never starts a remote process. Per-session config copies prevent argv pollution across clients. Prefer explicit -a allowlists over -n. Use -C when the listener must reject a remote cmdline and only run the default command. Ctrl-C is forwarded into the remote PTY. Disconnect with ~. after a newline. Destination hashes for app rnsh select the Python rnsh wire protocol automatically. --compat forces that dest and those channel types.</p>
+<h2 id="hop-field-validation-rns-138">Hop field validation (RNS 1.3.8)<a class="headerlink" href="#hop-field-validation-rns-138" title="Permanent link">&para;</a></h2>
+<p>Python RNS 1.3.8 rejects packets whose hop byte is &gt;= PATHFINDER_M (128) during unpack. Reticulum-Go mirrors that in pkg/packet.Unpack. Values 128 through 255 are dropped before transport processing.</p>
+<p>Link establishment also records expected_hops on both initiator and responder. Initiator LRPROOF acceptance requires the proof hop count to match (or expected_hops == PATHFINDER_M when the path length was unknown at link creation), matching Python Transport pending-link gating.</p>
+<h2 id="related-documents">Related documents<a class="headerlink" href="#related-documents" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="../cryptography/">Cryptography</a></li>
+<li><a href="../configuration/">Configuration</a> for sandbox, control API, and dos_protection keys</li>
+<li><a href="../utilities/">CLI utilities</a> for status and slow health findings</li>
+<li><a href="../packet-debug/">Packet debug</a> for dump, snapshot, and Wireshark</li>
+<li><a href="https://github.com/Quad4-Software/Reticulum-Go/blob/master/SECURITY.md">SECURITY.md</a> full policy text</li>
+<li><a href="../compatibility/">Compatibility</a> for RNS 1.6.1 interop</li>
+<li><a href="../package-map/#pkgprotect">Package map</a> for pkg/protect</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-circle-arrow-up" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m16 12-4-4-4 4M12 16V8"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../cryptography/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Cryptography">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Cryptography
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../compatibility/" class="md-footer__link md-footer__link--next" aria-label="Next: Compatibility">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Compatibility
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-right" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      
+      
+        
+        
+      <script id="__config" type="application/json">{"annotate":null,"base":"..","features":["navigation.sections","navigation.footer","navigation.top","toc.integrate","content.action.edit","search.highlight"],"redirect":null,"search":"../assets/javascripts/workers/search.7d14d953.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":{"alias":true,"provider":"mike"}}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.8dcc8e9c.min.js"></script>
+      
+    
+  </body>
+</html>

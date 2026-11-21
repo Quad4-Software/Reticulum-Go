@@ -1,0 +1,2660 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Reticulum network stack in Go">
+      
+      
+      
+        <link rel="canonical" href="https://reticulum-go.quad4.io/dev/api-reference/">
+      
+      
+        <link rel="prev" href="../package-map/">
+      
+      
+        <link rel="next" href="../transport/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/favicon.svg">
+      <meta name="generator" content="zensical-0.0.63">
+    
+    
+  
+    <title>API reference - Reticulum-Go</title>
+  
+
+    
+      
+        
+      
+      <link rel="stylesheet" href="../assets/stylesheets/modern/main.10763589.min.css">
+      
+        
+          
+        
+        <link rel="stylesheet" href="../assets/stylesheets/modern/palette.812a03bb.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Space+Grotesk:300,300i,400,400i,500,500i,700,700i%7CSpace+Mono:400,400i,700,700i&amp;display=fallback">
+        <style>:root{--md-text-font:"Space Grotesk";--md-code-font:"Space Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../stylesheets/void.css">
+    
+    <script>__md_scope=new URL("..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
+    
+      
+
+    
+    
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Reticulum-Go">
+  <meta property="og:title" content="API reference - Reticulum-Go">
+  
+    <meta property="og:description" content="Reticulum network stack in Go">
+  
+  
+    <meta property="og:url" content="https://reticulum-go.quad4.io/dev/api-reference/">
+  
+  <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0a0a0b">
+  <meta name="theme-color" media="(prefers-color-scheme: light)" content="#fafafa">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "WebSite",
+        "name": "Reticulum-Go",
+        "url": "https://reticulum-go.quad4.io/dev/",
+        "description": "Reticulum network stack in Go",
+        "inLanguage": "en"
+      },
+      {
+        "@type": "SoftwareSourceCode",
+        "name": "Reticulum-Go",
+        "url": "https://reticulum-go.quad4.io/dev/",
+        "codeRepository": "https://github.com/Quad4-Software/Reticulum-Go",
+        "programmingLanguage": "Go"
+      }
+    ]
+  }
+  </script>
+
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="void" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer" aria-label="Navigation"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#api-reference" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="./.." title="Reticulum-Go" class="md-header__button md-logo" aria-label="Reticulum-Go" data-md-component="logo">
+      
+  <img src="../assets/logo.svg" alt="Reticulum-Go">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer" aria-label="Navigation">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-menu" viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h16"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Reticulum-Go
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              API reference
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="void" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-moon" viewBox="0 0 24 24"><path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="paper" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search" aria-label="Search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-search" viewBox="0 0 24 24"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog" aria-label="Search">
+  <button type="button" class="md-search__button">
+    Search
+  </button>
+</div>
+      
+    
+    <div class="md-header__source">
+      
+        <a href="https://github.com/Quad4-Software/Reticulum-Go" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      
+    </div>
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="./.." title="Reticulum-Go" class="md-nav__button md-logo" aria-label="Reticulum-Go" data-md-component="logo">
+      
+  <img src="../assets/logo.svg" alt="Reticulum-Go">
+
+    </a>
+    Reticulum-Go
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/Quad4-Software/Reticulum-Go" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="./.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Home
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../downloads/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Downloads
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Start
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_3">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Start
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Overview
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Architecture
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Getting started
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Configuration
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Develop
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+            <label class="md-nav__title" for="__nav_4">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Develop
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../package-map/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Package map
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  API reference
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="././" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  API reference
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#how-this-differs-from-the-python-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        How this differs from the Python reference
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#choose-an-integration-path" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Choose an integration path
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#mental-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Mental model
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#quick-start-recipe-go" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Quick start recipe (Go)
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#recipe-inbound-link-and-request-handler" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Recipe: inbound link and request handler
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#recipe-outbound-link-and-request" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Recipe: outbound link and request
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#recipe-send-a-file-resource" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Recipe: send a file resource
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#recipe-network-sleep-and-wake" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Recipe: network sleep and wake
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#core-types" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Core types
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Core types">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#node-pkgnode" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Node (pkg/node)
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#identity-pkgidentity" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Identity (pkg/identity)
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#destination-pkgdestination" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Destination (pkg/destination)
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#link-pkglink" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Link (pkg/link)
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Link (pkg&#x2f;link)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#requestreceipt" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        RequestReceipt
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#resource-pkgresource" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Resource (pkg/resource)
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#transport-via-nodetransport" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Transport (via Node.Transport())
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#packet-pkgpacket" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Packet (pkg/packet)
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#config-pkgreticulumconfig-pkgcommon" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Config (pkg/reticulumconfig, pkg/common)
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#python-to-go-map" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Python to Go map
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#concurrency-and-callbacks" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Concurrency and callbacks
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#errors-and-empty-results" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Errors and empty results
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#other-api-surfaces" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Other API surfaces
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#related-documents" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Related documents
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Internals
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_5">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Internals
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../transport/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Transport
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../interfaces/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Interfaces
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../identity-and-destinations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Identity and destinations
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../links-channels-and-resources/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Links, channels, and resources
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cryptography/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Cryptography
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Reference
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_6">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Reference
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../security/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Security
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../compatibility/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Compatibility
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../control-api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Control API
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../librns/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  librns
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../utilities/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  CLI utilities
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../embedding-and-wasm/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Embedding and WebAssembly
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../microvm/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Firecracker microvm
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../development-and-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Development and testing
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Examples
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Appendix
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_7">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Appendix
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../deviations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Deviations from Python RNS
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../packet-debug/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Packet debugging
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../interop-timeline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Interop timeline
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+  
+    <a href="https://github.com/Quad4-Software/Reticulum-Go/edit/master/docs/en/api-reference.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-file-pen" viewBox="0 0 24 24"><path d="M12.659 22H18a2 2 0 0 0 2-2V8a2.4 2.4 0 0 0-.706-1.706l-3.588-3.588A2.4 2.4 0 0 0 14 2H6a2 2 0 0 0-2 2v9.34"/><path d="M14 2v5a1 1 0 0 0 1 1h5M10.378 12.622a1 1 0 0 1 3 3.003L8.36 20.637a2 2 0 0 1-.854.506l-2.867.837a.5.5 0 0 1-.62-.62l.836-2.869a2 2 0 0 1 .506-.853z"/></svg>
+    </a>
+  
+  
+
+
+<h1 id="api-reference">API reference<a class="headerlink" href="#api-reference" title="Permanent link">&para;</a></h1>
+<p>This is the application-facing API guide for Reticulum-Go. It is not a dump of every exported symbol. It is organized the way you build programs: choose an integration path, follow a recipe, then look up types and methods.</p>
+<p>Wire behavior matches the <a href="https://reticulum.network/manual/reference.html">Python RNS API reference</a>. Package layout, concurrency rules, and embedder lifecycle are Go-specific and documented here because the Python manual does not cover them.</p>
+<p>For generated signatures, use go doc on the import path or browse the module on pkg.go.dev. For package file maps, see <a href="../package-map/">Package map</a>.</p>
+<h2 id="how-this-differs-from-the-python-reference">How this differs from the Python reference<a class="headerlink" href="#how-this-differs-from-the-python-reference" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Python RNS manual</th>
+<th>This document</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Class catalog (RNS.Reticulum, Identity, Destination, ...)</td>
+<td>Task-first recipes, then API tables</td>
+</tr>
+<tr>
+<td>One process model (RNS.Reticulum(...))</td>
+<td>Four integration paths with trade-offs</td>
+</tr>
+<tr>
+<td>Little concurrency guidance</td>
+<td>Explicit callback and locking rules</td>
+</tr>
+<tr>
+<td>No C / WASM / control-plane docs in the same place</td>
+<td>Links to Control API, librns, WASM</td>
+</tr>
+<tr>
+<td>Examples live elsewhere</td>
+<td>Recipes point at examples/</td>
+</tr>
+</tbody>
+</table>
+<h2 id="choose-an-integration-path">Choose an integration path<a class="headerlink" href="#choose-an-integration-path" title="Permanent link">&para;</a></h2>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>Need Reticulum in my app
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>            |
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>            v
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>      Go process?
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>       /        \
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>     yes         no
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>      |           |
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>      v           v
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a> pkg/node    Same machine as daemon?
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a> in-process        |
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>            -------+-------
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>           /       |       \
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>         yes    C/FFI   browser
+</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>          |       |       |
+</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>          v       v       v
+</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>     Control API  librns  pkg/wasm
+</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>     HTTP/WS      .so
+</span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>          \       |       /
+</span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>           \      |      /
+</span><span id="__span-0-20"><a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>            v     v     v
+</span><span id="__span-0-21"><a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>         destination + link
+</span></code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Path</th>
+<th>Package / surface</th>
+<th>Use when</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>In-process Go</td>
+<td>pkg/node</td>
+<td>Default for Go services and tools</td>
+</tr>
+<tr>
+<td>Daemon + JSON</td>
+<td><a href="../control-api/">Control API</a></td>
+<td>Python, Rust, scripts, multi-language hosts</td>
+</tr>
+<tr>
+<td>In-process C</td>
+<td><a href="../librns/">librns</a></td>
+<td>Native hosts that cannot embed Go source</td>
+</tr>
+<tr>
+<td>In-process Odin</td>
+<td><a href="../librns/#odin-bindings">librns</a></td>
+<td>bindings/odin over librns.so</td>
+</tr>
+<tr>
+<td>Out-of-process Dart / Flutter</td>
+<td><a href="../control-api/#dart-and-flutter">Control API</a></td>
+<td>bindings/dart (rns_control)</td>
+</tr>
+<tr>
+<td>In-process Dart / Flutter FFI</td>
+<td><a href="../librns/#dart-ffi-bindings">librns Dart FFI</a></td>
+<td>bindings/dart (ffi.dart), Linux / Android / Windows</td>
+</tr>
+<tr>
+<td>Out-of-process any language</td>
+<td><a href="../control-api/">Control API</a></td>
+<td>HTTP and WebSocket</td>
+</tr>
+<tr>
+<td>Browser</td>
+<td>pkg/wasm</td>
+<td>WebSocket gateway clients</td>
+</tr>
+</tbody>
+</table>
+<p>Most of this page describes the pkg/node happy path. Other paths expose the same concepts with different bindings.</p>
+<h2 id="mental-model">Mental model<a class="headerlink" href="#mental-model" title="Permanent link">&para;</a></h2>
+<ol>
+<li>Config loads interfaces and storage paths (pkg/reticulumconfig, pkg/common).</li>
+<li>Node starts transport, interfaces, and optional shared instance (pkg/node).</li>
+<li>Identity holds X25519 + Ed25519 keys (pkg/identity).</li>
+<li>Destination is an app endpoint named app.aspect... (pkg/destination).</li>
+<li>Announce publishes reachability. Peers learn paths.</li>
+<li>Path is a cached route (Transport.HasPath / RequestPath).</li>
+<li>Link is an encrypted session to a destination (pkg/link).</li>
+<li>Request / resource move structured replies and large payloads (Link.Request, pkg/resource).</li>
+</ol>
+<p>Packet MTU remains 500 bytes on the wire (pkg/packet.MTU), same as Python.</p>
+<h2 id="quick-start-recipe-go">Quick start recipe (Go)<a class="headerlink" href="#quick-start-recipe-go" title="Permanent link">&para;</a></h2>
+<div class="language-go highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">package</span><span class="w"> </span><span class="nx">main</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="kn">import</span><span class="w"> </span><span class="p">(</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">    </span><span class="s">"log"</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">    </span><span class="s">"os"</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">    </span><span class="s">"os/signal"</span>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">    </span><span class="s">"syscall"</span>
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">    </span><span class="s">"git.quad4.io/reticulum/Reticulum-Go/pkg/destination"</span>
+</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">    </span><span class="s">"git.quad4.io/reticulum/Reticulum-Go/pkg/identity"</span>
+</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">    </span><span class="s">"git.quad4.io/reticulum/Reticulum-Go/pkg/node"</span>
+</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="w">    </span><span class="s">"git.quad4.io/reticulum/Reticulum-Go/pkg/reticulumconfig"</span>
+</span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="p">)</span>
+</span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>
+</span><span id="__span-1-15"><a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="kd">const</span><span class="w"> </span><span class="nx">appName</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"example_utilities"</span>
+</span><span id="__span-1-16"><a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>
+</span><span id="__span-1-17"><a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a><span class="kd">func</span><span class="w"> </span><span class="nx">main</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-1-18"><a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a><span class="w">    </span><span class="nx">cfg</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">reticulumconfig</span><span class="p">.</span><span class="nx">InitConfig</span><span class="p">()</span>
+</span><span id="__span-1-19"><a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-1-20"><a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a><span class="w">        </span><span class="nx">log</span><span class="p">.</span><span class="nx">Fatal</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+</span><span id="__span-1-21"><a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-1-22"><a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a><span class="w">    </span><span class="nx">identity</span><span class="p">.</span><span class="nx">InitKnownDestinationsPersistence</span><span class="p">(</span><span class="nx">cfg</span><span class="p">.</span><span class="nx">ConfigPath</span><span class="p">,</span><span class="w"> </span><span class="nx">cfg</span><span class="p">.</span><span class="nx">InMemoryKnownDestinations</span><span class="p">)</span>
+</span><span id="__span-1-23"><a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a>
+</span><span id="__span-1-24"><a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a><span class="w">    </span><span class="nx">n</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">node</span><span class="p">.</span><span class="nx">New</span><span class="p">(</span><span class="nx">cfg</span><span class="p">)</span>
+</span><span id="__span-1-25"><a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-1-26"><a id="__codelineno-1-26" name="__codelineno-1-26" href="#__codelineno-1-26"></a><span class="w">        </span><span class="nx">log</span><span class="p">.</span><span class="nx">Fatal</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+</span><span id="__span-1-27"><a id="__codelineno-1-27" name="__codelineno-1-27" href="#__codelineno-1-27"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-1-28"><a id="__codelineno-1-28" name="__codelineno-1-28" href="#__codelineno-1-28"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">n</span><span class="p">.</span><span class="nx">Start</span><span class="p">();</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-1-29"><a id="__codelineno-1-29" name="__codelineno-1-29" href="#__codelineno-1-29"></a><span class="w">        </span><span class="nx">log</span><span class="p">.</span><span class="nx">Fatal</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+</span><span id="__span-1-30"><a id="__codelineno-1-30" name="__codelineno-1-30" href="#__codelineno-1-30"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-1-31"><a id="__codelineno-1-31" name="__codelineno-1-31" href="#__codelineno-1-31"></a><span class="w">    </span><span class="k">defer</span><span class="w"> </span><span class="nx">n</span><span class="p">.</span><span class="nx">Stop</span><span class="p">()</span>
+</span><span id="__span-1-32"><a id="__codelineno-1-32" name="__codelineno-1-32" href="#__codelineno-1-32"></a>
+</span><span id="__span-1-33"><a id="__codelineno-1-33" name="__codelineno-1-33" href="#__codelineno-1-33"></a><span class="w">    </span><span class="nx">id</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">identity</span><span class="p">.</span><span class="nx">New</span><span class="p">()</span>
+</span><span id="__span-1-34"><a id="__codelineno-1-34" name="__codelineno-1-34" href="#__codelineno-1-34"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-1-35"><a id="__codelineno-1-35" name="__codelineno-1-35" href="#__codelineno-1-35"></a><span class="w">        </span><span class="nx">log</span><span class="p">.</span><span class="nx">Fatal</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+</span><span id="__span-1-36"><a id="__codelineno-1-36" name="__codelineno-1-36" href="#__codelineno-1-36"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-1-37"><a id="__codelineno-1-37" name="__codelineno-1-37" href="#__codelineno-1-37"></a><span class="w">    </span><span class="nx">dest</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">destination</span><span class="p">.</span><span class="nx">New</span><span class="p">(</span><span class="nx">id</span><span class="p">,</span><span class="w"> </span><span class="nx">destination</span><span class="p">.</span><span class="nx">In</span><span class="o">|</span><span class="nx">destination</span><span class="p">.</span><span class="nx">Out</span><span class="p">,</span><span class="w"> </span><span class="nx">destination</span><span class="p">.</span><span class="nx">Single</span><span class="p">,</span>
+</span><span id="__span-1-38"><a id="__codelineno-1-38" name="__codelineno-1-38" href="#__codelineno-1-38"></a><span class="w">        </span><span class="nx">appName</span><span class="p">,</span><span class="w"> </span><span class="nx">n</span><span class="p">.</span><span class="nx">Transport</span><span class="p">(),</span><span class="w"> </span><span class="s">"minimal"</span><span class="p">)</span>
+</span><span id="__span-1-39"><a id="__codelineno-1-39" name="__codelineno-1-39" href="#__codelineno-1-39"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-1-40"><a id="__codelineno-1-40" name="__codelineno-1-40" href="#__codelineno-1-40"></a><span class="w">        </span><span class="nx">log</span><span class="p">.</span><span class="nx">Fatal</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+</span><span id="__span-1-41"><a id="__codelineno-1-41" name="__codelineno-1-41" href="#__codelineno-1-41"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-1-42"><a id="__codelineno-1-42" name="__codelineno-1-42" href="#__codelineno-1-42"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">dest</span><span class="p">.</span><span class="nx">Announce</span><span class="p">(</span><span class="kc">false</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span><span class="p">);</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-1-43"><a id="__codelineno-1-43" name="__codelineno-1-43" href="#__codelineno-1-43"></a><span class="w">        </span><span class="nx">log</span><span class="p">.</span><span class="nx">Fatal</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+</span><span id="__span-1-44"><a id="__codelineno-1-44" name="__codelineno-1-44" href="#__codelineno-1-44"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-1-45"><a id="__codelineno-1-45" name="__codelineno-1-45" href="#__codelineno-1-45"></a><span class="w">    </span><span class="nx">log</span><span class="p">.</span><span class="nx">Printf</span><span class="p">(</span><span class="s">"listening on %x"</span><span class="p">,</span><span class="w"> </span><span class="nx">dest</span><span class="p">.</span><span class="nx">GetHash</span><span class="p">())</span>
+</span><span id="__span-1-46"><a id="__codelineno-1-46" name="__codelineno-1-46" href="#__codelineno-1-46"></a>
+</span><span id="__span-1-47"><a id="__codelineno-1-47" name="__codelineno-1-47" href="#__codelineno-1-47"></a><span class="w">    </span><span class="nx">ch</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nb">make</span><span class="p">(</span><span class="kt">chan</span><span class="w"> </span><span class="nx">os</span><span class="p">.</span><span class="nx">Signal</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">)</span>
+</span><span id="__span-1-48"><a id="__codelineno-1-48" name="__codelineno-1-48" href="#__codelineno-1-48"></a><span class="w">    </span><span class="nx">signal</span><span class="p">.</span><span class="nx">Notify</span><span class="p">(</span><span class="nx">ch</span><span class="p">,</span><span class="w"> </span><span class="nx">syscall</span><span class="p">.</span><span class="nx">SIGINT</span><span class="p">,</span><span class="w"> </span><span class="nx">syscall</span><span class="p">.</span><span class="nx">SIGTERM</span><span class="p">)</span>
+</span><span id="__span-1-49"><a id="__codelineno-1-49" name="__codelineno-1-49" href="#__codelineno-1-49"></a><span class="w">    </span><span class="o">&lt;-</span><span class="nx">ch</span>
+</span><span id="__span-1-50"><a id="__codelineno-1-50" name="__codelineno-1-50" href="#__codelineno-1-50"></a><span class="p">}</span>
+</span></code></pre></div>
+<p>For a guide on complete runnable examples, see <a href="../examples/">Examples</a>.</p>
+<h2 id="recipe-inbound-link-and-request-handler">Recipe: inbound link and request handler<a class="headerlink" href="#recipe-inbound-link-and-request-handler" title="Permanent link">&para;</a></h2>
+<div class="language-go highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nx">dest</span><span class="p">.</span><span class="nx">AcceptsLinks</span><span class="p">(</span><span class="kc">true</span><span class="p">)</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="nx">dest</span><span class="p">.</span><span class="nx">SetLinkEstablishedCallback</span><span class="p">(</span><span class="kd">func</span><span class="p">(</span><span class="nx">v</span><span class="w"> </span><span class="kt">any</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span><span class="nx">l</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">v</span><span class="p">.(</span><span class="o">*</span><span class="nx">link</span><span class="p">.</span><span class="nx">Link</span><span class="p">)</span><span class="w"> </span><span class="c1">// import pkg/link</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">    </span><span class="nx">_</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">l</span><span class="p">.</span><span class="nx">SetResourceStrategy</span><span class="p">(</span><span class="nx">link</span><span class="p">.</span><span class="nx">AcceptAll</span><span class="p">)</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">    </span><span class="nx">l</span><span class="p">.</span><span class="nx">SetPacketCallback</span><span class="p">(</span><span class="kd">func</span><span class="p">(</span><span class="nx">data</span><span class="w"> </span><span class="p">[]</span><span class="kt">byte</span><span class="p">,</span><span class="w"> </span><span class="nx">_</span><span class="w"> </span><span class="o">*</span><span class="nx">packet</span><span class="p">.</span><span class="nx">Packet</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">        </span><span class="nx">log</span><span class="p">.</span><span class="nx">Printf</span><span class="p">(</span><span class="s">"data: %q"</span><span class="p">,</span><span class="w"> </span><span class="nx">data</span><span class="p">)</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">    </span><span class="p">})</span>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="p">})</span>
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>
+</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="nx">_</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">dest</span><span class="p">.</span><span class="nx">RegisterRequestHandler</span><span class="p">(</span><span class="s">"/echo"</span><span class="p">,</span>
+</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="w">    </span><span class="kd">func</span><span class="p">(</span><span class="nx">_</span><span class="w"> </span><span class="kt">string</span><span class="p">,</span><span class="w"> </span><span class="nx">data</span><span class="w"> </span><span class="p">[]</span><span class="kt">byte</span><span class="p">,</span><span class="w"> </span><span class="nx">_</span><span class="w"> </span><span class="p">[]</span><span class="kt">byte</span><span class="p">,</span><span class="w"> </span><span class="nx">_</span><span class="w"> </span><span class="p">[]</span><span class="kt">byte</span><span class="p">,</span><span class="w"> </span><span class="nx">_</span><span class="w"> </span><span class="o">*</span><span class="nx">identity</span><span class="p">.</span><span class="nx">Identity</span><span class="p">,</span><span class="w"> </span><span class="nx">_</span><span class="w"> </span><span class="kt">int64</span><span class="p">)</span><span class="w"> </span><span class="p">[]</span><span class="kt">byte</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nx">data</span>
+</span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="w">    </span><span class="p">},</span>
+</span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="w">    </span><span class="nx">destination</span><span class="p">.</span><span class="nx">AllowAll</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span><span class="p">)</span>
+</span></code></pre></div>
+<h2 id="recipe-outbound-link-and-request">Recipe: outbound link and request<a class="headerlink" href="#recipe-outbound-link-and-request" title="Permanent link">&para;</a></h2>
+<div class="language-go highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nx">remoteID</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">identity</span><span class="p">.</span><span class="nx">Recall</span><span class="p">(</span><span class="nx">peerDestHash</span><span class="p">)</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">    </span><span class="nx">log</span><span class="p">.</span><span class="nx">Fatal</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="p">}</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="nx">out</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">destination</span><span class="p">.</span><span class="nx">FromHash</span><span class="p">(</span><span class="nx">peerDestHash</span><span class="p">,</span><span class="w"> </span><span class="nx">remoteID</span><span class="p">,</span><span class="w"> </span><span class="nx">destination</span><span class="p">.</span><span class="nx">Single</span><span class="p">,</span><span class="w"> </span><span class="nx">n</span><span class="p">.</span><span class="nx">Transport</span><span class="p">())</span>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">    </span><span class="nx">log</span><span class="p">.</span><span class="nx">Fatal</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="p">}</span>
+</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">n</span><span class="p">.</span><span class="nx">Transport</span><span class="p">().</span><span class="nx">AwaitPath</span><span class="p">(</span><span class="nx">context</span><span class="p">.</span><span class="nx">Background</span><span class="p">(),</span><span class="w"> </span><span class="nx">peerDestHash</span><span class="p">);</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="w">    </span><span class="nx">log</span><span class="p">.</span><span class="nx">Fatal</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+</span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="p">}</span>
+</span><span id="__span-3-12"><a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="nx">l</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">link</span><span class="p">.</span><span class="nx">NewLink</span><span class="p">(</span><span class="nx">out</span><span class="p">,</span><span class="w"> </span><span class="nx">n</span><span class="p">.</span><span class="nx">Transport</span><span class="p">(),</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span><span class="p">)</span>
+</span><span id="__span-3-13"><a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">l</span><span class="p">.</span><span class="nx">Establish</span><span class="p">();</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-3-14"><a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a><span class="w">    </span><span class="nx">log</span><span class="p">.</span><span class="nx">Fatal</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+</span><span id="__span-3-15"><a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a><span class="p">}</span>
+</span><span id="__span-3-16"><a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a><span class="nx">receipt</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">l</span><span class="p">.</span><span class="nx">Request</span><span class="p">(</span><span class="s">"/echo"</span><span class="p">,</span><span class="w"> </span><span class="p">[]</span><span class="kt">byte</span><span class="p">(</span><span class="s">"ping"</span><span class="p">),</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span>
+</span><span id="__span-3-17"><a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-3-18"><a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a><span class="w">    </span><span class="nx">log</span><span class="p">.</span><span class="nx">Fatal</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+</span><span id="__span-3-19"><a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a><span class="p">}</span>
+</span></code></pre></div>
+<p>Do not wait a flat 15 seconds for a path or link. AwaitPath sizes the wait from the slowest online outgoing interface. Establish still needs a path (it will error if discovery produced none). Pass 0 to Request so the receipt timeout follows link RTT. Prefer established and closed callbacks on NewLink over polling.</p>
+<p>Do not loop RequestPath, Announce, Establish, or Request. Repeats return ErrPathRequestThrottled, ErrDestAnnounceThrottled, ErrLinkEstablishBusy / ErrLinkAlreadySettled, or ErrLinkRequestBusy / ErrLinkRequestDuplicate. RequestPath with no ready outgoing interface returns ErrTransportNoOutgoingForPR. Wait on callbacks or AwaitPath.</p>
+<p>Each of these misuse paths also logs a warning once per minute naming the destination or link, so retry loops are visible in logs without flooding them. The same gate covers link request timeouts and abandoned mid-transfer responses.</p>
+<p>Run reticulum-go zen on your module to catch these patterns in source before they ship. See <a href="../utilities/#rgozen">CLI utilities</a>.</p>
+<p>If you must use a timer around handshake, wait l.EstablishmentTimeout() plus a small margin (rnsutil.LinkEstablishmentWindow).</p>
+<h2 id="recipe-send-a-file-resource">Recipe: send a file resource<a class="headerlink" href="#recipe-send-a-file-resource" title="Permanent link">&para;</a></h2>
+<div class="language-go highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nx">res</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">resource</span><span class="p">.</span><span class="nx">New</span><span class="p">(</span><span class="nx">fileBytes</span><span class="p">,</span><span class="w"> </span><span class="kc">true</span><span class="p">)</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">    </span><span class="nx">log</span><span class="p">.</span><span class="nx">Fatal</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="p">}</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="nx">_</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">res</span><span class="p">.</span><span class="nx">SetMetadata</span><span class="p">(</span><span class="kt">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="kt">any</span><span class="p">{</span><span class="s">"name"</span><span class="p">:</span><span class="w"> </span><span class="p">[]</span><span class="kt">byte</span><span class="p">(</span><span class="s">"report.bin"</span><span class="p">)})</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">l</span><span class="p">.</span><span class="nx">SendResource</span><span class="p">(</span><span class="nx">res</span><span class="p">);</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">    </span><span class="nx">log</span><span class="p">.</span><span class="nx">Fatal</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="p">}</span>
+</span></code></pre></div>
+<p>On the receiver, set AcceptAll or AcceptApp and handle link.IncomingResource (or plain []byte when no metadata). CLI equivalent: rgocp in <a href="../utilities/">CLI utilities</a>.</p>
+<h2 id="recipe-network-sleep-and-wake">Recipe: network sleep and wake<a class="headerlink" href="#recipe-network-sleep-and-wake" title="Permanent link">&para;</a></h2>
+<div class="language-go highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nx">n</span><span class="p">.</span><span class="nx">SetPauseMode</span><span class="p">(</span><span class="nx">node</span><span class="p">.</span><span class="nx">PauseModeDisable</span><span class="p">)</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="nx">_</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">n</span><span class="p">.</span><span class="nx">OnNetworkLost</span><span class="p">()</span><span class="w">   </span><span class="c1">// pause links, disable interfaces</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="nx">_</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">n</span><span class="p">.</span><span class="nx">OnNetworkAvailable</span><span class="p">()</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="nx">_</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">n</span><span class="p">.</span><span class="nx">RefreshPaths</span><span class="p">()</span><span class="w">    </span><span class="c1">// re-request watched destinations</span>
+</span></code></pre></div>
+<p>Optional: n.EnableLinkAutoReconnect(node.LinkReconnectOptions{MaxAttempts: 5, Backoff: time.Second}) and n.RegisterLink(l).</p>
+<h2 id="core-types">Core types<a class="headerlink" href="#core-types" title="Permanent link">&para;</a></h2>
+<h3 id="node-pkgnode">Node (pkg/node)<a class="headerlink" href="#node-pkgnode" title="Permanent link">&para;</a></h3>
+<p>Orchestrates transport, interfaces, shared instance, and lifecycle. Prefer this over constructing transport.Transport by hand.</p>
+<table>
+<thead>
+<tr>
+<th>Symbol</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>New(cfg) (*Node, error)</td>
+<td>Build without starting</td>
+</tr>
+<tr>
+<td>Start() error</td>
+<td>Transport, path handler, shared instance, interfaces</td>
+</tr>
+<tr>
+<td>Stop() error</td>
+<td>Tear down in reverse order</td>
+</tr>
+<tr>
+<td>Transport() *transport.Transport</td>
+<td>Pass to destinations and links</td>
+</tr>
+<tr>
+<td>Config() *common.ReticulumConfig</td>
+<td>Active config</td>
+</tr>
+<tr>
+<td>Interfaces() []interfaces.Interface</td>
+<td>Configured interfaces</td>
+</tr>
+<tr>
+<td>OnNetworkAvailable() error</td>
+<td>Resume after outage</td>
+</tr>
+<tr>
+<td>OnNetworkLost() error</td>
+<td>Pause for sleep / NIC down</td>
+</tr>
+<tr>
+<td>SetPauseMode(PauseMode)</td>
+<td>PauseModeDisable or PauseModeStop</td>
+</tr>
+<tr>
+<td>WatchDestination(hash)</td>
+<td>Include hash in wake refreshes</td>
+</tr>
+<tr>
+<td>RefreshPaths(dests...)</td>
+<td>Force path refresh</td>
+</tr>
+<tr>
+<td>ReloadInterfaces(newCfg)</td>
+<td>Hot-reload interface blocks</td>
+</tr>
+<tr>
+<td>EnableLinkAutoReconnect(opts)</td>
+<td>Re-establish registered links</td>
+</tr>
+<tr>
+<td>RegisterLink(l)</td>
+<td>Track link for reconnect</td>
+</tr>
+<tr>
+<td>StartInterfaceDiscovery()</td>
+<td>rnstransport discovery listen + InterfaceAnnouncer when discoverable</td>
+</tr>
+</tbody>
+</table>
+<h3 id="identity-pkgidentity">Identity (pkg/identity)<a class="headerlink" href="#identity-pkgidentity" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Symbol</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>New() (*Identity, error)</td>
+<td>Generate software identity (preferred)</td>
+</tr>
+<tr>
+<td>NewIdentity()</td>
+<td>Alternate generator</td>
+</tr>
+<tr>
+<td>FromFile / ToFile</td>
+<td>Persist via identity_backend (file, Secret Service, or Linux kernel keyring + RSSI marker)</td>
+</tr>
+<tr>
+<td>FromBytes / FromPublicKey</td>
+<td>Load from bytes</td>
+</tr>
+<tr>
+<td>LoadIdentityFile(path, signer)</td>
+<td>Software or RHB1 hardware-bound (also resolves RSSI markers)</td>
+</tr>
+<tr>
+<td>NewIdentityWithSigner(...)</td>
+<td>External Ed25519 signer (HSM)</td>
+</tr>
+<tr>
+<td>SetIdentityBackend / ApplyIdentityBackendFromConfig</td>
+<td>Select file or secretservice</td>
+</tr>
+<tr>
+<td>Close / Wipe</td>
+<td>Zero locked private key buffers</td>
+</tr>
+<tr>
+<td>Hash() []byte</td>
+<td>16-byte truncated hash</td>
+</tr>
+<tr>
+<td>GetPublicKey() []byte</td>
+<td>64-byte combined public key</td>
+</tr>
+<tr>
+<td>Sign / Verify</td>
+<td>Ed25519</td>
+</tr>
+<tr>
+<td>Encrypt / Decrypt</td>
+<td>Identity tokens with optional ratchets</td>
+</tr>
+<tr>
+<td>RememberRatchet / GetRatchet / CurrentRatchetID</td>
+<td>Announced peer ratchet public keys</td>
+</tr>
+<tr>
+<td>Recall(destHash)</td>
+<td>Public identity from known destinations</td>
+</tr>
+<tr>
+<td>Remember / ValidateAnnounce</td>
+<td>Announce storage</td>
+</tr>
+<tr>
+<td>LoadOrCreateTransportIdentity</td>
+<td>Daemon transport identity</td>
+</tr>
+<tr>
+<td>RotateRatchet / GetRatchets / GetCurrentRatchetKey</td>
+<td>Explicit identity-level keys only. Does not auto-generate. On-wire SINGLE ratchets use Destination.EnableRatchets</td>
+</tr>
+</tbody>
+</table>
+<p>Constants: KeySize (bits), TruncatedHashLength (bits). Hex destination or identity hashes are 32 characters.</p>
+<p>Private key material uses pkg/securemem (best-effort mlock, wipe on Close). See <a href="../identity-and-destinations/">Identity and destinations</a>.</p>
+<h3 id="destination-pkgdestination">Destination (pkg/destination)<a class="headerlink" href="#destination-pkgdestination" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Constant</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>In / Out</td>
+<td>Direction bit flags (In|Out for both)</td>
+</tr>
+<tr>
+<td>Single / Group / Plain</td>
+<td>Destination types</td>
+</tr>
+<tr>
+<td>ProveNone / ProveAll / ProveApp</td>
+<td>Proof strategy</td>
+</tr>
+<tr>
+<td>AllowNone / AllowAll / AllowList</td>
+<td>Request handler ACL</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr>
+<th>Symbol</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>New(id, direction, type, app, transport, aspects...)</td>
+<td>Create and optionally auto-register (In)</td>
+</tr>
+<tr>
+<td>FromHash(hash, id, type, transport)</td>
+<td>Outbound destination for a known peer</td>
+</tr>
+<tr>
+<td>Hash(id, app, aspects...)</td>
+<td>Compute destination hash</td>
+</tr>
+<tr>
+<td>ParseName / ExpandAppName</td>
+<td>Dotted name helpers</td>
+</tr>
+<tr>
+<td>Announce(pathResponse, tag, iface)</td>
+<td>Publish reachability</td>
+</tr>
+<tr>
+<td>AcceptsLinks(bool)</td>
+<td>Accept link requests</td>
+</tr>
+<tr>
+<td>Encrypt / Decrypt / Sign</td>
+<td>Destination crypto</td>
+</tr>
+<tr>
+<td>CreateKeys / LoadPrivateKey / GetPrivateKey</td>
+<td>GROUP Token PSK (64-byte AES-256 default)</td>
+</tr>
+<tr>
+<td>SetPacketCallback</td>
+<td>Single-packet inbound data</td>
+</tr>
+<tr>
+<td>SetLinkEstablishedCallback</td>
+<td>Inbound link ready (func(any))</td>
+</tr>
+<tr>
+<td>RegisterRequestHandler / RegisterRequestHandlerAny</td>
+<td>Link request paths</td>
+</tr>
+<tr>
+<td>EnableRatchets(path)</td>
+<td>Enable SINGLE ratchets and persist private keys at path</td>
+</tr>
+<tr>
+<td>EnableRatchetsInMemory</td>
+<td>Same, RAM only (no ratchet file)</td>
+</tr>
+<tr>
+<td>EnforceRatchets</td>
+<td>Reject identity-key ciphertext (opt-in, same as Python)</td>
+</tr>
+<tr>
+<td>SetRetainedRatchets / SetRatchetInterval</td>
+<td>Retention count and rotation interval</td>
+</tr>
+<tr>
+<td>RotateRatchets / CurrentRatchetPublic / LatestRatchetID / RatchetsEnabled</td>
+<td>Local rotation and announce public key</td>
+</tr>
+</tbody>
+</table>
+<h3 id="link-pkglink">Link (pkg/link)<a class="headerlink" href="#link-pkglink" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Status</th>
+<th>Value</th>
+<th>Meaning on Link</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>StatusPending</td>
+<td>0x00</td>
+<td>Not established</td>
+</tr>
+<tr>
+<td>StatusHandshake</td>
+<td>0x01</td>
+<td>Handshake</td>
+</tr>
+<tr>
+<td>StatusActive</td>
+<td>0x02</td>
+<td>Ready</td>
+</tr>
+<tr>
+<td>StatusStale</td>
+<td>0x03</td>
+<td>Stale</td>
+</tr>
+<tr>
+<td>StatusClosed</td>
+<td>0x04</td>
+<td>Closed</td>
+</tr>
+<tr>
+<td>StatusFailed</td>
+<td>0x05</td>
+<td>Failed</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr>
+<th>Symbol</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>NewLink(dest, transport, iface, onEst, onClose)</td>
+<td>Outbound link object</td>
+</tr>
+<tr>
+<td>Establish() error</td>
+<td>Initiator handshake</td>
+</tr>
+<tr>
+<td>EstablishmentTimeout()</td>
+<td>Handshake wait used by the link watchdog</td>
+</tr>
+<tr>
+<td>Teardown()</td>
+<td>Close</td>
+</tr>
+<tr>
+<td>Identify(id)</td>
+<td>Prove local identity to peer</td>
+</tr>
+<tr>
+<td>Send / SendPacket / SendPacketWithContext</td>
+<td>Encrypted data</td>
+</tr>
+<tr>
+<td>Request(path, data, timeout)</td>
+<td>Msgpack request (auto resource if large)</td>
+</tr>
+<tr>
+<td>SendResource(res)</td>
+<td>Outbound resource transfer</td>
+</tr>
+<tr>
+<td>GetChannel()</td>
+<td>Reliable channel over the link</td>
+</tr>
+<tr>
+<td>SetResourceStrategy</td>
+<td>AcceptNone / AcceptAll / AcceptApp</td>
+</tr>
+<tr>
+<td>SetResourceConcludedCallback</td>
+<td>[]byte or IncomingResource</td>
+</tr>
+<tr>
+<td>GetRTT / idle timers / PHY stats</td>
+<td>Link health</td>
+</tr>
+</tbody>
+</table>
+<h4 id="requestreceipt">RequestReceipt<a class="headerlink" href="#requestreceipt" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Concluded()</td>
+<td>Finished (success or failure)</td>
+</tr>
+<tr>
+<td>GetStatus()</td>
+<td>StatusActive means response OK, StatusFailed means timeout or error</td>
+</tr>
+<tr>
+<td>GetResponse() / GetResponseValue()</td>
+<td>Bytes or decoded msgpack</td>
+</tr>
+<tr>
+<td>GetMetadata()</td>
+<td>Resource response metadata</td>
+</tr>
+<tr>
+<td>Progress()</td>
+<td>Bytes received / total for resource replies</td>
+</tr>
+<tr>
+<td>SetResponseCallback / SetFailedCallback</td>
+<td>Async completion</td>
+</tr>
+</tbody>
+</table>
+<p>Do not confuse RequestReceipt.GetStatus() with Link.GetStatus(). Both reuse status byte constants with different meanings.</p>
+<h3 id="resource-pkgresource">Resource (pkg/resource)<a class="headerlink" href="#resource-pkgresource" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Symbol</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>New(data, autoCompress)</td>
+<td>[]byte or seekable file</td>
+</tr>
+<tr>
+<td>SetMetadata(map)</td>
+<td>Prepended msgpack metadata (Python-compatible)</td>
+</tr>
+<tr>
+<td>GetProgress / GetStatus / GetHash</td>
+<td>Transfer state</td>
+</tr>
+<tr>
+<td>PrepareOutboundForLink</td>
+<td>Called by Link.SendResource</td>
+</tr>
+</tbody>
+</table>
+<p>Statuses: StatusPending, StatusActive, StatusComplete, StatusFailed, StatusCancelled.</p>
+<h3 id="transport-via-nodetransport">Transport (via Node.Transport())<a class="headerlink" href="#transport-via-nodetransport" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>HasPath(hash)</td>
+<td>Cached route present</td>
+</tr>
+<tr>
+<td>RequestPath(hash, iface, tag, recursive)</td>
+<td>Path request. Nil-tag repeats inside 20s return ErrPathRequestThrottled</td>
+</tr>
+<tr>
+<td>AwaitPath(ctx, hash)</td>
+<td>Request and wait. No deadline uses PathResponseWindow</td>
+</tr>
+<tr>
+<td>HopsTo / NextHop / NextHopInterface</td>
+<td>Route inspection</td>
+</tr>
+<tr>
+<td>FirstHopTimeout(hash)</td>
+<td>Next-hop airtime plus 6s (Python get_first_hop_timeout)</td>
+</tr>
+<tr>
+<td>PathResponseWindow(hash)</td>
+<td>Cold path wait from slowest online outgoing bitrate</td>
+</tr>
+<tr>
+<td>DiscoveryTimeout(iface)</td>
+<td>Recursive search wait from fan-out interface airtime</td>
+</tr>
+<tr>
+<td>SlowestOnlineBitrate()</td>
+<td>Lowest advertised bitrate of an online outgoing interface</td>
+</tr>
+<tr>
+<td>ExpirePath / PrepareFreshPathRequest</td>
+<td>Drop or refresh cache</td>
+</tr>
+<tr>
+<td>RegisterInterface / GetInterfaces</td>
+<td>Interface table</td>
+</tr>
+<tr>
+<td>RegisterDestination</td>
+<td>Usually automatic for In destinations</td>
+</tr>
+<tr>
+<td>SendPacket / HandlePacket</td>
+<td>Low-level inject (advanced)</td>
+</tr>
+<tr>
+<td>RegisterAnnounceHandler</td>
+<td>Observe announces</td>
+</tr>
+</tbody>
+</table>
+<p>Avoid transport.Destination and transport.Link placeholder types. Use destination.Destination and link.Link.</p>
+<h3 id="packet-pkgpacket">Packet (pkg/packet)<a class="headerlink" href="#packet-pkgpacket" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Symbol</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MTU</td>
+<td>500</td>
+</tr>
+<tr>
+<td>NewPacket / Pack / Unpack</td>
+<td>Wire encode/decode</td>
+</tr>
+<tr>
+<td>PacketReceipt</td>
+<td>Delivery proofs for data packets</td>
+</tr>
+<tr>
+<td>Context constants</td>
+<td>ContextRequest, ContextResource, link contexts, ...</td>
+</tr>
+</tbody>
+</table>
+<h3 id="config-pkgreticulumconfig-pkgcommon">Config (pkg/reticulumconfig, pkg/common)<a class="headerlink" href="#config-pkgreticulumconfig-pkgcommon" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Function</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>InitConfig()</td>
+<td>Load or create ~/.reticulum-go/config</td>
+</tr>
+<tr>
+<td>LoadConfig(path)</td>
+<td>Parse INI (unknown keys ignored)</td>
+</tr>
+<tr>
+<td>SaveConfig / DefaultConfig / CreateDefaultConfig</td>
+<td>Persist defaults</td>
+</tr>
+</tbody>
+</table>
+<p>Important ReticulumConfig fields: EnableTransport, ShareInstance, SharedInstanceType, ports, RPCKey, Interfaces, EnableControlAPI, InMemoryPathTable, InMemoryStorage, WatchInterfaces, DiscoverInterfaces, BackboneIO.</p>
+<p>Default config directory is ~/.reticulum-go, not ~/.reticulum.</p>
+<h2 id="python-to-go-map">Python to Go map<a class="headerlink" href="#python-to-go-map" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Python</th>
+<th>Go</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>RNS.Reticulum(configdir=...)</td>
+<td>reticulumconfig.LoadConfig + node.New + Start</td>
+</tr>
+<tr>
+<td>RNS.Identity()</td>
+<td>identity.New()</td>
+</tr>
+<tr>
+<td>Identity.from_file / to_file</td>
+<td>FromFile / ToFile</td>
+</tr>
+<tr>
+<td>Identity.recall(hash)</td>
+<td>identity.Recall(hash)</td>
+</tr>
+<tr>
+<td>Destination(identity, IN, SINGLE, app, *aspects)</td>
+<td>destination.New(id, destination.In, destination.Single, app, tr, aspects...)</td>
+</tr>
+<tr>
+<td>Destination(..., OUT, ...)</td>
+<td>destination.Out or FromHash for known peers</td>
+</tr>
+<tr>
+<td>destination.announce()</td>
+<td>dest.Announce(false, nil, nil)</td>
+</tr>
+<tr>
+<td>destination.set_link_established_callback</td>
+<td>SetLinkEstablishedCallback (func(any))</td>
+</tr>
+<tr>
+<td>destination.register_request_handler</td>
+<td>RegisterRequestHandler / RegisterRequestHandlerAny</td>
+</tr>
+<tr>
+<td>RNS.Link(destination)</td>
+<td>link.NewLink + Establish</td>
+</tr>
+<tr>
+<td>link.establishment_timeout</td>
+<td>l.EstablishmentTimeout()</td>
+</tr>
+<tr>
+<td>link.identify(identity)</td>
+<td>l.Identify(id)</td>
+</tr>
+<tr>
+<td>link.request(path, data=...)</td>
+<td>l.Request(path, data, timeout)</td>
+</tr>
+<tr>
+<td>RNS.Resource(data, link, metadata=...)</td>
+<td>resource.New + SetMetadata + l.SendResource</td>
+</tr>
+<tr>
+<td>RNS.Transport.has_path / request_path</td>
+<td>tr.HasPath / tr.RequestPath</td>
+</tr>
+<tr>
+<td>RNS.Transport.await_path</td>
+<td>tr.AwaitPath (bitrate window when ctx has no deadline, not a flat 15s)</td>
+</tr>
+<tr>
+<td>RNS.Reticulum.get_first_hop_timeout</td>
+<td>tr.FirstHopTimeout (use rnsutil.FirstHopTimeout when attached to a shared instance)</td>
+</tr>
+<tr>
+<td>Shared instance master</td>
+<td>First share_instance = yes process (daemon or Node)</td>
+</tr>
+<tr>
+<td>~/.reticulum</td>
+<td>~/.reticulum-go</td>
+</tr>
+</tbody>
+</table>
+<h2 id="concurrency-and-callbacks">Concurrency and callbacks<a class="headerlink" href="#concurrency-and-callbacks" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Rule</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Transport / interfaces</td>
+<td>Packet handlers run on interface or transport goroutines</td>
+</tr>
+<tr>
+<td>Destination / link callbacks</td>
+<td>May fire concurrently. Return quickly. Do heavy work in your own goroutine</td>
+</tr>
+<tr>
+<td>Link.Request receipts</td>
+<td>Timeout and response callbacks run in separate goroutines</td>
+</tr>
+<tr>
+<td>Same Link</td>
+<td>Do not call Establish, Teardown, and Request concurrently without external locking</td>
+</tr>
+<tr>
+<td>Node.ReloadInterfaces / network hooks</td>
+<td>Serialized by an internal mutex</td>
+</tr>
+<tr>
+<td>Identities / destinations</td>
+<td>Internally mutex-protected. Still treat callbacks as re-entrant</td>
+</tr>
+</tbody>
+</table>
+<p>Python RNS is largely single-threaded asyncio. Go is multi-threaded by default. Design for that.</p>
+<h2 id="errors-and-empty-results">Errors and empty results<a class="headerlink" href="#errors-and-empty-results" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Situation</th>
+<th>Typical signal</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>No path yet</td>
+<td>HasPath false. Call RequestPath and wait</td>
+</tr>
+<tr>
+<td>Link not ready</td>
+<td>Establish error or GetStatus() != StatusActive</td>
+</tr>
+<tr>
+<td>Request timeout</td>
+<td>RequestReceipt status StatusFailed</td>
+</tr>
+<tr>
+<td>Recall before announce</td>
+<td>identity.Recall error. Wait for announce or seed known destinations</td>
+</tr>
+<tr>
+<td>Shared instance auth failure</td>
+<td>RPC dial / auth error. Align rpc_key or transport identity</td>
+</tr>
+<tr>
+<td>Hardware-bound identity without signer</td>
+<td>ErrHardwareBoundSignerRequired</td>
+</tr>
+</tbody>
+</table>
+<h2 id="other-api-surfaces">Other API surfaces<a class="headerlink" href="#other-api-surfaces" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Surface</th>
+<th>Document</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Localhost JSON and WebSocket</td>
+<td><a href="../control-api/">Control API</a></td>
+</tr>
+<tr>
+<td>C ABI (include/rns.h)</td>
+<td><a href="../librns/">librns</a></td>
+</tr>
+<tr>
+<td>Odin bindings (bindings/odin)</td>
+<td><a href="../librns/#odin-bindings">librns</a></td>
+</tr>
+<tr>
+<td>Dart FFI and Control API (bindings/dart)</td>
+<td><a href="../librns/#dart-ffi-bindings">librns</a>, <a href="../control-api/#dart-and-flutter">Control API</a></td>
+</tr>
+<tr>
+<td>Browser JS bridge</td>
+<td><a href="../embedding-and-wasm/">Embedding and WebAssembly</a></td>
+</tr>
+<tr>
+<td>CLI tools</td>
+<td><a href="../utilities/">CLI utilities</a></td>
+</tr>
+<tr>
+<td>Crypto details</td>
+<td><a href="../cryptography/">Cryptography</a></td>
+</tr>
+<tr>
+<td>Interface types</td>
+<td><a href="../interfaces/">Interfaces</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="related-documents">Related documents<a class="headerlink" href="#related-documents" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="../examples/">Examples</a></li>
+<li><a href="../package-map/">Package map</a></li>
+<li><a href="../embedding-and-wasm/">Embedding and WebAssembly</a></li>
+<li><a href="../compatibility/">Compatibility</a></li>
+<li><a href="https://reticulum.network/manual/reference.html">Python RNS API reference</a> (wire and semantic authority)</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-circle-arrow-up" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m16 12-4-4-4 4M12 16V8"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../package-map/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Package map">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Package map
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../transport/" class="md-footer__link md-footer__link--next" aria-label="Next: Transport">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Transport
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-right" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      
+      
+        
+        
+      <script id="__config" type="application/json">{"annotate":null,"base":"..","features":["navigation.sections","navigation.footer","navigation.top","toc.integrate","content.action.edit","search.highlight"],"redirect":null,"search":"../assets/javascripts/workers/search.7d14d953.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":{"alias":true,"provider":"mike"}}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.8dcc8e9c.min.js"></script>
+      
+    
+  </body>
+</html>

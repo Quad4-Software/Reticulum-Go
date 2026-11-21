@@ -1,0 +1,2885 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Reticulum network stack in Go">
+      
+      
+      
+        <link rel="canonical" href="https://reticulum-go.quad4.io/dev/development-and-testing/">
+      
+      
+        <link rel="prev" href="../microvm/">
+      
+      
+        <link rel="next" href="../examples/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/favicon.svg">
+      <meta name="generator" content="zensical-0.0.63">
+    
+    
+  
+    <title>Development and testing - Reticulum-Go</title>
+  
+
+    
+      
+        
+      
+      <link rel="stylesheet" href="../assets/stylesheets/modern/main.10763589.min.css">
+      
+        
+          
+        
+        <link rel="stylesheet" href="../assets/stylesheets/modern/palette.812a03bb.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Space+Grotesk:300,300i,400,400i,500,500i,700,700i%7CSpace+Mono:400,400i,700,700i&amp;display=fallback">
+        <style>:root{--md-text-font:"Space Grotesk";--md-code-font:"Space Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../stylesheets/void.css">
+    
+    <script>__md_scope=new URL("..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
+    
+      
+
+    
+    
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Reticulum-Go">
+  <meta property="og:title" content="Development and testing - Reticulum-Go">
+  
+    <meta property="og:description" content="Reticulum network stack in Go">
+  
+  
+    <meta property="og:url" content="https://reticulum-go.quad4.io/dev/development-and-testing/">
+  
+  <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0a0a0b">
+  <meta name="theme-color" media="(prefers-color-scheme: light)" content="#fafafa">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "WebSite",
+        "name": "Reticulum-Go",
+        "url": "https://reticulum-go.quad4.io/dev/",
+        "description": "Reticulum network stack in Go",
+        "inLanguage": "en"
+      },
+      {
+        "@type": "SoftwareSourceCode",
+        "name": "Reticulum-Go",
+        "url": "https://reticulum-go.quad4.io/dev/",
+        "codeRepository": "https://github.com/Quad4-Software/Reticulum-Go",
+        "programmingLanguage": "Go"
+      }
+    ]
+  }
+  </script>
+
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="void" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer" aria-label="Navigation"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#development-and-testing" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="./.." title="Reticulum-Go" class="md-header__button md-logo" aria-label="Reticulum-Go" data-md-component="logo">
+      
+  <img src="../assets/logo.svg" alt="Reticulum-Go">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer" aria-label="Navigation">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-menu" viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h16"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Reticulum-Go
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Development and testing
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="void" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-moon" viewBox="0 0 24 24"><path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="paper" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search" aria-label="Search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-search" viewBox="0 0 24 24"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog" aria-label="Search">
+  <button type="button" class="md-search__button">
+    Search
+  </button>
+</div>
+      
+    
+    <div class="md-header__source">
+      
+        <a href="https://github.com/Quad4-Software/Reticulum-Go" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      
+    </div>
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="./.." title="Reticulum-Go" class="md-nav__button md-logo" aria-label="Reticulum-Go" data-md-component="logo">
+      
+  <img src="../assets/logo.svg" alt="Reticulum-Go">
+
+    </a>
+    Reticulum-Go
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/Quad4-Software/Reticulum-Go" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="./.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Home
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../downloads/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Downloads
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Start
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_3">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Start
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Overview
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Architecture
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Getting started
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Configuration
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Develop
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_4">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Develop
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../package-map/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Package map
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  API reference
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Internals
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_5">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Internals
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../transport/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Transport
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../interfaces/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Interfaces
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../identity-and-destinations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Identity and destinations
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../links-channels-and-resources/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Links, channels, and resources
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cryptography/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Cryptography
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Reference
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
+            <label class="md-nav__title" for="__nav_6">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Reference
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../security/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Security
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../compatibility/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Compatibility
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../control-api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Control API
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../librns/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  librns
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../utilities/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  CLI utilities
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../embedding-and-wasm/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Embedding and WebAssembly
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../microvm/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Firecracker microvm
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Development and testing
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="././" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Development and testing
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#development-environment" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Development environment
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#portable-ci-forgejo-gitea-local-podman" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Portable CI (Forgejo, Gitea, local, Podman)
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#build-automation-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Build automation reference
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#code-quality-commands" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Code quality commands
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Code quality commands">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#linting" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Linting
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#changelog-preview" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Changelog preview
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#race-detector" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Race detector
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#coverage" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Coverage
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#benchmarks" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Benchmarks
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#project-layout-for-contributors" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Project layout for contributors
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#testing-layers" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Testing layers
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Testing layers">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#unit-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Unit tests
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#property-based-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Property-based tests
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mutation-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Mutation tests
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fuzz-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Fuzz tests
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#chaos-and-fault-injection" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Chaos and fault injection
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#dos_protection-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        dos_protection tests
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#test-oracles" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Test oracles
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#smoke-acceptance-e2e-black-box" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Smoke, acceptance, e2e, black box
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#crossref-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Crossref tests
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#packet-debug-tools" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Packet debug tools
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#interop-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Interop tests
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Interop tests">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#debug-harness" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Debug harness
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#package-specific-live-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Package-specific live tests
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#end-to-end-daemon-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        End-to-end daemon tests
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#host-self-check" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Host self-check
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#static-footgun-scan" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Static footgun scan
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#vendoring" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Vendoring
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ci-overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        CI overview
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cross-compilation" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Cross-compilation
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#webassembly-development" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        WebAssembly development
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#librns-shared-library" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        librns shared library
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#odin-bindings" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Odin bindings
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#zig-bindings" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Zig bindings
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#c-bindings" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        C++ bindings
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dart-bindings" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Dart bindings
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#rust-bindings" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Rust bindings
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#python-bindings" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Python bindings
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#lua-bindings" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Lua bindings
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#swift-bindings" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Swift bindings
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#java-bindings" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Java bindings
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#kotlin-bindings" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Kotlin bindings
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#c-abi-examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        C ABI examples
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#adding-a-change-safely" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Adding a change safely
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#memory-diagnostics-on-a-running-node" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Memory diagnostics on a running node
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#related-documents" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Related documents
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Examples
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Appendix
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_7">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Appendix
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../deviations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Deviations from Python RNS
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../packet-debug/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Packet debugging
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../interop-timeline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Interop timeline
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+            </ul>
+          </nav>
+        
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+  
+    <a href="https://github.com/Quad4-Software/Reticulum-Go/edit/master/docs/en/development-and-testing.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-file-pen" viewBox="0 0 24 24"><path d="M12.659 22H18a2 2 0 0 0 2-2V8a2.4 2.4 0 0 0-.706-1.706l-3.588-3.588A2.4 2.4 0 0 0 14 2H6a2 2 0 0 0-2 2v9.34"/><path d="M14 2v5a1 1 0 0 0 1 1h5M10.378 12.622a1 1 0 0 1 3 3.003L8.36 20.637a2 2 0 0 1-.854.506l-2.867.837a.5.5 0 0 1-.62-.62l.836-2.869a2 2 0 0 1 .506-.853z"/></svg>
+    </a>
+  
+  
+
+
+<h1 id="development-and-testing">Development and testing<a class="headerlink" href="#development-and-testing" title="Permanent link">&para;</a></h1>
+<p>See <a href="https://github.com/Quad4-Software/Reticulum-Go/blob/master/CONTRIBUTING.md">CONTRIBUTING.md</a> for commit format, pull request checklist, and CI overview.</p>
+<h2 id="development-environment">Development environment<a class="headerlink" href="#development-environment" title="Permanent link">&para;</a></h2>
+<p>Requirements:</p>
+<ul>
+<li>Go 1.27.4 or later (see scripts/ci/dev-tools.env and mise.toml)</li>
+<li>Make (or plain <code>go</code> commands)</li>
+<li>revive and staticcheck (<code>make bootstrap</code> installs pinned versions)</li>
+<li>shellcheck and yamllint (optional system packages)</li>
+<li>Python 3 for crossref vector generation (optional)</li>
+</ul>
+<p>Clone the repository. Dependencies are in vendor/. No network fetch is needed for ordinary builds.</p>
+<p>Setup:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>make<span class="w"> </span>bootstrap
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>make<span class="w"> </span>doctor
+</span></code></pre></div>
+<p>Run <code>make help</code> for available targets. Plain <code>go</code> commands work too. The Makefile sets <code>GOFLAGS=-mod=vendor</code>, <code>GOPROXY=off</code>, and <code>GOSUMDB=off</code>, so export those if you bypass it.</p>
+<p>A Taskfile also exists for maintainer and CI automation (<code>task --list</code>), but it is not required for contributing. Everything below works with Make or plain shell.</p>
+<p>Optional: <a href="https://mise.jdx.dev/">mise</a> (mise install) or the Dev Container (.devcontainer/).</p>
+<h2 id="portable-ci-forgejo-gitea-local-podman">Portable CI (Forgejo, Gitea, local, Podman)<a class="headerlink" href="#portable-ci-forgejo-gitea-local-podman" title="Permanent link">&para;</a></h2>
+<p>Same PR gate as <code>task check</code>, without GitHub Marketplace actions:</p>
+<table>
+<thead>
+<tr>
+<th>Command</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>bash scripts/ci/bootstrap-toolchain.sh install</code></td>
+<td>Pinned Go, Task, revive, staticcheck</td>
+</tr>
+<tr>
+<td><code>CI_SKIP_TREE_VERIFY=1 bash scripts/ci/run.sh pr</code></td>
+<td>PR gate without <code>reticulum-go.rsm</code> verify</td>
+</tr>
+<tr>
+<td><code>bash scripts/ci/run-docker.sh pr</code></td>
+<td>PR gate in <code>scripts/ci/Dockerfile.ci</code> (Podman if available)</td>
+</tr>
+<tr>
+<td><code>task ci:pr</code> / <code>make ci-pr</code></td>
+<td>Wrappers for <code>run.sh pr</code></td>
+</tr>
+<tr>
+<td><code>task ci:docker</code> / <code>make ci-docker</code></td>
+<td>Wrapper for <code>run-docker.sh pr</code></td>
+</tr>
+</tbody>
+</table>
+<p>Forgejo: <code>.forgejo/workflows/ci.yml</code> runs bootstrap plus <code>run.sh</code>.</p>
+<p>Pinned versions: <code>scripts/ci/versions.env</code> and <code>scripts/ci/dev-tools.env</code>.</p>
+<h2 id="build-automation-reference">Build automation reference<a class="headerlink" href="#build-automation-reference" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Make</th>
+<th>Manual / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>make</code> / <code>make all</code> / <code>make build</code></td>
+<td><code>mkdir -p bin &amp;&amp; CGO_ENABLED=0 go build -ldflags="-s -w" -o bin/reticulum-go ./cmd/reticulum-go</code></td>
+</tr>
+<tr>
+<td><code>make install</code></td>
+<td>Installs binary, legacy tool symlinks, and man pages under <code>PREFIX</code> (supports <code>DESTDIR</code>)</td>
+</tr>
+<tr>
+<td><code>make install-man</code></td>
+<td>Man pages only</td>
+</tr>
+<tr>
+<td><code>make install-service</code></td>
+<td><code>INIT=auto\|systemd\|openrc\|runit\|dinit\|all</code>. Sample config under <code>/var/lib/reticulum-go</code></td>
+</tr>
+<tr>
+<td><code>make uninstall</code></td>
+<td>Removes installed binary, symlinks, and man pages</td>
+</tr>
+<tr>
+<td><code>make package-deb</code> / <code>package-rpm</code> / <code>package-arch</code></td>
+<td>nfpm packages into <code>dist/</code></td>
+</tr>
+<tr>
+<td><code>make clean</code></td>
+<td><code>go clean</code> and remove build artifacts</td>
+</tr>
+<tr>
+<td><code>make test</code></td>
+<td><code>go test -v ./...</code> (project wrapper may use testsummary)</td>
+</tr>
+<tr>
+<td><code>make test-short</code></td>
+<td><code>go test -short -v ./...</code></td>
+</tr>
+<tr>
+<td><code>make test-race</code></td>
+<td><code>CGO_ENABLED=1 go test -race -v ./...</code></td>
+</tr>
+<tr>
+<td><code>make test-services</code></td>
+<td><code>scripts/ci/test-services-docker.sh</code></td>
+</tr>
+<tr>
+<td><code>make test-install-script</code></td>
+<td><code>scripts/ci/test-install.sh</code></td>
+</tr>
+<tr>
+<td><code>make test-self-check</code></td>
+<td><code>scripts/ci/run-self-check.sh</code></td>
+</tr>
+<tr>
+<td><code>make test-self-check-{386,arm,riscv64,ppc64le,ppc64}</code></td>
+<td>qemu-user self-check (<code>qemu-user-static</code>)</td>
+</tr>
+<tr>
+<td><code>make coverage</code></td>
+<td>coverage profile and HTML report</td>
+</tr>
+<tr>
+<td><code>make bench</code></td>
+<td><code>go test -run=^$ -bench=. -benchmem ./...</code></td>
+</tr>
+<tr>
+<td><code>make fmt</code></td>
+<td><code>go fmt ./...</code></td>
+</tr>
+<tr>
+<td><code>make vet</code></td>
+<td><code>go vet ./...</code></td>
+</tr>
+<tr>
+<td><code>make lint</code></td>
+<td>revive with <code>revive.toml</code></td>
+</tr>
+<tr>
+<td><code>make staticcheck</code></td>
+<td>staticcheck on core packages</td>
+</tr>
+<tr>
+<td><code>make vulncheck</code></td>
+<td>govulncheck</td>
+</tr>
+<tr>
+<td><code>make check</code></td>
+<td>fmt/vet/lint/staticcheck/short tests/vulncheck (gosec via Make)</td>
+</tr>
+<tr>
+<td><code>make prepush</code></td>
+<td>fmt-check, vet, lint, test-short</td>
+</tr>
+<tr>
+<td><code>make deps</code> / <code>make vendor-sync</code></td>
+<td>module download/verify and re-vendor from <code>LIBS_ROOT</code></td>
+</tr>
+<tr>
+<td><code>make run</code></td>
+<td><code>go run ./cmd/reticulum-go</code></td>
+</tr>
+<tr>
+<td><code>make debug</code></td>
+<td><code>go build -o bin/reticulum-go ./cmd/reticulum-go</code></td>
+</tr>
+<tr>
+<td><code>make build-linux</code> / <code>build-windows</code> / <code>build-darwin</code> / <code>build-all</code></td>
+<td>Cross-compile release targets</td>
+</tr>
+<tr>
+<td><code>make build-windows-legacy</code></td>
+<td>go-legacy-win7 (<code>GO_LEGACY_WIN7</code>)</td>
+</tr>
+<tr>
+<td><code>make build-windows-xp</code></td>
+<td>go-legacy-winxp (<code>GO_LEGACY_WINXP</code>)</td>
+</tr>
+<tr>
+<td><code>make build-librns</code></td>
+<td><code>CGO_ENABLED=1 go build -buildmode=c-shared -o bin/librns.so ./cmd/librns</code></td>
+</tr>
+<tr>
+<td><code>make test-wasm</code></td>
+<td>js/wasm package tests (Node exec helper)</td>
+</tr>
+<tr>
+<td><code>make build-wasm</code></td>
+<td><code>GOOS=js GOARCH=wasm go build -ldflags="-s -w" -o bin/reticulum-go.wasm ./cmd/reticulum-wasm</code></td>
+</tr>
+<tr>
+<td><code>make microvm-up</code> / <code>microvm-stop</code></td>
+<td>Firecracker guest. See <a href="../microvm/">microvm</a></td>
+</tr>
+<tr>
+<td><code>make tree-rsm-verify</code> / <code>tree-rsm-sign</code></td>
+<td>Source tree <code>.rsm</code> inventory. See <a href="https://github.com/Quad4-Software/Reticulum-Go/blob/master/SECURITY.md">SECURITY.md</a></td>
+</tr>
+<tr>
+<td><code>make doctor</code> / <code>bootstrap</code> / <code>changelog-preview</code></td>
+<td>Dev tool pins and CHANGELOG preview</td>
+</tr>
+</tbody>
+</table>
+<h2 id="code-quality-commands">Code quality commands<a class="headerlink" href="#code-quality-commands" title="Permanent link">&para;</a></h2>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>make<span class="w"> </span>fmt<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>make<span class="w"> </span>vet<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>make<span class="w"> </span>lint<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>make<span class="w"> </span>check
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="c1"># or</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>make<span class="w"> </span>fmt
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>make<span class="w"> </span>vet
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>make<span class="w"> </span>lint
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>make<span class="w"> </span>staticcheck
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>make<span class="w"> </span>test-short
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>make<span class="w"> </span>vulncheck
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>make<span class="w"> </span>prepush<span class="w">      </span><span class="c1"># fast path before git push</span>
+</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>make<span class="w"> </span>check<span class="w">        </span><span class="c1"># full local check suite</span>
+</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>make<span class="w"> </span>ci<span class="w">           </span><span class="c1"># same static checks as CI lint job</span>
+</span></code></pre></div>
+<p><code>make check</code> runs fmt, vet, lint, staticcheck, test-short, vulncheck, and gosec.</p>
+<h3 id="linting">Linting<a class="headerlink" href="#linting" title="Permanent link">&para;</a></h3>
+<p>revive with project config:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>revive<span class="w"> </span>-config<span class="w"> </span>revive.toml<span class="w"> </span>-formatter<span class="w"> </span>friendly<span class="w"> </span>./pkg/*<span class="w"> </span>./cmd/*<span class="w"> </span>./internal/*
+</span></code></pre></div>
+<p>staticcheck:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>staticcheck<span class="w"> </span>-tests<span class="o">=</span><span class="nb">false</span><span class="w"> </span>./pkg/...<span class="w"> </span>./cmd/...<span class="w"> </span>./internal/...<span class="w"> </span>./tests/...
+</span></code></pre></div>
+<h3 id="changelog-preview">Changelog preview<a class="headerlink" href="#changelog-preview" title="Permanent link">&para;</a></h3>
+<p>Preview unreleased notes from conventional commits:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>make<span class="w"> </span>changelog-preview
+</span></code></pre></div>
+<p>Uses cliff.toml and git-cliff (installed via go run when not on PATH).</p>
+<h3 id="race-detector">Race detector<a class="headerlink" href="#race-detector" title="Permanent link">&para;</a></h3>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>make<span class="w"> </span>test-race
+</span></code></pre></div>
+<p>Transport and interface packages include dedicated race and deadlock regression tests (interface_stress_race_test.go, pipe_race_test.go, pipe_deadlock_test.go).</p>
+<h3 id="coverage">Coverage<a class="headerlink" href="#coverage" title="Permanent link">&para;</a></h3>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>make<span class="w"> </span>coverage
+</span></code></pre></div>
+<p>Opens HTML coverage from coverage.out.</p>
+<h3 id="benchmarks">Benchmarks<a class="headerlink" href="#benchmarks" title="Permanent link">&para;</a></h3>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>make<span class="w"> </span>bench
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>make<span class="w"> </span>test-bench-gate
+</span></code></pre></div>
+<p>Loopback link throughput smoke (RNS Speedtest-style liveness floor):</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>make<span class="w"> </span>test-link-speed
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>reticulum-go<span class="w"> </span>speedtest
+</span></code></pre></div>
+<p>Nightly sim-heavy also runs test-link-speed.</p>
+<h2 id="project-layout-for-contributors">Project layout for contributors<a class="headerlink" href="#project-layout-for-contributors" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Path</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>pkg/</td>
+<td>Public library code</td>
+</tr>
+<tr>
+<td>cmd/</td>
+<td>Binaries and e2e tests</td>
+</tr>
+<tr>
+<td>internal/</td>
+<td>Daemon-only code</td>
+</tr>
+<tr>
+<td>tests/crossref/</td>
+<td>Python vector parity</td>
+</tr>
+<tr>
+<td>tests/interop/</td>
+<td>Live Go/Python tests</td>
+</tr>
+<tr>
+<td>scripts/ci/</td>
+<td>CI install and release scripts</td>
+</tr>
+<tr>
+<td>.github/workflows/</td>
+<td>GitHub Actions</td>
+</tr>
+</tbody>
+</table>
+<p>Follow existing naming, error wrapping, and SPDX headers in each file.</p>
+<h2 id="testing-layers">Testing layers<a class="headerlink" href="#testing-layers" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Layer</th>
+<th>How to run</th>
+<th>What it covers</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Unit</td>
+<td>make test / make test-short</td>
+<td>Package *_test.go</td>
+</tr>
+<tr>
+<td>Property</td>
+<td>make test-property</td>
+<td>*_pbt_test.go and embedded github.com/Quad4-Software/pbt / testing/quick</td>
+</tr>
+<tr>
+<td>Mutation</td>
+<td>make test-mutation</td>
+<td>gomutant on cryptography, packet, announce, destination, identity, ifac, backbone, interfaces</td>
+</tr>
+<tr>
+<td>Chaos</td>
+<td>make test-chaos / make test-soak / make test-soak-protect</td>
+<td>TestSimChaos* / TestLinkChaos* / TestIfaceChaos* plus soak, including dos_protection flood soak</td>
+</tr>
+<tr>
+<td>Oracle</td>
+<td>make test-oracle</td>
+<td>Crossref vectors, health TransportCounters deltas, adversarial corpus</td>
+</tr>
+<tr>
+<td>Smoke</td>
+<td>make test-binary-smoke, binding smokes</td>
+<td>Binary --version/--help, CLI dump via Main, librns smoke examples</td>
+</tr>
+<tr>
+<td>Acceptance</td>
+<td>make test-acceptance</td>
+<td>librns SCAFFOLD minimum, control API acceptance</td>
+</tr>
+<tr>
+<td>E2E</td>
+<td>make test-e2e</td>
+<td>Daemon reload, UDP path e2e, transport TestE2E_*</td>
+</tr>
+<tr>
+<td>Black box</td>
+<td>make test-blackbox</td>
+<td>CLI Main / rgodump surface, control API HTTP acceptance</td>
+</tr>
+<tr>
+<td>Interop</td>
+<td>RUN_LIVE_INTEROP=1 go test ./tests/interop/...</td>
+<td>Live Go&lt;-&gt;Python (optional locally), including dos_protection live suites</td>
+</tr>
+</tbody>
+</table>
+<h3 id="unit-tests">Unit tests<a class="headerlink" href="#unit-tests" title="Permanent link">&para;</a></h3>
+<p>Standard go test in each package. Run all:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>go<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-v<span class="w"> </span>./...
+</span></code></pre></div>
+<p>Short mode skips long tests:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>go<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-short<span class="w"> </span>-v<span class="w"> </span>./...
+</span></code></pre></div>
+<h3 id="property-based-tests">Property-based tests<a class="headerlink" href="#property-based-tests" title="Permanent link">&para;</a></h3>
+<p>Files named *_pbt_test.go use github.com/Quad4-Software/pbt for generative testing (cryptography, packet, buffer, rate, resource, announce, link, identity). Some properties still live beside unit tests in the same package.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>make<span class="w"> </span>test-property
+</span></code></pre></div>
+<h3 id="mutation-tests">Mutation tests<a class="headerlink" href="#mutation-tests" title="Permanent link">&para;</a></h3>
+<p>In-repo tools/gomutant flips same-width operators and re-runs package tests.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>make<span class="w"> </span>test-mutation
+</span></code></pre></div>
+<p>Default packages: cryptography, packet, announce, destination, identity, ifac, backbone, interfaces. Override with MUTATION_PACKAGES / MUTATION_THRESHOLD.</p>
+<h3 id="fuzz-tests">Fuzz tests<a class="headerlink" href="#fuzz-tests" title="Permanent link">&para;</a></h3>
+<p>Files named *_fuzz_test.go cover packet, link, ifac, blackhole, discovery, health counters (pkg/health), pipe HDLC framing (pkg/interfaces/pipe_fuzz_test.go), and librns (pkg/librns).</p>
+<h3 id="chaos-and-fault-injection">Chaos and fault injection<a class="headerlink" href="#chaos-and-fault-injection" title="Permanent link">&para;</a></h3>
+<p>Seeded loss, reorder, corruption, and flap tests across layers:</p>
+<table>
+<thead>
+<tr>
+<th>Prefix</th>
+<th>Package</th>
+<th>Focus</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>TestSimChaos*</td>
+<td>pkg/transport</td>
+<td>Multi-node path and announce under delay/loss/corrupt/reorder/flap (health oracle deltas on corrupt)</td>
+</tr>
+<tr>
+<td>TestLinkChaos*</td>
+<td>pkg/link</td>
+<td>Establish, packet under loss/reorder, resource under capped drop, mid-session flap, goroutine budget</td>
+</tr>
+<tr>
+<td>TestIfaceChaos*</td>
+<td>pkg/interfaces</td>
+<td>TCP HDLC corrupt/reorder, Local corrupt resync, Pipe respawn, Backbone reconnect</td>
+</tr>
+</tbody>
+</table>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>make<span class="w"> </span>test-chaos
+</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>make<span class="w"> </span>test-soak
+</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>make<span class="w"> </span>test-soak-protect
+</span></code></pre></div>
+<p>Chaos suites are in-process Go only (sim pipes / HDLC fixtures). Live Go&lt;-&gt;Python HDLC loss, reorder, corrupt, and mid-session flap live under tests/interop/ (TestLiveInteropHDLC*, RUN_LIVE_INTEROP=1). Unpack hop-gate, HT2 truncation, oversize, and Pack/Unpack byte-identity vs Python RNS.Packet live in unpack_live_test.go. Healthy-path cross-stack coverage also lives under tests/interop/.</p>
+<h3 id="dos_protection-tests">dos_protection tests<a class="headerlink" href="#dos_protection-tests" title="Permanent link">&para;</a></h3>
+<p>pkg/protect and interface hooks cover false positives, false negatives, auto learn/persist/relearn, and live sockets.</p>
+<table>
+<thead>
+<tr>
+<th>Suite</th>
+<th>Location</th>
+<th>Focus</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Unit / FP-FN</td>
+<td>pkg/protect/false_positive_test.go</td>
+<td>Quiet traffic, bursty legit, multi-iface isolation, oscillation, poisoned warmup, drift without false block</td>
+</tr>
+<tr>
+<td>Snapshot / bitrate / priority</td>
+<td>pkg/protect/snapshot_test.go, bitrate_test.go, packetclass.go</td>
+<td>Status snapshot, scaled floors, prefer-keep shedding</td>
+</tr>
+<tr>
+<td>Harm / FP oracles</td>
+<td>pkg/protect/harm_oracle_test.go</td>
+<td>Quiet mesh, slow radio, bulk link after quiet learn, path requests during announce floods, massive discovery bursts, peer isolation vs resource streams, auto-learning flood contract</td>
+</tr>
+<tr>
+<td>Transport handler shed</td>
+<td>pkg/transport/protect_test.go</td>
+<td>Semaphore-full always sheds in detect, prevent, and auto learning</td>
+</tr>
+<tr>
+<td>Slow findings</td>
+<td>pkg/rnsutil/slow_protect_test.go</td>
+<td>dos_armed_trips and cool-down findings from RPC protect block</td>
+</tr>
+<tr>
+<td>Sandbox soft-fail</td>
+<td>pkg/sandbox/warn_test.go</td>
+<td>Rate-limited stdout when Landlock or seccomp soft-fails</td>
+</tr>
+<tr>
+<td>Replay traces</td>
+<td>pkg/protect/replay_trace_test.go</td>
+<td>Mesh-like timelines, flood inject and recovery, auto learn then block</td>
+</tr>
+<tr>
+<td>Property / fuzz</td>
+<td>pkg/protect/property_test.go, fuzz_test.go</td>
+<td>Detect never blocks, prevent after threshold, mode round-trip</td>
+</tr>
+<tr>
+<td>Soak</td>
+<td>make test-soak-protect</td>
+<td>Bounded flood heap and goroutine budgets</td>
+</tr>
+<tr>
+<td>Live UDP/TCP</td>
+<td>pkg/interfaces/protect_*_live_test.go</td>
+<td>Real loopback sockets, optional non-loopback NIC, TCP accept storms</td>
+</tr>
+<tr>
+<td>Live interop</td>
+<td>tests/interop/dos_protect_live_test.go</td>
+<td>RUN_LIVE_INTEROP=1: quiet budget, UDP flood shed, auto learn on live UDP, transport path, public mesh peer dials</td>
+</tr>
+</tbody>
+</table>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>go<span class="w"> </span><span class="nb">test</span><span class="w"> </span>./pkg/protect<span class="w"> </span>-short
+</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>go<span class="w"> </span><span class="nb">test</span><span class="w"> </span>./pkg/interfaces<span class="w"> </span>-run<span class="w"> </span><span class="s1">'LiveUDP|LiveTCP|Protect'</span>
+</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>make<span class="w"> </span>test-soak-protect
+</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="nv">RUN_LIVE_INTEROP</span><span class="o">=</span><span class="m">1</span><span class="w"> </span>go<span class="w"> </span><span class="nb">test</span><span class="w"> </span>./tests/interop<span class="w"> </span>-run<span class="w"> </span><span class="s1">'DoSProtect|DoSProtection'</span>
+</span></code></pre></div>
+<p>FreeBSD, OpenBSD, and Haiku CI jobs run go test -short ./pkg/protect/ and transport protect tests in addition to pkg/sandbox and self-check. The test-extra soak matrix runs make test-soak-protect.</p>
+<p>Config and threat scope: <a href="../configuration/#dos_protection-go-only">Configuration</a>, <a href="../security/#dos-protection-local-idsips">Security</a>.</p>
+<h3 id="test-oracles">Test oracles<a class="headerlink" href="#test-oracles" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Oracle</th>
+<th>Location</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Python crossref vectors</td>
+<td>tests/crossref/</td>
+</tr>
+<tr>
+<td>Health counter deltas</td>
+<td>pkg/health.TransportCounters / CounterSnapshot.Delta</td>
+</tr>
+<tr>
+<td>Handshake / adversarial frames</td>
+<td>pkg/packet/testdata/</td>
+</tr>
+<tr>
+<td>IFAC goldens</td>
+<td>pkg/ifac unit tests</td>
+</tr>
+<tr>
+<td>Sim path/hop asserts</td>
+<td>pkg/transport/sim_assertions_test.go</td>
+</tr>
+</tbody>
+</table>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>make<span class="w"> </span>test-oracle
+</span></code></pre></div>
+<h3 id="smoke-acceptance-e2e-black-box">Smoke, acceptance, e2e, black box<a class="headerlink" href="#smoke-acceptance-e2e-black-box" title="Permanent link">&para;</a></h3>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>make<span class="w"> </span>test-binary-smoke
+</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>make<span class="w"> </span>test-acceptance
+</span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>make<span class="w"> </span>test-e2e
+</span><span id="__span-16-4"><a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a>make<span class="w"> </span>test-blackbox
+</span></code></pre></div>
+<p>Notable additions: pkg/cli dump smoke via Main, pkg/librns.TestAcceptanceScaffoldMinimum, pkg/node.TestUDPPathE2E.</p>
+<h3 id="crossref-tests">Crossref tests<a class="headerlink" href="#crossref-tests" title="Permanent link">&para;</a></h3>
+<p>Location: tests/crossref/</p>
+<p>Purpose: byte-level parity with Python reference output.</p>
+<p>Workflow:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>./tests/crossref/run_crossref.sh<span class="w"> </span>generate<span class="w">   </span><span class="c1"># requires Python reference</span>
+</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>./tests/crossref/run_crossref.sh<span class="w"> </span><span class="nb">test</span>
+</span><span id="__span-17-3"><a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>./tests/crossref/run_crossref.sh<span class="w"> </span>all
+</span></code></pre></div>
+<p>Vectors are JSON with format version 5 (generate_vectors.py). The reference tree is fetched via rngit in run_crossref.sh.</p>
+<p>Coverage includes identity, HKDF, HMAC, packet wire, announces, encryption, links, resources, channel envelopes, buffers, path requests.</p>
+<p>Handshake decode trees for porters also live in pkg/packet/testdata/handshake_vectors.json (see <a href="../packet-debug/">packet-debug.md</a>).</p>
+<h3 id="packet-debug-tools">Packet debug tools<a class="headerlink" href="#packet-debug-tools" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Wireshark Lua dissector: tools/wireshark/rns.lua</li>
+<li>reticulum-go dump / rgodump for hex and pcap</li>
+<li>reticulum-go snapshot / rgosnap for path and health JSON</li>
+<li>Timeline convention: <a href="../interop-timeline/">interop-timeline.md</a></li>
+</ul>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>go<span class="w"> </span><span class="nb">test</span><span class="w"> </span>./pkg/packet/<span class="w"> </span>-run<span class="w"> </span><span class="s1">'TestHandshakeVector|TestTshark|TestDecode|TestPCAP'</span>
+</span><span id="__span-18-2"><a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>go<span class="w"> </span><span class="nb">test</span><span class="w"> </span>./pkg/health/<span class="w"> </span>-run<span class="w"> </span>TestDrop
+</span><span id="__span-18-3"><a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a>go<span class="w"> </span><span class="nb">test</span><span class="w"> </span>./pkg/cli/<span class="w"> </span>-run<span class="w"> </span>TestRunDump
+</span></code></pre></div>
+<h3 id="interop-tests">Interop tests<a class="headerlink" href="#interop-tests" title="Permanent link">&para;</a></h3>
+<p>Location: tests/interop/</p>
+<p>Live tests pair a Go process with Python helpers under tests/interop/py/. HDLC burst (TestLiveInteropHDLCBurst*) and Unpack hop-gate (TestLiveInteropUnpackOracleMatchesPython) cover stream coalescing and refuse-invalid parity.</p>
+<p>Enable:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="nv">RUN_LIVE_INTEROP</span><span class="o">=</span><span class="m">1</span><span class="w"> </span>go<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-v<span class="w"> </span>./tests/interop/...
+</span></code></pre></div>
+<p>Optional Python interpreter (prefer a venv or pipx install with rns==1.6.1):</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-20-1"><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>sh<span class="w"> </span>scripts/ci/setup-venv-pip.sh<span class="w"> </span><span class="s1">'rns==1.6.1'</span>
+</span><span id="__span-20-2"><a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a><span class="nv">PYTHON_INTEROP</span><span class="o">=</span>.venv/bin/python<span class="w"> </span><span class="nv">RUN_LIVE_INTEROP</span><span class="o">=</span><span class="m">1</span><span class="w"> </span>go<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-v<span class="w"> </span>./tests/interop/...
+</span></code></pre></div>
+<p>RNS 1.6.1 generates destination stamps by default at value 25, which is too slow for tests. Both sides use a low-cost convention so the wire shape stays stamped but generation is cheap: Go peers set <code>DestinationValue</code> in <code>interopPeerConfig()</code> (tests/interop/link_live_test.go) and the Python helpers set <code>DEST_VALUE</code> in their RNS config, both to 8.</p>
+<p>The 1.6.1 wheel on PyPI was respun once as <code>rns-1.6.1-0</code> (2026-11-19) to hotfix the <code>rngit</code> media conversion helpers. <code>pip install rns==1.6.1</code> resolves to the hotfix build, which is the only version these tests are run against.</p>
+<p>With pipx (<code>pipx install rns</code>), the interop harness and self-check also auto-detect <code>~/.local/share/pipx/venvs/rns/bin/python</code> when <code>PYTHON_INTEROP</code> is unset.</p>
+<h4 id="debug-harness">Debug harness<a class="headerlink" href="#debug-harness" title="Permanent link">&para;</a></h4>
+<p>NomadNet relay, pageserver, and shared helpers use tests/interop/harness/.</p>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Behavior</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>INTEROP_ARTIFACTS=1</td>
+<td>Always keep artifact dirs (default: only when the test fails)</td>
+</tr>
+<tr>
+<td>INTEROP_EVENTS=1</td>
+<td>Force event logging (also on when artifacts are enabled)</td>
+</tr>
+<tr>
+<td>INTEROP_ARTIFACT_ROOT</td>
+<td>Parent directory for durable artifact folders</td>
+</tr>
+</tbody>
+</table>
+<p>On failure (or with INTEROP_ARTIFACTS=1) the test logs the artifact path and the last events. Typical files:</p>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Contents</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>events.jsonl</td>
+<td>One JSON object per line (ts, src, event, kind, detail)</td>
+</tr>
+<tr>
+<td>stderr.txt</td>
+<td>Captured Python stderr (human RNS logs plus INTEROP_EVENT lines)</td>
+</tr>
+<tr>
+<td>env.json</td>
+<td>Selected interop env keys</td>
+</tr>
+</tbody>
+</table>
+<p>Python peers emit INTEROP_EVENT {...} on stderr via tests/interop/py/interop_events.py. Stdout tokens such as READY and REQUEST_OK are unchanged.</p>
+<p>Example:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-21-1"><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="nv">INTEROP_ARTIFACTS</span><span class="o">=</span><span class="m">1</span><span class="w"> </span><span class="nv">INTEROP_ARTIFACT_ROOT</span><span class="o">=</span>/tmp/rns-interop<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-21-2"><a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a><span class="w">  </span><span class="nv">RUN_LIVE_INTEROP</span><span class="o">=</span><span class="m">1</span><span class="w"> </span>go<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-v<span class="w"> </span>./tests/interop/<span class="w"> </span>-run<span class="w"> </span><span class="s1">'TestLiveNomadNetLinkThroughGoRelay|TestLiveInteropPythonPageServerLargePageRequest'</span>
+</span></code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Test file</th>
+<th>Topic</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>link_live_test.go</td>
+<td>Link sessions, resources, binary burst echo, Go-&gt;Python request</td>
+</tr>
+<tr>
+<td>channel_buffer_live_test.go</td>
+<td>Channel messages and buffer streams</td>
+</tr>
+<tr>
+<td>rncp_blackhole_live_test.go</td>
+<td>rncp file transfer and blackhole LINKIDENTIFY</td>
+</tr>
+<tr>
+<td>auto_live_test.go</td>
+<td>AutoInterface</td>
+</tr>
+<tr>
+<td>ifac_live_test.go</td>
+<td>IFAC</td>
+</tr>
+<tr>
+<td>transport_path_live_test.go</td>
+<td>Path requests</td>
+</tr>
+<tr>
+<td>transport_relay_live_test.go</td>
+<td>Transport relay</td>
+</tr>
+<tr>
+<td>backbone_live_test.go</td>
+<td>Backbone</td>
+</tr>
+<tr>
+<td>quic_live_test.go</td>
+<td>QUIC Go-Go echo (no Python peer)</td>
+</tr>
+<tr>
+<td>pipe_live_test.go</td>
+<td>PipeInterface with Python echo</td>
+</tr>
+<tr>
+<td>modem73_live_test.go</td>
+<td>Modem73Interface (fake KISS/control, optional modem73 binary audio loop via MODEM73_BIN + pactl)</td>
+</tr>
+<tr>
+<td>sdr_live_test.go</td>
+<td>SDRInterface mock exchange (RUN_LIVE_SDR=1)</td>
+</tr>
+<tr>
+<td>shared_rpc_live_test.go</td>
+<td>Shared-instance RPC (TCP and Unix on Linux)</td>
+</tr>
+<tr>
+<td>pageserver_live_test.go</td>
+<td>Pageserver example</td>
+</tr>
+<tr>
+<td>nomadnet_crawl_live_test.go</td>
+<td>Nomadnet crawl</td>
+</tr>
+<tr>
+<td>nomadnet_relay_live_test.go</td>
+<td>NomadNet through Go mesh relay</td>
+</tr>
+<tr>
+<td>path_cp_live_test.go</td>
+<td>path and rgocp utilities</td>
+</tr>
+<tr>
+<td>i2p_live_test.go</td>
+<td>I2PInterface Go and Python (needs SAM)</td>
+</tr>
+<tr>
+<td>directory_outgoing_live_test.go</td>
+<td>Public directory clearnet TCP peers</td>
+</tr>
+</tbody>
+</table>
+<h3 id="package-specific-live-tests">Package-specific live tests<a class="headerlink" href="#package-specific-live-tests" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Package</th>
+<th>Env var</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>pkg/i2p, pkg/interfaces I2P</td>
+<td>RUN_LIVE_I2P=1 (optional I2P_SAM_ADDRESS, I2P_DIRECTORY_URL)</td>
+</tr>
+<tr>
+<td>pkg/blackhole</td>
+<td>RUN_PY_INTEROP=1</td>
+</tr>
+<tr>
+<td>pkg/discovery</td>
+<td>RUN_PY_INTEROP=1</td>
+</tr>
+<tr>
+<td>pkg/lxstamper</td>
+<td>RUN_PY_INTEROP=1 (LXStamper)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="end-to-end-daemon-tests">End-to-end daemon tests<a class="headerlink" href="#end-to-end-daemon-tests" title="Permanent link">&para;</a></h3>
+<p>cmd/reticulum-go/ contains controlapi_e2e_test.go, reload_e2e_test.go, and related tests.</p>
+<h3 id="host-self-check">Host self-check<a class="headerlink" href="#host-self-check" title="Permanent link">&para;</a></h3>
+<p>reticulum-go self-check is a host OS preflight. It validates that platform features work on the machine under test (crypto, identity file backend, sandbox, securemem, loopback interfaces, daemon with sandbox, shared-instance RPC, and on Unix a SIGHUP config/interface reload).</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-22-1"><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>make<span class="w"> </span>test-self-check
+</span><span id="__span-22-2"><a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a><span class="c1"># or</span>
+</span><span id="__span-22-3"><a id="__codelineno-22-3" name="__codelineno-22-3" href="#__codelineno-22-3"></a>./bin/reticulum-go<span class="w"> </span>self-check<span class="w"> </span>--json<span class="w"> </span>--full
+</span></code></pre></div>
+<p>Flags:</p>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Behavior</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>--json</td>
+<td>Machine-readable report</td>
+</tr>
+<tr>
+<td>--quick</td>
+<td>Core and platform only (no loopback or daemon)</td>
+</tr>
+<tr>
+<td>--full</td>
+<td>Also probe QUIC, HTTPS, VSOCK, Pipe, and Serial</td>
+</tr>
+<tr>
+<td>--interop</td>
+<td>Optional external tools (crossref vectors, Python RNS, binding CLIs)</td>
+</tr>
+<tr>
+<td>--strict</td>
+<td>Treat warnings as failures</td>
+</tr>
+<tr>
+<td>--binary PATH</td>
+<td>Binary used for CLI and daemon checks</td>
+</tr>
+</tbody>
+</table>
+<p>Environment:</p>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Behavior</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>RETICULUM_SELF_CHECK=1</td>
+<td>Used by CI wrappers that invoke the same checklist</td>
+</tr>
+<tr>
+<td>RETICULUM_SELF_CHECK_INTEROP=1</td>
+<td>Enables the interop tier</td>
+</tr>
+<tr>
+<td>RETICULUM_TEST_KEYRING=1</td>
+<td>Require Linux keyring round-trip (fail if unavailable)</td>
+</tr>
+</tbody>
+</table>
+<p>Exit code is non-zero on any fail result. With --strict, warnings also fail.</p>
+<p>Daemon checks include Control API health with sandbox enabled, shared-instance GetInterfaceStats RPC, and (except Windows, FreeBSD CapEnter, and OpenBSD unveil+pledge) SIGHUP reload of a UDP interface.</p>
+<p>CI runs self-check on Linux (amd64 and arm64), macOS, Windows, FreeBSD, and OpenBSD. Extra Linux arches (386, arm GOARM=6, riscv64, ppc64le, ppc64) run via qemu-user-static (make test-self-check-386, test-self-check-arm, test-self-check-riscv64, test-self-check-ppc64le, test-self-check-ppc64). Android emulator self-check is a separate workflow (selfcheck-android.yml) on schedule or workflow_dispatch.</p>
+<p>NetBSD is not in CI. Run reticulum-go self-check manually on that host.</p>
+<h3 id="static-footgun-scan">Static footgun scan<a class="headerlink" href="#static-footgun-scan" title="Permanent link">&para;</a></h3>
+<p>reticulum-go zen scans Go sources (and optional Python with -python) for path and link anti-patterns: RequestPath or HasPath loops, Establish before AwaitPath, link use without callbacks, announce bursts, and legacy 15 second timeouts. It is a developer tool, not a runtime check. No daemon is required.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-23-1"><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a>make<span class="w"> </span>build
+</span><span id="__span-23-2"><a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a>./bin/reticulum-go<span class="w"> </span>zen<span class="w"> </span>./...
+</span><span id="__span-23-3"><a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a>./bin/reticulum-go<span class="w"> </span>zen<span class="w"> </span>-list-rules
+</span><span id="__span-23-4"><a id="__codelineno-23-4" name="__codelineno-23-4" href="#__codelineno-23-4"></a>./bin/reticulum-go<span class="w"> </span>zen<span class="w"> </span>-fix<span class="w"> </span>./pkg/myapp/...
+</span></code></pre></div>
+<p>-fix applies only safe edits (checking RequestPath errors in functions that return error). Warnings without -fix exit non-zero so CI can gate on the scan.</p>
+<p>Package tests live in pkg/zenfix/. Full flag and rule reference: <a href="../utilities/#rgozen">CLI utilities</a>.</p>
+<h2 id="vendoring">Vendoring<a class="headerlink" href="#vendoring" title="Permanent link">&para;</a></h2>
+<p>Third-party source is committed under <code>vendor/</code>. Ordinary builds and tests use that tree with <code>GOFLAGS=-mod=vendor</code> and <code>GOPROXY=off</code> (set by the Makefile). That keeps air-gapped builds reliable, makes dependency upgrades reviewable as diffs, and matches CI.</p>
+<p>Versions and checksums remain in <code>go.mod</code> / <code>go.sum</code>. Scripts that install standalone CLI tools (revive, gosec, and similar) temporarily clear those env flags to fetch the tool binary. Project code itself always compiles from <code>vendor/</code>.</p>
+<p>Refresh after dependency changes:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-24-1"><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a>make<span class="w"> </span>vendor-sync
+</span><span id="__span-24-2"><a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a><span class="c1"># or</span>
+</span><span id="__span-24-3"><a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a>make<span class="w"> </span>deps
+</span></code></pre></div>
+<p><code>make vendor-sync</code> requires <code>LIBS_ROOT</code> pointing at the Reticulum-Go-Deps sibling tree for the bzip2, msgpack, pbt and tagparser replace directives. The protocols module is in this tree under <code>protocols/</code>, and its <code>go.mod</code> replaces the root module with <code>..</code>. Commit <code>go.mod</code>, <code>go.sum</code>, and <code>vendor/</code> after refresh.</p>
+<p><code>go mod vendor</code> regenerates vendor/ from scratch and deletes local patches applied on top of upstream code (currently the linux/ppc64 serial stub). <code>vendor-sync</code> reapplies them automatically through <code>scripts/vendor-patches.sh</code>. After any manual <code>go mod vendor</code> run <code>make vendor-patch</code>. <code>make vendor-check</code> fails if the patches are missing and runs in <code>make ci</code>.</p>
+<p>The repository contains two modules: the root stack and <code>protocols/</code> (LXMF, LXST, MF, RRC). Each has its own <code>go.mod</code> and <code>vendor/</code> policy. Both modules vendor their dependencies and build with <code>GOFLAGS=-mod=vendor</code>. Build and test the nested module with <code>task protocols-build</code> and <code>task protocols-test</code>.</p>
+<p>The docs site is a <a href="https://zensical.org">Zensical</a> site configured by <code>zensical.toml</code> at the repository root, with <code>docs/en</code> as the docs directory. <code>task docs-serve</code> runs <code>scripts/docs-bundle.py</code> and then <code>zensical serve</code> for a live preview at <a href="http://127.0.0.1:1313/">http://127.0.0.1:1313/</a>; <code>task docs-build</code> writes the static site to <code>site/</code>. <code>scripts/docs.sh</code> creates a <code>.docs-venv</code> with the pinned tooling from <code>docs/requirements-docs.txt</code> on first use. <code>scripts/docs-bundle.py</code> reads the page order from <code>zensical.toml</code>'s nav and writes a Markdown ZIP, a PDF rendered with headless Chromium, and a hand assembled EPUB 3 to <code>docs/en/assets/downloads/</code> (gitignored). Deploys are handled by mike in the docs workflow: pushes to master publish <code>dev</code>, releases publish their version and the <code>latest</code> alias, and <code>mike set-default</code> points the site root at <code>latest</code>.</p>
+<p>Day-to-day clones only need <code>vendor/</code> to build offline. Sibling checkouts are only required when re-vendoring first-party libraries. <code>examples/wasm</code> and <code>examples/pageserver</code> keep their own <code>go.mod</code> / <code>vendor/</code> trees. Docker configs under <code>docker/</code> copy those folders for offline image builds.</p>
+<h2 id="ci-overview">CI overview<a class="headerlink" href="#ci-overview" title="Permanent link">&para;</a></h2>
+<p>GitHub Actions workflows in .github/workflows/:</p>
+<table>
+<thead>
+<tr>
+<th>Workflow</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ci.yml</td>
+<td>Build, test, reproducibility, OS self-check (Linux amd64 v1+v3, i686/386, arm64, arm, riscv64, ppc64le, ppc64, mips, s390x, plus Windows, macOS, *BSD, Solaris, illumos, AIX, Android arm64, wasm, and qemu-user self-check for 386/arm/riscv64/ppc64le/ppc64)</td>
+</tr>
+<tr>
+<td>selfcheck-android.yml</td>
+<td>Android emulator self-check (nightly / manual)</td>
+</tr>
+<tr>
+<td>security.yml</td>
+<td>Gosec, govulncheck, Trivy, SBOM dispatch</td>
+</tr>
+<tr>
+<td>codeql.yml</td>
+<td>CodeQL for Go, JS/TS, Python, and Actions workflows</td>
+</tr>
+<tr>
+<td>dependency-review.yml</td>
+<td>PR dependency and advisory gate</td>
+</tr>
+<tr>
+<td>publish.yml</td>
+<td>Tagged releases, cosign attestations</td>
+</tr>
+</tbody>
+</table>
+<p>After a tagged GitHub release finishes, the same assets can be published to the rngit repository (<code>rns://06a54b505bb67b25ef3f8097e8001edc/public/Reticulum-Go</code>) with <code>task release-rngit TAG=&lt;tag&gt;</code>. Run it with <code>ARGS=--dry-run</code> first to generate the signatures and manifest without uploading. See the releasing section in CONTRIBUTING.md.</p>
+<p>CI uses Go 1.27.4 via actions/setup-go in .github/actions/setup-ci with GOTOOLCHAIN=local and vendored modules. Actions are SHA-pinned.</p>
+<h2 id="cross-compilation">Cross-compilation<a class="headerlink" href="#cross-compilation" title="Permanent link">&para;</a></h2>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-25-1"><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a>make<span class="w"> </span>build-linux
+</span><span id="__span-25-2"><a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a>make<span class="w"> </span>build-windows
+</span><span id="__span-25-3"><a id="__codelineno-25-3" name="__codelineno-25-3" href="#__codelineno-25-3"></a>make<span class="w"> </span>build-darwin
+</span><span id="__span-25-4"><a id="__codelineno-25-4" name="__codelineno-25-4" href="#__codelineno-25-4"></a>make<span class="w"> </span>build-all
+</span></code></pre></div>
+<p>make build-linux always emits linux-amd64 v1 and v3 together, plus linux-386 and linux-i686. make build-all covers every CGO-free GOOS/GOARCH pair that compiles (see scripts/build-release-targets.sh).</p>
+<p>Legacy Windows uses go-legacy-win7 (make build-windows-legacy).</p>
+<h2 id="webassembly-development">WebAssembly development<a class="headerlink" href="#webassembly-development" title="Permanent link">&para;</a></h2>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-26-1"><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a>make<span class="w"> </span>build-wasm
+</span><span id="__span-26-2"><a id="__codelineno-26-2" name="__codelineno-26-2" href="#__codelineno-26-2"></a>make<span class="w"> </span>test-wasm
+</span></code></pre></div>
+<p>Manual WASM binary:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-27-1"><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a>mkdir<span class="w"> </span>-p<span class="w"> </span>bin
+</span><span id="__span-27-2"><a id="__codelineno-27-2" name="__codelineno-27-2" href="#__codelineno-27-2"></a><span class="nv">GOOS</span><span class="o">=</span>js<span class="w"> </span><span class="nv">GOARCH</span><span class="o">=</span>wasm<span class="w"> </span>go<span class="w"> </span>build<span class="w"> </span>-ldflags<span class="o">=</span><span class="s2">"-s -w"</span><span class="w"> </span>-o<span class="w"> </span>bin/reticulum-go.wasm<span class="w"> </span>./cmd/reticulum-wasm
+</span></code></pre></div>
+<p>See <a href="../embedding-and-wasm/">Embedding and WebAssembly</a>.</p>
+<h2 id="librns-shared-library">librns shared library<a class="headerlink" href="#librns-shared-library" title="Permanent link">&para;</a></h2>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-28-1"><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a>make<span class="w"> </span>build-librns
+</span><span id="__span-28-2"><a id="__codelineno-28-2" name="__codelineno-28-2" href="#__codelineno-28-2"></a>make<span class="w"> </span>-C<span class="w"> </span><span class="sb">`</span>bindings/c/examples<span class="sb">`</span>/smoke
+</span><span id="__span-28-3"><a id="__codelineno-28-3" name="__codelineno-28-3" href="#__codelineno-28-3"></a>./bindings/c/examples/smoke/librns-smoke
+</span></code></pre></div>
+<p>Needs a C toolchain and CGO. Daemon builds stay CGO_ENABLED=0. See <a href="../librns/">librns</a>.</p>
+<h2 id="odin-bindings">Odin bindings<a class="headerlink" href="#odin-bindings" title="Permanent link">&para;</a></h2>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-29-1"><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a>make<span class="w"> </span>build-librns
+</span><span id="__span-29-2"><a id="__codelineno-29-2" name="__codelineno-29-2" href="#__codelineno-29-2"></a>make<span class="w"> </span>test-odin
+</span></code></pre></div>
+<p>Requires the Odin compiler on PATH (CI installs a pinned monthly release via scripts/ci/setup-odin.sh, job Odin bindings). Package lives under bindings/odin. See <a href="../librns/#odin-bindings">librns</a>.</p>
+<h2 id="zig-bindings">Zig bindings<a class="headerlink" href="#zig-bindings" title="Permanent link">&para;</a></h2>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-30-1"><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a>make<span class="w"> </span>build-librns
+</span><span id="__span-30-2"><a id="__codelineno-30-2" name="__codelineno-30-2" href="#__codelineno-30-2"></a>make<span class="w"> </span>test-zig
+</span></code></pre></div>
+<p>Requires Zig 0.16.0 or later on PATH (CI installs a pinned release via scripts/ci/setup-zig.sh, job Zig bindings). Package lives under bindings/zig. See <a href="../librns/#zig-bindings">librns</a>.</p>
+<h2 id="c-bindings">C++ bindings<a class="headerlink" href="#c-bindings" title="Permanent link">&para;</a></h2>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-31-1"><a id="__codelineno-31-1" name="__codelineno-31-1" href="#__codelineno-31-1"></a>make<span class="w"> </span>build-librns
+</span><span id="__span-31-2"><a id="__codelineno-31-2" name="__codelineno-31-2" href="#__codelineno-31-2"></a>make<span class="w"> </span>test-cpp
+</span></code></pre></div>
+<p>Requires CMake and a C++17 compiler on PATH (CI job C++ bindings). Package lives under bindings/cpp. See <a href="../librns/#c-bindings">librns</a>.</p>
+<h2 id="dart-bindings">Dart bindings<a class="headerlink" href="#dart-bindings" title="Permanent link">&para;</a></h2>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-32-1"><a id="__codelineno-32-1" name="__codelineno-32-1" href="#__codelineno-32-1"></a>make<span class="w"> </span>build-librns
+</span><span id="__span-32-2"><a id="__codelineno-32-2" name="__codelineno-32-2" href="#__codelineno-32-2"></a>make<span class="w"> </span>test-dart
+</span></code></pre></div>
+<p>Requires the Dart SDK on PATH (CI pins 3.11.4, job Dart bindings) and CGO for librns.so FFI smoke tests. Package and examples live under bindings/dart. See <a href="../librns/#dart-ffi-bindings">librns Dart FFI</a> and <a href="../control-api/#dart-and-flutter">Control API</a>.</p>
+<h2 id="rust-bindings">Rust bindings<a class="headerlink" href="#rust-bindings" title="Permanent link">&para;</a></h2>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-33-1"><a id="__codelineno-33-1" name="__codelineno-33-1" href="#__codelineno-33-1"></a>make<span class="w"> </span>build-librns
+</span><span id="__span-33-2"><a id="__codelineno-33-2" name="__codelineno-33-2" href="#__codelineno-33-2"></a>make<span class="w"> </span>test-rust
+</span></code></pre></div>
+<p>Requires cargo on PATH (CI job Rust bindings). Package and examples live under bindings/rust.</p>
+<h2 id="python-bindings">Python bindings<a class="headerlink" href="#python-bindings" title="Permanent link">&para;</a></h2>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-34-1"><a id="__codelineno-34-1" name="__codelineno-34-1" href="#__codelineno-34-1"></a>make<span class="w"> </span>build-librns
+</span><span id="__span-34-2"><a id="__codelineno-34-2" name="__codelineno-34-2" href="#__codelineno-34-2"></a>make<span class="w"> </span>test-python
+</span></code></pre></div>
+<p>Requires python3 on PATH (CI job Python bindings). Package and examples live under bindings/python.</p>
+<h2 id="lua-bindings">Lua bindings<a class="headerlink" href="#lua-bindings" title="Permanent link">&para;</a></h2>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-35-1"><a id="__codelineno-35-1" name="__codelineno-35-1" href="#__codelineno-35-1"></a>make<span class="w"> </span>build-librns
+</span><span id="__span-35-2"><a id="__codelineno-35-2" name="__codelineno-35-2" href="#__codelineno-35-2"></a>make<span class="w"> </span>test-lua
+</span></code></pre></div>
+<p>Requires LuaJIT on PATH (CI job Lua bindings). Package and examples live under bindings/lua.</p>
+<h2 id="swift-bindings">Swift bindings<a class="headerlink" href="#swift-bindings" title="Permanent link">&para;</a></h2>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-36-1"><a id="__codelineno-36-1" name="__codelineno-36-1" href="#__codelineno-36-1"></a>make<span class="w"> </span>build-librns
+</span><span id="__span-36-2"><a id="__codelineno-36-2" name="__codelineno-36-2" href="#__codelineno-36-2"></a>make<span class="w"> </span>test-swift
+</span></code></pre></div>
+<p>Requires swift on PATH (CI pins 6.0.3 via scripts/ci/setup-swift.sh, job Swift bindings). Package and examples live under bindings/swift.</p>
+<h2 id="java-bindings">Java bindings<a class="headerlink" href="#java-bindings" title="Permanent link">&para;</a></h2>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-37-1"><a id="__codelineno-37-1" name="__codelineno-37-1" href="#__codelineno-37-1"></a>make<span class="w"> </span>build-librns
+</span><span id="__span-37-2"><a id="__codelineno-37-2" name="__codelineno-37-2" href="#__codelineno-37-2"></a>make<span class="w"> </span>test-java
+</span></code></pre></div>
+<p>Requires javac on PATH (CI uses Temurin 17, job Java bindings). Package and examples live under bindings/java. JNA is fetched on first build.</p>
+<h2 id="kotlin-bindings">Kotlin bindings<a class="headerlink" href="#kotlin-bindings" title="Permanent link">&para;</a></h2>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-38-1"><a id="__codelineno-38-1" name="__codelineno-38-1" href="#__codelineno-38-1"></a>make<span class="w"> </span>build-librns
+</span><span id="__span-38-2"><a id="__codelineno-38-2" name="__codelineno-38-2" href="#__codelineno-38-2"></a>make<span class="w"> </span>test-kotlin
+</span></code></pre></div>
+<p>Requires kotlinc and javac on PATH (CI pins Kotlin 2.1.10 via scripts/ci/setup-kotlin.sh, job Kotlin bindings). Package and examples live under bindings/kotlin and depend on bindings/java.</p>
+<h2 id="c-abi-examples">C ABI examples<a class="headerlink" href="#c-abi-examples" title="Permanent link">&para;</a></h2>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-39-1"><a id="__codelineno-39-1" name="__codelineno-39-1" href="#__codelineno-39-1"></a>make<span class="w"> </span>build-librns
+</span><span id="__span-39-2"><a id="__codelineno-39-2" name="__codelineno-39-2" href="#__codelineno-39-2"></a>make<span class="w"> </span>test-c
+</span></code></pre></div>
+<p>Builds and runs bindings/c/examples (smoke plus page-fetch/pageserver compile). Binding CI jobs also run make -C bindings/<code>&lt;lang&gt;</code> examples.</p>
+<h2 id="adding-a-change-safely">Adding a change safely<a class="headerlink" href="#adding-a-change-safely" title="Permanent link">&para;</a></h2>
+<ol>
+<li>Write or extend unit tests in the affected package</li>
+<li>If wire format changes, update crossref vectors and Python reference together</li>
+<li>Run make check locally</li>
+<li>For protocol behavior, add or extend interop test when feasible</li>
+<li>Update <a href="../compatibility/">Compatibility</a> and <a href="https://github.com/Quad4-Software/Reticulum-Go/blob/master/COMPATIBILITY.md">COMPATIBILITY.md</a> if parity status changes</li>
+</ol>
+<h2 id="memory-diagnostics-on-a-running-node">Memory diagnostics on a running node<a class="headerlink" href="#memory-diagnostics-on-a-running-node" title="Permanent link">&para;</a></h2>
+<p>Three ways to inspect memory on a production node without restarting it:</p>
+<ul>
+<li><code>rgostatus --memory</code> prints Go runtime stats (heap, stack, sys, goroutines, GC counters, the effective soft limit) and transport table sizes from the shared-instance RPC. Python shared instances answer it as unavailable.</li>
+<li><code>SIGUSR1</code> (Unix) writes a pprof heap profile to <code>&lt;config dir&gt;/storage/heap-&lt;nanoseconds&gt;.pprof</code>. The newest five <code>heap-*.pprof</code> files are kept. Analyze offline with <code>go tool pprof -top &lt;file&gt;</code>.</li>
+<li><code>RETICULUM_PPROF_ADDR=127.0.0.1:6060</code> binds a localhost-only net/http/pprof listener at daemon start. Fetch a profile with <code>go tool pprof http://127.0.0.1:6060/debug/pprof/heap</code>. Leave it unset on hosts where localhost is not trusted.</li>
+</ul>
+<p>When a soft memory limit is in effect (always on current builds unless <code>GOMEMLIMIT</code> or <code>soft_memory_limit</code> overrides it), the daemon logs a warning once heap usage crosses 85 percent of the limit and re-arms below 70 percent. Setting <code>RETICULUM_HEAP_DUMP_ON_THRESHOLD=1</code> also writes a bounded heap profile to the storage directory on each crossing.</p>
+<h2 id="related-documents">Related documents<a class="headerlink" href="#related-documents" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="../security/">Security</a> for CI scan detail</li>
+<li><a href="../package-map/">Package map</a></li>
+<li><a href="../examples/">Examples</a></li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-circle-arrow-up" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m16 12-4-4-4 4M12 16V8"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../microvm/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Firecracker microvm">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Firecracker microvm
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../examples/" class="md-footer__link md-footer__link--next" aria-label="Next: Examples">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Examples
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-right" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      
+      
+        
+        
+      <script id="__config" type="application/json">{"annotate":null,"base":"..","features":["navigation.sections","navigation.footer","navigation.top","toc.integrate","content.action.edit","search.highlight"],"redirect":null,"search":"../assets/javascripts/workers/search.7d14d953.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":{"alias":true,"provider":"mike"}}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.8dcc8e9c.min.js"></script>
+      
+    
+  </body>
+</html>
