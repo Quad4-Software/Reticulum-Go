@@ -1,4 +1,4 @@
-baseURL = "https://docs.quad4.io/reticulum-go/"
+baseURL = "/"
 title = "Reticulum-Go"
 locale = "en"
 

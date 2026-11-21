@@ -1,0 +1,10 @@
+{{- $dest := .Destination -}}
+{{- if strings.HasSuffix $dest ".md" -}}
+  {{- with .Page.GetPage $dest -}}
+    <a href="{{ .RelPermalink }}">{{ $.Text }}</a>
+  {{- else -}}
+    <a href="{{ $dest }}">{{ .Text }}</a>
+  {{- end -}}
+{{- else -}}
+  <a href="{{ $dest }}"{{ with .Title }} title="{{ . }}"{{ end }}>{{ .Text }}</a>
+{{- end -}}

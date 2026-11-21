@@ -2,7 +2,7 @@
 {{ $title := .Title }}
 {{ with .File }}{{ if not $title }}{{ $title = .TranslationBaseName | humanize }}{{ end }}{{ end }}
 <article>
-  <h1>{{ $title }}</h1>
+  {{ if not (strings.Contains .Content "<h1") }}<h1>{{ $title }}</h1>{{ end }}
   {{ .Content }}
 </article>
 {{ end }}

@@ -4,23 +4,34 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 {{ $title := .Title }}{{ with .File }}{{ if not $title }}{{ $title = .TranslationBaseName | humanize }}{{ end }}{{ end }}
-<title>{{ if .IsHome }}{{ site.Title }}{{ else }}{{ $title }} | {{ site.Title }}{{ end }}</title>
+<title>{{ if .IsHome }}{{ site.Title }}{{ else }}{{ $title }} · {{ site.Title }}{{ end }}</title>
 <link rel="stylesheet" href="{{ "css/site.css" | relURL }}">
 </head>
 <body>
 <header class="site-header">
-  <a class="brand" href="{{ site.Home.RelPermalink }}">{{ site.Title }}</a>
-  <nav>
-    {{ range site.Menus.main }}
-    <a href="{{ .URL | relURL }}">{{ .Name }}</a>
-    {{ end }}
+  <a class="brand" href="{{ site.Home.RelPermalink }}">Reticulum-Go</a>
+  <nav class="top-nav">
+    <a href="{{ site.Home.RelPermalink }}">Home</a>
+    <a href="{{ "docs/" | relURL }}">Docs</a>
+    <a href="{{ "docs/getting-started/" | relURL }}">Getting started</a>
+    <a href="{{ "docs/api-reference/" | relURL }}">API</a>
   </nav>
 </header>
-<main>
-{{ block "main" . }}{{ end }}
-</main>
+<div class="shell">
+  <aside class="sidebar">
+    <p class="sidebar-title">Documentation</p>
+    <ul>
+    {{ range where site.RegularPages "Section" "docs" }}
+      <li{{ if eq .RelPermalink $.RelPermalink }} class="current"{{ end }}><a href="{{ .RelPermalink }}">{{ .Title }}</a></li>
+    {{ end }}
+    </ul>
+  </aside>
+  <main>
+  {{ block "main" . }}{{ end }}
+  </main>
+</div>
 <footer class="site-footer">
-  <p>{{ site.Params.reticulum.footer }}</p>
+  <p>Served over Reticulum as Micron pages, and over HTTP as HTML.</p>
 </footer>
 </body>
 </html>
