@@ -5,15 +5,10 @@ package securemem
 
 import (
 	"crypto/rand"
-	"errors"
 	"sync"
 
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/debug"
 )
-
-// errNoLock reports that the platform cannot lock pages (heap fallback
-// targets). Callers treat lock failure as soft.
-var errNoLock = errors.New("securemem: page locking unsupported")
 
 const (
 	canarySize    = 16
