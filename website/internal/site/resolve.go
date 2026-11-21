@@ -21,6 +21,15 @@ type Resolver struct {
 	PageScope string
 	FileScope string
 
+	// RepoBaseURL, when set, rewrites relative links that escape the
+	// content mount (such as ../../SECURITY.md in docs/en) to repository
+	// URLs instead of guessing a page path that 404s.
+	RepoBaseURL string
+
+	// RepoDocsDir is the repository directory the content/docs mount
+	// serves. Default "docs/en".
+	RepoDocsDir string
+
 	index   map[string]bool
 	indexed bool
 }
@@ -72,6 +81,13 @@ func (r *Resolver) rewrite(href, fromPage string, isImage bool) string {
 	if i := strings.IndexByte(href, '#'); i >= 0 {
 		frag = href[i+1:]
 		href = href[:i]
+	}
+
+	if u := r.repoLink(href, fromPage); u != "" {
+		if frag != "" {
+			u += "#" + frag
+		}
+		return u
 	}
 
 	var out string
@@ -219,6 +235,40 @@ func (r *Resolver) lookupPage(href, fromPage string) string {
 	}
 	// Unknown target: guess the Hugo directory index layout.
 	return rel + "/index.mu"
+}
+
+// repoLink maps a ".." relative link that escapes the content mount to a
+// repository URL. The docs mount serves files from RepoDocsDir, so a link
+// that climbs above the mount points at a repository file rather than a
+// site page. It returns "" when the link stays inside the mount, when it
+// escapes the repository root, or when RepoBaseURL is unset.
+func (r *Resolver) repoLink(href, fromPage string) string {
+	if r.RepoBaseURL == "" || !strings.Contains(href, "..") {
+		return ""
+	}
+	outDir := outputDirOf(fromPage)
+	docsDir := r.RepoDocsDir
+	if docsDir == "" {
+		docsDir = "docs/en"
+	}
+	// outDir is the page bundle directory in the output tree, for example
+	// docs/overview. Its source file lives at docsDir/<page>.md, so the
+	// source directory is docsDir joined with the bundle's parent path.
+	var srcDir string
+	switch {
+	case outDir == "docs":
+		srcDir = docsDir
+	case strings.HasPrefix(outDir, "docs/"):
+		inner := strings.TrimPrefix(outDir, "docs")
+		srcDir = path.Join(docsDir, path.Dir(inner))
+	default:
+		return ""
+	}
+	rel := path.Clean(path.Join(srcDir, href))
+	if rel == ".." || strings.HasPrefix(rel, "../") {
+		return ""
+	}
+	return strings.TrimSuffix(r.RepoBaseURL, "/") + "/" + rel
 }
 
 // filePath normalizes a file destination to a path under the files root.

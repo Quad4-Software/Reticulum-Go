@@ -72,6 +72,9 @@ type Config struct {
 		LinkColor   string `toml:"link_color"`
 		ImagePolicy string `toml:"image_policy"`
 		TableAlign  string `toml:"table_align"`
+		// RepoBaseURL rewrites relative source links that escape the
+		// content mount, such as ../../SECURITY.md, to repository URLs.
+		RepoBaseURL string `toml:"repo_base_url"`
 	} `toml:"markdown"`
 
 	// Log is the log level name: debug, info, warn, or error.

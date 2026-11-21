@@ -1,5 +1,13 @@
 {{- $dest := .Destination -}}
-{{- if strings.HasSuffix $dest ".md" -}}
+{{- $repoBlob := printf "%s/blob/master/" (strings.TrimSuffix "/" site.Params.repo_url) -}}
+{{- if and (strings.Contains $dest "..") (eq .Page.Section "docs") -}}
+  {{- $rel := path.Join "docs/en" $dest -}}
+  {{- if or (eq $rel "..") (strings.HasPrefix $rel "../") -}}
+    <a href="{{ $dest }}">{{ .Text }}</a>
+  {{- else -}}
+    <a href="{{ $repoBlob }}{{ $rel }}">{{ .Text }}</a>
+  {{- end -}}
+{{- else if strings.HasSuffix $dest ".md" -}}
   {{- with .Page.GetPage $dest -}}
     <a href="{{ .RelPermalink }}">{{ $.Text }}</a>
   {{- else -}}

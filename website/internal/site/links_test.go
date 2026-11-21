@@ -205,3 +205,29 @@ func TestRewriteDocumentLinksBareForm(t *testing.T) {
 		t.Fatalf("got %q want %q", got, want)
 	}
 }
+
+func TestRepoLinkEscapesMount(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "docs", "compatibility"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "docs", "compatibility", "index.mu"), nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	r := &Resolver{PublicDir: dir, RepoBaseURL: "https://example.com/repo/blob/master/"}
+	if got := r.Link("../../COMPATIBILITY.md", "docs/overview/index"); got != "https://example.com/repo/blob/master/COMPATIBILITY.md" {
+		t.Fatalf("repo link = %q", got)
+	}
+	if got := r.Link("../../install.sh", "docs/getting-started/index"); got != "https://example.com/repo/blob/master/install.sh" {
+		t.Fatalf("repo link = %q", got)
+	}
+	// In-mount links still resolve as pages.
+	if got := r.Link("compatibility.md", "docs/overview/index"); !strings.Contains(got, "docs/compatibility") {
+		t.Fatalf("in-mount link = %q", got)
+	}
+	// Without a repo base the old guess behavior stays.
+	r2 := &Resolver{PublicDir: t.TempDir()}
+	if got := r2.Link("../../COMPATIBILITY.md", "docs/overview/index"); !strings.Contains(got, ":/page/") {
+		t.Fatalf("unconfigured link = %q", got)
+	}
+}

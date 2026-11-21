@@ -67,8 +67,8 @@ RPC is fully supported on both transports:
 
 | shared_instance_type | Listen / dial address |
 |------------------------|------------------------|
-| tcp | 127.0.0.1:<instance_control_port> (default 37429) |
-| unix | Abstract socket @rns/<instance_name>/rpc (Linux) |
+| tcp | `127.0.0.1:<instance_control_port>` (default 37429) |
+| unix | Abstract socket `@rns/<instance_name>/rpc` (Linux) |
 | unset | Platform default: unix on Linux, tcp elsewhere (matches Python RNS) |
 
 Go implements both server and client for TCP and Unix. When the type is unset, utilities try the platform default first, then the other transport, so stock Linux Python rnsd works without forcing TCP.
@@ -247,7 +247,7 @@ Link throughput test modeled on Python Examples/Speedtest.py.
 | Loopback smoke (default / CI) | reticulum-go speedtest or -loopback |
 | Server (oneshot) | reticulum-go speedtest -l |
 | Daemon (VPS / docker) | reticulum-go speedtest -daemon |
-| Client (cross-host) | reticulum-go speedtest <server_dest_hash> |
+| Client (cross-host) | `reticulum-go speedtest <server_dest_hash>` |
 
 Destination is speedtest.server. Server and client must use the same -bytes size. After the transfer the server sends a SPEEDOK ack with the confirmed RX count. Networked clients pace sends (100 us per packet by default) so UDP sockets are not overrun. Loopback does not pace.
 
@@ -380,7 +380,7 @@ rgopath [flags] [destination_hash]
 
 Go extras (compat preserved): -json on path and blackhole lists, drop-via count in the success line, clearer path-found summary after a successful request.
 
-Remote table and rates use the same rnstransport.remote.management destination as Python rnpath, so rnpath -t -R works against a Go daemon and rgopath -t -R works against Python rnsd. Enable it on the remote daemon with enable_remote_management = yes and remote_management_allowed = <identity hashes>. Remote drop, path-request, and blackhole mutate are not implemented (Python also exits 255).
+Remote table and rates use the same rnstransport.remote.management destination as Python rnpath, so rnpath -t -R works against a Go daemon and rgopath -t -R works against Python rnsd. Enable it on the remote daemon with enable_remote_management = yes and `remote_management_allowed = <identity hashes>`. Remote drop, path-request, and blackhole mutate are not implemented (Python also exits 255).
 
 ```bash
 rgopath -t -R <transport_identity_hash> -i ~/.reticulum-go/storage/identities/rgosh

@@ -12,6 +12,7 @@
 
 > First post
 
+
 2025-01-15
 
 The first post links to `_`!`[the second post`:/page/posts/second-post/index.mu]`!`_ and shows an image served from `BT383838`Fddd/file/`f`b:
@@ -33,4 +34,5 @@ A horizontal rule above.
 -
 Served with hugo-reticulum
 
+Doc bundles (zip, pdf, epub) live under /file/downloads/ on this node.
 

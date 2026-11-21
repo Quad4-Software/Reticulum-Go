@@ -11,6 +11,7 @@
 
 
 > Hugo Reticulum Example
+
 Welcome to the example site. This page is rendered by the hugo-reticulum module and its Markdown body is converted to Micron by `BT383838`Fdddhugo-reticulum build`f`b.
 
 >> Pages
@@ -53,4 +54,5 @@ func main() {}
 -
 Served with hugo-reticulum
 
+Doc bundles (zip, pdf, epub) live under /file/downloads/ on this node.
 

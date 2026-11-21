@@ -215,8 +215,9 @@ func (f *buildFlags) load() (*config.Config, error) {
 func siteOptions(cfg *config.Config) site.Options {
 	return site.Options{
 		Resolver: &site.Resolver{
-			PublicDir: cfg.PublicPath(),
-			NodeHash:  cfg.Reticulum.NodeHash,
+			PublicDir:   cfg.PublicPath(),
+			NodeHash:    cfg.Reticulum.NodeHash,
+			RepoBaseURL: cfg.Markdown.RepoBaseURL,
 		},
 		MaxWidth:    cfg.Markdown.MaxWidth,
 		LinkStyle:   linkStyleValue(cfg.Markdown.LinkStyle),

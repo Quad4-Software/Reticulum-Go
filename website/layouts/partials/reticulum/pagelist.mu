@@ -1,3 +1,3 @@
 {{ range .Pages -}}
-`[{{ .Title | safeHTML }}`{{ .RelPermalink }}]{{ with .Description }} {{ . }}{{ end }}
+`[{{ partial "doc-title" . | safeHTML }}`{{ .RelPermalink }}]{{ with .Description }} {{ . }}{{ end }}
 {{ end -}}

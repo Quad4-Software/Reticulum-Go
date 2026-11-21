@@ -1,0 +1,7 @@
+# hugo-reticulum settings for the Reticulum-Go docs site.
+
+[markdown]
+# Links in docs/en that climb out of the mounted content tree, such as
+# ../../SECURITY.md, point at files in the repository. Serve them as
+# external links to the GitHub blob view instead of guessing page paths.
+repo_base_url = "https://github.com/Quad4-Software/Reticulum-Go/blob/master/"

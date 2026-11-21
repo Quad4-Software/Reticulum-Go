@@ -320,7 +320,7 @@ make -C bindings/cpp/examples/pageserver
 
 ## Rust / Python / Lua / Swift / Java / Kotlin / Dart examples
 
-Each language binding keeps demos under bindings/<lang>/examples/.
+Each language binding keeps demos under `bindings/<lang>/examples/`.
 
 ```bash
 make build-librns

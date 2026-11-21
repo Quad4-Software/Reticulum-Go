@@ -12,6 +12,7 @@
 
 > Second post
 
+
 2025-01-20
 
 The second post links back to `_`!`[the first post`:/page/posts/first-post/index.mu]`!`_ using a relative Markdown link, which resolves to the built `BT383838`Fddd.mu`f`b path.
@@ -23,4 +24,5 @@ More text here.
 -
 Served with hugo-reticulum
 
+Doc bundles (zip, pdf, epub) live under /file/downloads/ on this node.
 

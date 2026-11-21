@@ -184,7 +184,7 @@ enabled = yes
 
 ## LocalInterface
 
-Local shared-instance access uses HDLC over TCP (127.0.0.1:port) or abstract Unix (@rns/<name>).
+Local shared-instance access uses HDLC over TCP (127.0.0.1:port) or abstract Unix (`@rns/<name>`).
 
 Two configuration paths:
 

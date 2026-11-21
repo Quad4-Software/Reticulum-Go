@@ -18,4 +18,5 @@
 -
 Served with hugo-reticulum
 
+Doc bundles (zip, pdf, epub) live under /file/downloads/ on this node.
 
