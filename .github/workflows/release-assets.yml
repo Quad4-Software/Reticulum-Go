@@ -86,7 +86,6 @@ env:
     oauth2.sigstore.dev:443
     uploads.github.com:443
     rekor.quad4.io:443
-    fulcio.quad4.io:443
     auth.quad4.io:443
     go.dev:443
     dl.google.com:443
