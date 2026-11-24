@@ -6,9 +6,12 @@
 
 - The protocols module and the msgpack, bzip2, pbt and tagparser dependencies moved to the self-hosted Forgejo at git.quad4.io. Import paths are now `git.quad4.io/reticulum/Reticulum-Go/protocols`, `git.quad4.io/libraries/msgpack/v5` v5.9.3, `git.quad4.io/libraries/bzip2` v1.0.2, `git.quad4.io/libraries/pbt` v1.0.3 and `git.quad4.io/libraries/tagparser/v2` v2.2.2, replacing the github.com/Quad4-Software paths.
 
-### Removed
+### Fixed
 
-- The `website/` module, the Hugo docs site, the `hugo-reticulum` Micron server and the Zensical site tooling are removed from this repository. Documentation is Markdown only, under `docs/en/`.
+- The pageserver initializes the backbone hub on start and honors the log level from its config.
+- Release asset verification no longer allows the retired Fulcio and Rekor endpoints.
+- LXMF message decoding checks that a `uint` msgpack value fits in `int64` before converting, so a large value from an untrusted peer can no longer wrap negative. The router's `sync_strategy` peer setting must be between 0 and 255 instead of silently wrapping when cast to a byte.
+- Dead stores and about 20 unused functions and fields in the protocols module are removed, and unchecked errors across both modules are now handled. `gofmt`, `go vet`, `gosec` and `golangci-lint` report no findings on the root and protocols modules.
 
 ## v1.6.1 - 2026-11-21
 
