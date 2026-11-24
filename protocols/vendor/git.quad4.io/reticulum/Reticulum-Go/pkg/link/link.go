@@ -14,6 +14,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"git.quad4.io/libraries/msgpack/v5/pkg/msgpack"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/channel"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/common"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/debug"
@@ -26,7 +27,6 @@ import (
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/resource"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/securemem"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/transport"
-	"git.quad4.io/libraries/msgpack/v5/pkg/msgpack"
 )
 
 func init() {

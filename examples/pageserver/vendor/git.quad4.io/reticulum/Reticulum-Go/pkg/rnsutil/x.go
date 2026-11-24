@@ -15,11 +15,11 @@ import (
 	"strings"
 	"time"
 
+	"git.quad4.io/libraries/msgpack/v5/pkg/msgpack"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/destination"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/link"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/transport"
-	"git.quad4.io/libraries/msgpack/v5/pkg/msgpack"
 )
 
 const (

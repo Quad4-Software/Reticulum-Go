@@ -14,14 +14,14 @@ import (
 	"sync"
 	"time"
 
+	"git.quad4.io/libraries/bzip2/pkg/bzip2"
+	"git.quad4.io/libraries/msgpack/v5/pkg/msgpack"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/debug"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/health"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/packet"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/protect"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/resource"
-	"git.quad4.io/libraries/bzip2/pkg/bzip2"
-	"git.quad4.io/libraries/msgpack/v5/pkg/msgpack"
 )
 
 const (

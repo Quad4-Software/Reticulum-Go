@@ -12,11 +12,11 @@ import (
 	"fmt"
 	"io"
 
+	"git.quad4.io/libraries/msgpack/v5/pkg/msgpack"
+	"git.quad4.io/libraries/msgpack/v5/pkg/msgpack/msgpcode"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/common"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/lxstamper"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/stamps"
-	"git.quad4.io/libraries/msgpack/v5/pkg/msgpack"
-	"git.quad4.io/libraries/msgpack/v5/pkg/msgpack/msgpcode"
 )
 
 // AppName is the destination app_name used by Discovery (see const value).

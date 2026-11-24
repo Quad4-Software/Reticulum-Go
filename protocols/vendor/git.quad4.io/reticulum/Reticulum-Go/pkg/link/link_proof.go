@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"time"
 
+	"git.quad4.io/libraries/msgpack/v5/pkg/msgpack"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/common"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/debug"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/destination"
@@ -18,7 +19,6 @@ import (
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/protect"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/securemem"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/transport"
-	"git.quad4.io/libraries/msgpack/v5/pkg/msgpack"
 )
 
 func (l *Link) handleLinkProof(pkt *packet.Packet, networkIface common.NetworkInterface) error {

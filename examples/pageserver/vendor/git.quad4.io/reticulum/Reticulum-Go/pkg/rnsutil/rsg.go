@@ -15,8 +15,8 @@ import (
 	"os"
 	"strings"
 
-	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity"
 	"git.quad4.io/libraries/msgpack/v5/pkg/msgpack"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity"
 )
 
 const (

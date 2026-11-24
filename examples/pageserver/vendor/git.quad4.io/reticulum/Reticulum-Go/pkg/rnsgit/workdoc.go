@@ -14,8 +14,8 @@ import (
 	"strings"
 	"time"
 
-	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity"
 	"git.quad4.io/libraries/msgpack/v5/pkg/msgpack"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity"
 )
 
 // workDocLimit matches Python WORK_DOC_LIMIT.
