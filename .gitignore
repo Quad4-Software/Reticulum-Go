@@ -140,12 +140,6 @@ dist/
 /bindings/cpp/examples/*/cpp-*
 /bindings/c/examples/pageserver/identity
 
-# Documentation site (Zensical) build output and tooling
-/site/
-/.docs-venv/
-/.gh-pages-wt/
-docs/en/assets/downloads/
-
 # Protocols module build artifacts
 protocols/bin/
 protocols/*.test

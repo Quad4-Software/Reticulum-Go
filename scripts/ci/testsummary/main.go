@@ -85,8 +85,8 @@ func rerunArgs(user []string, pkg string, tests []string) []string {
 
 // topLevelTestName strips subtests so -run can address the parent.
 func topLevelTestName(name string) string {
-	if i := strings.IndexByte(name, '/'); i >= 0 {
-		return name[:i]
+	if before, _, ok := strings.Cut(name, "/"); ok {
+		return before
 	}
 	return name
 }
@@ -177,7 +177,7 @@ func rerunPackageTests(user []string, pkg string, tests []string) map[string]boo
 	out := buf.String()
 	passed := make(map[string]bool)
 	failed := make(map[string]bool)
-	for _, line := range strings.Split(out, "\n") {
+	for line := range strings.SplitSeq(out, "\n") {
 		var ev testEvent
 		if json.Unmarshal([]byte(line), &ev) != nil || ev.Test == "" {
 			continue

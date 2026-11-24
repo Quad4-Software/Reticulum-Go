@@ -86,7 +86,7 @@ The repository holds two Go modules:
 | `/` | `git.quad4.io/reticulum/Reticulum-Go` | `make check` |
 | `protocols/` | `github.com/Quad4-Software/reticulum-go-protocols` | `task protocols-build`, `task protocols-test` |
 
-Changes under `protocols/` run their own CI job. The docs site is a Zensical build of `docs/en`; check doc edits with `task docs-build`, which the `docs` CI job and the docs deploy workflow also run.
+Changes under `protocols/` run their own CI job. The docs are plain Markdown under `docs/en/` with no site build in this repository.
 
 ## Changelog and compatibility
 

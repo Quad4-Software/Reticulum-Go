@@ -97,7 +97,6 @@ jobs:
       release: ${{ steps.filter.outputs.release || steps.manual.outputs.release }}
       examples: ${{ steps.filter.outputs.examples || steps.manual.outputs.examples }}
       protocols: ${{ steps.filter.outputs.protocols || steps.manual.outputs.protocols }}
-      docs: ${{ steps.filter.outputs.docs || steps.manual.outputs.docs }}
       full: ${{ steps.plan.outputs.full }}
       osruntime: ${{ steps.plan.outputs.osruntime }}
       build_include: ${{ steps.plan.outputs.build_include }}
@@ -231,20 +230,10 @@ jobs:
               - 'protocols/**'
               - 'go.mod'
               - 'pkg/**'
-            docs:
-              - 'docs/**'
-              - 'overrides/**'
-              - 'zensical.toml'
-              - 'docs/requirements-docs.in'
-              - 'docs/requirements-docs.txt'
-              - 'docs/hoist-root-files.sh'
-              - 'scripts/docs.sh'
-              - 'scripts/docs-bundle.py'
-              - '.github/workflows/docs.yml'
 
       # Manual dispatch has no push or PR diff for paths-filter, so every
       # category counts as changed like a full push run (docs_only stays
-      # false so docs-gated jobs still run).
+      # false so jobs that skip docs-only changes still run).
       - name: Treat all paths as changed on manual dispatch
         if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/'))
         id: manual
@@ -257,7 +246,6 @@ jobs:
             echo "release=true"
             echo "examples=true"
             echo "protocols=true"
-            echo "docs=true"
             echo "full_build=true"
             echo "osruntime=true"
           } >> "$GITHUB_OUTPUT"
@@ -327,42 +315,6 @@ jobs:
         run: |
           go build ./...
           go test -short ./...
-
-  docs:
-    name: Docs site
-    needs: changes
-    if: needs.changes.outputs.docs == 'true' || needs.changes.outputs.ci == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - name: Harden runner
-        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
-        with:
-          egress-policy: block
-          allowed-endpoints: ${{ env.HR_ENDPOINTS }}
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - name: Set up Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
-          python-version: "3.13"
-      - name: Install docs tooling
-        run: pip install --require-hashes -r docs/requirements-docs.txt
-      - name: Build download bundles
-        run: python3 scripts/docs-bundle.py --require-pdf
-      - name: Build site
-        run: zensical build --strict
-      - name: Check built site
-        run: |
-          test -f site/index.html
-          test -f site/sitemap.xml
-          test -s site/assets/downloads/reticulum-go-docs.zip
-          test -s site/assets/downloads/reticulum-go-docs.pdf
-          test -s site/assets/downloads/reticulum-go-docs.epub
-          grep -q 'reticulum-go-docs.zip' site/downloads/index.html
-          ! grep -rE '<li>[[:space:]]*</li>' site --include='*.html'
 
   lint:
     name: Lint

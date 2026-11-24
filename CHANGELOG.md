@@ -2,13 +2,9 @@
 
 ## v1.6.2 - unreleased
 
-### Added
-
-- The docs site is now a [Zensical](https://zensical.org) build of `docs/en`, configured by `zensical.toml` at the repository root. `task docs-serve` previews it at http://127.0.0.1:1313/ and `task docs-build` writes the static site to `site/`. `scripts/docs-bundle.py` packages the docs as a Markdown ZIP, a PDF and an EPUB under `docs/en/assets/downloads/`, linked from the site's downloads page. Versions deploy to GitHub Pages with mike: master pushes publish `dev`, releases publish their version and the `latest` alias, which the site root redirects to.
-
 ### Removed
 
-- The `website/` module, the Hugo docs site and the `hugo-reticulum` Micron server are gone. The docs are web only now.
+- The `website/` module, the Hugo docs site, the `hugo-reticulum` Micron server and the Zensical site tooling are removed from this repository. Documentation is Markdown only, under `docs/en/`.
 
 ## v1.6.1 - 2026-11-21
 

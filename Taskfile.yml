@@ -245,21 +245,6 @@ tasks:
     cmds:
       - go test ./...
 
-  docs-bundle:
-    desc: Build the docs ZIP, PDF and EPUB downloads
-    cmds:
-      - sh scripts/docs.sh bundle
-
-  docs-build:
-    desc: Build the docs site with Zensical into site/
-    cmds:
-      - sh scripts/docs.sh build
-
-  docs-serve:
-    desc: Serve the docs site locally on http://127.0.0.1:1313/
-    cmds:
-      - sh scripts/docs.sh serve
-
   vendor-sync:
     desc: Refresh vendor trees from Reticulum-Go-Deps
     cmds:

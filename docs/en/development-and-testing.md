@@ -486,7 +486,7 @@ make deps
 
 The repository contains two modules: the root stack and `protocols/` (LXMF, LXST, MF, RRC). Each has its own `go.mod` and `vendor/` policy. Both modules vendor their dependencies and build with `GOFLAGS=-mod=vendor`. Build and test the nested module with `task protocols-build` and `task protocols-test`.
 
-The docs site is a [Zensical](https://zensical.org) site configured by `zensical.toml` at the repository root, with `docs/en` as the docs directory. `task docs-serve` runs `scripts/docs-bundle.py` and then `zensical serve` for a live preview at http://127.0.0.1:1313/; `task docs-build` writes the static site to `site/`. `scripts/docs.sh` creates a `.docs-venv` with the pinned tooling from `docs/requirements-docs.txt` on first use. `scripts/docs-bundle.py` reads the page order from `zensical.toml`'s nav and writes a Markdown ZIP, a PDF rendered with headless Chromium, and a hand assembled EPUB 3 to `docs/en/assets/downloads/` (gitignored). Deploys are handled by mike in the docs workflow: pushes to master publish `dev`, releases publish their version and the `latest` alias, and `mike set-default` points the site root at `latest`.
+Docs are Markdown only under `docs/en/`. There is no site build or docs deploy workflow in this repository.
 
 Day-to-day clones only need `vendor/` to build offline. Sibling checkouts are only required when re-vendoring first-party libraries. `examples/wasm` and `examples/pageserver` keep their own `go.mod` / `vendor/` trees. Docker configs under `docker/` copy those folders for offline image builds.
 

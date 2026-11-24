@@ -10,7 +10,3 @@ Use these documents to integrate, operate, or extend the stack.
 - Writing a Go application: [API reference](api-reference.md) and [examples](examples.md).
 - Running a node: [configuration](configuration.md) and [interfaces](interfaces.md).
 - Comparing with Python RNS: [compatibility](compatibility.md) and [deviations](deviations.md).
-
-## Offline copies
-
-The full documentation is also available as a single download in Markdown, PDF, and EPUB form on the [downloads](downloads.md) page.

@@ -76,7 +76,7 @@ The nested module points at the root module with a `replace` directive, so local
 
 ## Docs
 
-The docs site is a [Zensical](https://zensical.org) site built from `docs/en` via `zensical.toml`. `task docs-serve` previews it at http://127.0.0.1:1313/ and `task docs-build` writes it to `site/`. `scripts/docs-bundle.py` packages the Markdown sources as a ZIP, a PDF and an EPUB under `docs/en/assets/downloads/` (gitignored), linked from the site's downloads page. Versions are deployed to GitHub Pages with mike: master pushes publish `dev`, releases publish their version and the `latest` alias, which is the site default.
+The documentation is Markdown under `docs/en/`. The website that renders it is maintained outside this repository.
 
 - English docs: [docs/en/](docs/en/README.md)
 - Getting started: [docs/en/getting-started.md](docs/en/getting-started.md)
