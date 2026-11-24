@@ -26,7 +26,7 @@ func TestOracleAutoconnectRespectsMaxConcurrent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer n.Stop()
+	defer func() { _ = n.Stop() }()
 
 	peers := []discovery.Info{
 		{Type: "BackboneInterface", Name: "b1", ReachableOn: "192.0.2.10", Port: 1, HasPort: true, Transport: true, TransportImpl: "RNS", TransportVers: "1.6.0"},
@@ -68,7 +68,7 @@ func TestOracleAutoconnectExistsBlocksDuplicateHash(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer n.Stop()
+	defer func() { _ = n.Stop() }()
 
 	info := &discovery.ReceivedAnnounceInfo{
 		Info: discovery.Info{
@@ -95,7 +95,7 @@ func TestOracleAutoconnectPeerConfigDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer n.Stop()
+	defer func() { _ = n.Stop() }()
 	peerCfg := n.autoconnectPeerConfig()
 	if peerCfg.Bitrate != 5_000_000 || peerCfg.Gravity != 42 || !peerCfg.AnnouncesToInternal {
 		t.Fatalf("peer cfg=%+v", peerCfg)
@@ -111,7 +111,7 @@ func TestOracleAutoconnectMonitorClearsDownSince(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer n.Stop()
+	defer func() { _ = n.Stop() }()
 
 	tc, err := interfaces.NewTCPClientInterfaceWithRetries("offline", "127.0.0.1", 9, false, false, false, 0)
 	if err != nil {
@@ -138,7 +138,7 @@ func TestOracleAutoconnectMonitorDetachesStaleOffline(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer n.Stop()
+	defer func() { _ = n.Stop() }()
 
 	tc, err := interfaces.NewTCPClientInterfaceWithRetries("stale", "127.0.0.1", 9, false, false, false, 0)
 	if err != nil {

@@ -71,12 +71,12 @@ func TestLiveEndpointQuarantineAndAnnounceStats(t *testing.T) {
 	if err := n.Start(); err != nil {
 		t.Fatalf("node start: %v", err)
 	}
-	defer n.Stop()
+	defer func() { _ = n.Stop() }()
 
 	deadEp := fmt.Sprintf("127.0.0.1:%d", deadPort)
 	// Seed the shared tracker just below the quarantine threshold so the next
 	// real driver dial failure engages it.
-	for i := 0; i < interfaces.EndpointQuarantineConsecutiveFails-1; i++ {
+	for range interfaces.EndpointQuarantineConsecutiveFails - 1 {
 		interfaces.DefaultEndpointTracker.RecordFailure(deadEp)
 	}
 

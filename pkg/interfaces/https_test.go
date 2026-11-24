@@ -21,7 +21,7 @@ func freeHTTPSPort(t *testing.T) int {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer ln.Close()
+	defer func() { _ = ln.Close() }()
 	return ln.Addr().(*net.TCPAddr).Port
 }
 
@@ -88,7 +88,7 @@ func TestHTTPSClientServerEcho(t *testing.T) {
 	if err := srv.Start(); err != nil {
 		t.Fatal(err)
 	}
-	defer srv.Stop()
+	defer func() { _ = srv.Stop() }()
 	port = listenHTTPSPort(t, srv)
 
 	cli, err := NewHTTPSClientInterfaceWithRetries("https_cli", "127.0.0.1", port, true, 20, HTTPSClientOptions{
@@ -99,7 +99,7 @@ func TestHTTPSClientServerEcho(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer cli.Stop()
+	defer func() { _ = cli.Stop() }()
 	waitOnline(t, cli, 5*time.Second)
 	waitHTTPSPeers(t, srv, 1, 5*time.Second)
 
@@ -134,7 +134,7 @@ func TestHTTPSServerToClient(t *testing.T) {
 	if err := srv.Start(); err != nil {
 		t.Fatal(err)
 	}
-	defer srv.Stop()
+	defer func() { _ = srv.Stop() }()
 	port = listenHTTPSPort(t, srv)
 
 	cli, err := NewHTTPSClientInterfaceWithRetries("https_cli2", "127.0.0.1", port, true, 20, HTTPSClientOptions{
@@ -143,7 +143,7 @@ func TestHTTPSServerToClient(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer cli.Stop()
+	defer func() { _ = cli.Stop() }()
 	waitOnline(t, cli, 5*time.Second)
 	waitHTTPSPeers(t, srv, 1, 5*time.Second)
 
@@ -190,7 +190,7 @@ func TestHTTPSPeerKeyPin(t *testing.T) {
 	if err := srv.Start(); err != nil {
 		t.Fatal(err)
 	}
-	defer srv.Stop()
+	defer func() { _ = srv.Stop() }()
 	port = listenHTTPSPort(t, srv)
 
 	cli, err := NewHTTPSClientInterfaceWithRetries("https_pin_cli", "127.0.0.1", port, true, 10, HTTPSClientOptions{
@@ -200,7 +200,7 @@ func TestHTTPSPeerKeyPin(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer cli.Stop()
+	defer func() { _ = cli.Stop() }()
 	waitOnline(t, cli, 5*time.Second)
 }
 

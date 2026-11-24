@@ -39,7 +39,7 @@ func LoadINI(path string) (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	if st, err := f.Stat(); err == nil && st.Size() > maxConfigBytes {
 		return Config{}, fmt.Errorf("%s: config larger than 1MB", path)
 	}

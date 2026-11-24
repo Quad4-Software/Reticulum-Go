@@ -101,21 +101,21 @@ func TestTransportMemorySoak(t *testing.T) {
 	if err := tr.RegisterInterface("soak0", iface); err != nil {
 		t.Fatal(err)
 	}
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	defer iface.stop()
 
 	csv, err := os.Create(filepath.Join(outDir, "soak.csv"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer csv.Close()
-	fmt.Fprintln(csv, "dests,rss_kib,heap_alloc_kib,heap_sys_kib,stack_kib,goroutines,paths,announce_table,announce_cache,seen,hashlist")
+	defer func() { _ = csv.Close() }()
+	_, _ = fmt.Fprintln(csv, "dests,rss_kib,heap_alloc_kib,heap_sys_kib,stack_kib,goroutines,paths,announce_table,announce_cache,seen,hashlist")
 
 	sample := func(i int) {
 		var ms runtime.MemStats
 		runtime.ReadMemStats(&ms)
 		stats := tr.MemoryStats()
-		fmt.Fprintf(csv, "%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d\n",
+		_, _ = fmt.Fprintf(csv, "%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d\n",
 			i, readRSSKiB(), ms.HeapAlloc/1024, ms.HeapSys/1024, ms.StackInuse/1024,
 			runtime.NumGoroutine(), stats.Paths, stats.AnnounceTable,
 			stats.AnnouncePacketCache, stats.SeenAnnounces, stats.PacketHashes)
@@ -150,11 +150,11 @@ func TestTransportMemorySoak(t *testing.T) {
 	f, err := os.Create(filepath.Join(outDir, "heap.pprof"))
 	if err == nil {
 		_ = pprof.WriteHeapProfile(f)
-		f.Close()
+		_ = f.Close()
 	}
 	af, err := os.Create(filepath.Join(outDir, "allocs.pprof"))
 	if err == nil {
-		pprof.Lookup("allocs").WriteTo(af, 0)
-		af.Close()
+		_ = pprof.Lookup("allocs").WriteTo(af, 0)
+		_ = af.Close()
 	}
 }

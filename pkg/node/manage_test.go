@@ -122,8 +122,8 @@ func TestAutoconnectInterfaceNameSequential(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer u1.Stop()
-	defer u2.Stop()
+	defer func() { _ = u1.Stop() }()
+	defer func() { _ = u2.Stop() }()
 	if err := n.transport.RegisterInterface(u1.Name, u1); err != nil {
 		t.Fatal(err)
 	}

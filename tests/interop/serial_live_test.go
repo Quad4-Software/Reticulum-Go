@@ -44,7 +44,7 @@ func TestLiveInteropSerialPythonEcho(t *testing.T) {
 	if err != nil {
 		t.Fatalf("pty.Open: %v", err)
 	}
-	defer master.Close()
+	defer func() { _ = master.Close() }()
 	slavePath := slave.Name()
 	_ = slave.Close()
 
@@ -96,7 +96,7 @@ func TestLiveInteropSerialPythonEcho(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewSerialInterface: %v", err)
 	}
-	defer si.Stop()
+	defer func() { _ = si.Stop() }()
 
 	var received atomic.Int32
 	var last []byte
@@ -172,15 +172,15 @@ func TestLiveInteropSerialRNSSession(t *testing.T) {
 	if err != nil {
 		t.Fatalf("pty.Open: %v", err)
 	}
-	defer master.Close()
+	defer func() { _ = master.Close() }()
 	slavePath := slave.Name()
 	// Keep the slave fd open for the whole test: with no slave open, reads on
 	// the master return EIO and the serial interface tears itself down before
 	// Python can open the device.
-	defer slave.Close()
+	defer func() { _ = slave.Close() }()
 
 	tr := transport.NewTransport(interopPeerConfig())
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 
 	si, err := interfaces.NewSerialInterface("go_serial", true, interfaces.SerialOptions{
 		Device:    "pty-master",

@@ -226,7 +226,8 @@ func TestResourceInterop_RejectStrategyHonored(t *testing.T) {
 	}
 
 	select {
-	case <-errCh:
+	case err := <-errCh:
+		_ = err
 	default:
 	}
 }

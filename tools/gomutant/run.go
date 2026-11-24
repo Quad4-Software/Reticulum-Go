@@ -110,7 +110,7 @@ func runMutants(ctx context.Context, mutants []mutant, workers int, verbose bool
 	if err != nil {
 		return nil, err
 	}
-	defer r.Close()
+	defer func() { _ = r.Close() }()
 
 	jobs := make(chan mutant)
 	results := make(chan outcome, len(mutants))

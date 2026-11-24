@@ -13,7 +13,7 @@ func TestBufRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer b.Close()
+	defer func() { _ = b.Close() }()
 
 	src := bytes.Repeat([]byte{0xab}, 32)
 	if err := b.CopyFrom(src); err != nil {
@@ -58,7 +58,7 @@ func TestBufCopyFromLength(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer b.Close()
+	defer func() { _ = b.Close() }()
 	if err := b.CopyFrom([]byte{1, 2}); err == nil {
 		t.Fatal("expected length mismatch")
 	}

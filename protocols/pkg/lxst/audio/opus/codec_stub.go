@@ -38,6 +38,7 @@ func NewEncoderConfig(cfg EncoderConfig) (Encoder, error) {
 	return &stubEncoder{bitrate: cfg.Bitrate, frame: cfg.FrameSamples}, nil
 }
 
+// #nosec G115 -- stub frame packs 16-bit big-endian fields
 func (s *stubEncoder) Encode(pcm []int16) ([]byte, error) {
 	if s.closed {
 		return nil, ErrCodecClosed
@@ -49,10 +50,7 @@ func (s *stubEncoder) Encode(pcm []int16) ([]byte, error) {
 		return nil, fmt.Errorf("short pcm")
 	}
 	n := s.frame
-	k := n
-	if k > stubStoredSamples {
-		k = stubStoredSamples
-	}
+	k := min(n, stubStoredSamples)
 	out := make([]byte, 6+k*2)
 	out[0] = 'S'
 	out[1] = 'T'

@@ -20,7 +20,7 @@ func TestRNodeQueueCap(t *testing.T) {
 		interfaceReady: false,
 	}
 	r.Online = true
-	for i := 0; i < rnodeMaxQueuedPackets*2; i++ {
+	for i := range rnodeMaxQueuedPackets * 2 {
 		if err := r.ProcessOutgoing([]byte{0x01}); err != nil {
 			t.Fatalf("ProcessOutgoing %d: %v", i, err)
 		}
@@ -40,7 +40,7 @@ func TestRNodeSubInterfaceQueueCap(t *testing.T) {
 		interfaceReady: false,
 	}
 	s.Online = true
-	for i := 0; i < rnodeMaxQueuedPackets*2; i++ {
+	for i := range rnodeMaxQueuedPackets * 2 {
 		if err := s.ProcessOutgoing([]byte{0x01}); err != nil {
 			t.Fatalf("ProcessOutgoing %d: %v", i, err)
 		}

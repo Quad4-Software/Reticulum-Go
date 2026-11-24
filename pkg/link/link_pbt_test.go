@@ -22,7 +22,7 @@ func TestPBTLinkStatusLaws(t *testing.T) {
 		func(kind int) bool {
 			cfg := unstampedLinkConfig()
 			tr := transport.NewTransport(cfg)
-			defer tr.Close()
+			defer func() { _ = tr.Close() }()
 			id, err := identity.New()
 			if err != nil {
 				return false

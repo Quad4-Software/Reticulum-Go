@@ -111,12 +111,12 @@ func transportLabel(ifaces []interfaces.Interface) string {
 }
 
 func printOperatorSummary(o OperatorSummary) {
-	fmt.Fprintln(colorOut())
-	fmt.Fprintf(colorOut(), "%s %s", statusBold("golxmd"), o.Version)
+	_, _ = fmt.Fprintln(colorOut())
+	_, _ = fmt.Fprintf(colorOut(), "%s %s", statusBold("golxmd"), o.Version)
 	if o.DisplayName != "" {
-		fmt.Fprintf(colorOut(), " (%s)", o.DisplayName)
+		_, _ = fmt.Fprintf(colorOut(), " (%s)", o.DisplayName)
 	}
-	fmt.Fprintln(colorOut())
+	_, _ = fmt.Fprintln(colorOut())
 	printKV("Home", o.Home)
 	if o.LogFile != "" {
 		printKV("Log", o.LogFile)

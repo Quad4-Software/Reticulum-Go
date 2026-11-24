@@ -108,9 +108,9 @@ func TestInterop_Live_GoFetchPythonNode(t *testing.T) {
 	if err := tr.Start(); err != nil {
 		t.Fatal(err)
 	}
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	iface := startLXMFUDP(t, "Go-fetch", "127.0.0.1:43320", "127.0.0.1:43321", tr)
-	defer iface.Stop()
+	defer func() { _ = iface.Stop() }()
 
 	id := mustNewIdentity(t)
 	dest, err := NewDeliveryDestination(id, tr)
@@ -242,9 +242,9 @@ func TestInterop_Live_PythonFetchGoNode(t *testing.T) {
 	if err := tr.Start(); err != nil {
 		t.Fatal(err)
 	}
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	iface := startLXMFUDP(t, "Go-pn", "127.0.0.1:43322", "127.0.0.1:43323", tr)
-	defer iface.Stop()
+	defer func() { _ = iface.Stop() }()
 
 	routerID := mustNewIdentity(t)
 	routerCfg := DefaultConfig()

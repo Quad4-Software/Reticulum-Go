@@ -55,11 +55,11 @@ func TestE2E_RgoshPipeEcho(t *testing.T) {
 	if err := nA.Start(); err != nil {
 		t.Fatal(err)
 	}
-	defer nA.Stop()
+	defer func() { _ = nA.Stop() }()
 	if err := nB.Start(); err != nil {
 		t.Fatal(err)
 	}
-	defer nB.Stop()
+	defer func() { _ = nB.Stop() }()
 
 	idListen, err := identity.New()
 	if err != nil {
@@ -212,7 +212,7 @@ func TestE2E_RgoshLongLived(t *testing.T) {
 	// watchdog, matching Python RNS. Under heavy test parallelism the peer
 	// watchdog can starve past that window, so allow one retry.
 	var err error
-	for attempt := 0; attempt < 2; attempt++ {
+	for attempt := range 2 {
 		if err = runRgoshLongLivedAttempt(t); err == nil {
 			return
 		}
@@ -248,11 +248,11 @@ func runRgoshLongLivedAttempt(t *testing.T) error {
 	if err := nA.Start(); err != nil {
 		return err
 	}
-	defer nA.Stop()
+	defer func() { _ = nA.Stop() }()
 	if err := nB.Start(); err != nil {
 		return err
 	}
-	defer nB.Stop()
+	defer func() { _ = nB.Stop() }()
 
 	idListen, err := identity.New()
 	if err != nil {
@@ -413,11 +413,11 @@ func TestE2E_RgoshAuthDeny(t *testing.T) {
 	if err := nA.Start(); err != nil {
 		t.Fatal(err)
 	}
-	defer nA.Stop()
+	defer func() { _ = nA.Stop() }()
 	if err := nB.Start(); err != nil {
 		t.Fatal(err)
 	}
-	defer nB.Stop()
+	defer func() { _ = nB.Stop() }()
 
 	idListen, _ := identity.New()
 	idClient, _ := identity.New()
@@ -479,7 +479,7 @@ func freeUDPPort(t *testing.T) int {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer c.Close()
+	defer func() { _ = c.Close() }()
 	return c.LocalAddr().(*net.UDPAddr).Port
 }
 

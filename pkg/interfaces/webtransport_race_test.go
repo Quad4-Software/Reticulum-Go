@@ -24,7 +24,7 @@ func TestWebTransportRaceStopSend(t *testing.T) {
 	if err := srv.Start(); err != nil {
 		t.Fatal(err)
 	}
-	defer srv.Stop()
+	defer func() { _ = srv.Stop() }()
 	port = listenWTPort(t, srv)
 
 	cli, err := NewWebTransportClientInterfaceWithRetries("wt_race_cli", "127.0.0.1", port, "/rns", true, 20, WebTransportClientOptions{})

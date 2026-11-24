@@ -45,6 +45,7 @@ func newStub(cfg Config) *stubCodec {
 	return &stubCodec{header: cfg.Header, frame: cfg.FrameSamples, play: cfg.PlaySamples}
 }
 
+// #nosec G115 -- stub frame packs 16-bit big-endian fields
 func (s *stubCodec) Encode(pcm []int16) ([]byte, error) {
 	if s.closed {
 		return nil, ErrCodecClosed
@@ -53,10 +54,7 @@ func (s *stubCodec) Encode(pcm []int16) ([]byte, error) {
 		return nil, fmt.Errorf("empty pcm")
 	}
 	n := len(pcm)
-	k := n
-	if k > stubStoredSamples {
-		k = stubStoredSamples
-	}
+	k := min(n, stubStoredSamples)
 	out := make([]byte, 7+k*2)
 	out[0] = s.header
 	out[1] = 'S'

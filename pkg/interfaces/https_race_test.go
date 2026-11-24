@@ -28,7 +28,7 @@ func TestHTTPSRaceStopSend(t *testing.T) {
 	if err := srv.Start(); err != nil {
 		t.Fatal(err)
 	}
-	defer srv.Stop()
+	defer func() { _ = srv.Stop() }()
 	port = listenHTTPSPort(t, srv)
 
 	cli, err := NewHTTPSClientInterfaceWithRetries("https_race_cli", "127.0.0.1", port, true, 20, HTTPSClientOptions{

@@ -28,7 +28,7 @@ func TestVSOCKRaceStopSend(t *testing.T) {
 	if err := srv.Start(); err != nil {
 		t.Skipf("vsock listen failed: %v", err)
 	}
-	defer srv.Stop()
+	defer func() { _ = srv.Stop() }()
 
 	cli, err := NewVSOCKClientInterfaceWithRetries("vsock_race_cli", vsock.Local, srv.Port(), true, 20)
 	if err != nil {

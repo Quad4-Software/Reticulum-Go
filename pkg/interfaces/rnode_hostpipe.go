@@ -163,7 +163,7 @@ func ServeRNodeHostPipeTCP(pipe *RNodeHostPipe) (addr string, stop func(), err e
 		if err != nil {
 			return
 		}
-		defer conn.Close()
+		defer func() { _ = conn.Close() }()
 		relayHostPipeConn(pipe, conn, done)
 	}()
 	return ln.Addr().String(), stop, nil

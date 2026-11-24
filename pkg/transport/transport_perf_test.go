@@ -22,7 +22,7 @@ func BenchmarkSeenAnnouncesScale(b *testing.B) {
 	for _, size := range sizes {
 		b.Run(fmt.Sprintf("Size-%d", size), func(b *testing.B) {
 			tr := NewTransport(&common.ReticulumConfig{})
-			defer tr.Close()
+			defer func() { _ = tr.Close() }()
 
 			// Fill seenAnnounces
 			for range size {
@@ -52,7 +52,7 @@ func BenchmarkReceiptRegistryScale(b *testing.B) {
 	for _, size := range sizes {
 		b.Run(fmt.Sprintf("Size-%d", size), func(b *testing.B) {
 			tr := NewTransport(&common.ReticulumConfig{})
-			defer tr.Close()
+			defer func() { _ = tr.Close() }()
 
 			p := &packet.Packet{
 				HeaderType:      packet.HeaderType1,
@@ -92,7 +92,7 @@ func TestTransportMemoryUsage(t *testing.T) {
 		// O(n) eviction scans on every insert past DefaultMaxInMemoryPaths.
 		MaxInMemoryPaths: -1,
 	})
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 
 	// Register interface to avoid "Interface not found" logs and early return
 	iface := &mockInterface{}

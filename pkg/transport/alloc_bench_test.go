@@ -64,7 +64,7 @@ func benchHandleAnnounce(b *testing.B, level int) {
 	b.Cleanup(func() { debug.SetDebugLevel(prev) })
 
 	pkt, tr, iface := buildValidAnnounceForReceiver(b)
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	defer iface.stop()
 
 	b.ReportAllocs()
@@ -110,7 +110,7 @@ func BenchmarkHandlePacketCopy(b *testing.B) {
 // path request fan-out.
 func BenchmarkSnapshotRegisteredInterfaces(b *testing.B) {
 	tr := NewTransport(&common.ReticulumConfig{})
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	for i := range 8 {
 		iface := newSimIface(fmt.Sprintf("i%d", i))
 		if err := tr.RegisterInterface(iface.GetName(), iface); err != nil {
@@ -170,7 +170,7 @@ func TestAnnounceIngestNoGrowth(t *testing.T) {
 	debug.SetDebugLevel(debug.DebugCritical)
 
 	_, tr, iface := buildValidAnnounceForReceiver(t)
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	defer iface.stop()
 
 	const batches = 4
@@ -228,7 +228,7 @@ func TestHandleAnnounceAllocBudget(t *testing.T) {
 	debug.SetDebugLevel(debug.DebugCritical)
 
 	pkt, tr, iface := buildValidAnnounceForReceiver(t)
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	defer iface.stop()
 
 	// Warm known-destination and announce caches.
@@ -251,7 +251,7 @@ func TestHandleAnnounceAllocBudgetDebugInfo(t *testing.T) {
 	debug.SetDebugLevel(debug.DebugInfo)
 
 	pkt, tr, iface := buildValidAnnounceForReceiver(t)
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	defer iface.stop()
 
 	_ = tr.handleAnnouncePacket(pkt, iface)
@@ -274,7 +274,7 @@ func TestOurTransportIDAllocBudget(t *testing.T) {
 		t.Fatalf("identity.New: %v", err)
 	}
 	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	tr.SetIdentity(id)
 	_ = tr.ourTransportID()
 

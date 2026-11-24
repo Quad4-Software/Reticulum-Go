@@ -16,7 +16,7 @@ import (
 
 func TestInterfaceAnnouncerStartStop(t *testing.T) {
 	tr := transport.NewTransport(&common.ReticulumConfig{EnableTransport: true})
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	id, err := identity.New()
 	if err != nil {
 		t.Fatal(err)
@@ -96,7 +96,7 @@ func TestResolveReachableOn(t *testing.T) {
 
 func TestInterfaceDiscoveryHandlerFilters(t *testing.T) {
 	tr := transport.NewTransport(nil)
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	var saw int
 	d := NewInterfaceDiscovery(tr, DefaultStampValue, func(*ReceivedAnnounceInfo) { saw++ })
 	d.Start()

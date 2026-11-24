@@ -82,11 +82,11 @@ func TestLiveDoSProtectUDPIfaceQuietAndFlood(t *testing.T) {
 	if err := a.Start(); err != nil {
 		t.Fatal(err)
 	}
-	defer a.Stop()
+	defer func() { _ = a.Stop() }()
 	if err := b.Start(); err != nil {
 		t.Fatal(err)
 	}
-	defer b.Stop()
+	defer func() { _ = b.Stop() }()
 
 	payload := []byte("quiet-live")
 	for range 20 {
@@ -153,11 +153,11 @@ func TestLiveDoSProtectAutoLearnOnUDP(t *testing.T) {
 	if err := a.Start(); err != nil {
 		t.Fatal(err)
 	}
-	defer a.Stop()
+	defer func() { _ = a.Stop() }()
 	if err := b.Start(); err != nil {
 		t.Fatal(err)
 	}
-	defer b.Stop()
+	defer func() { _ = b.Stop() }()
 
 	payload := []byte{1, 2, 3, 4, 5, 6, 7, 8}
 	// Arming needs AdaptiveWarmupSamples plus AutoStableWindows consecutive
@@ -285,7 +285,7 @@ func TestLiveDoSProtectMeshPeersDialQuiet(t *testing.T) {
 	if err := srv.Start(); err != nil {
 		t.Fatal(err)
 	}
-	defer srv.Stop()
+	defer func() { _ = srv.Stop() }()
 
 	var localHeld []net.Conn
 	defer func() {

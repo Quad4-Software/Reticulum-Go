@@ -145,30 +145,30 @@ func (s *session) handleRingOrHangup(line string) bool {
 }
 
 func (s *session) dispatch(line string) bool {
-	switch {
-	case line == "" || line == "help":
+	switch line {
+	case "", "help":
 		printHelp()
-	case line == "q" || line == "quit":
+	case "q", "quit":
 		return false
-	case line == "mode half" || line == "mode hdx" || line == "mode ptt":
+	case "mode half", "mode hdx", "mode ptt":
 		s.callMode = proto.ModeHalfDuplex
 		fmt.Println("default call mode: half duplex")
-	case line == "mode full" || line == "mode fdx":
+	case "mode full", "mode fdx":
 		s.callMode = proto.ModeFullDuplex
 		fmt.Println("default call mode: full duplex")
-	case line == "i" || line == "identity":
+	case "i", "identity":
 		fmt.Printf("%x\n", s.id.Hash())
-	case line == "d" || line == "desthash":
+	case "d", "desthash":
 		fmt.Printf("%x\n", s.dest.GetHash())
-	case line == "a" || line == "announce":
+	case "a", "announce":
 		if err := s.phone.Announce(); err != nil {
 			fmt.Println("announce:", err)
 		}
-	case line == "p" || line == "phonebook":
+	case "p", "phonebook":
 		printPhonebook(s.book)
-	case line == "history":
+	case "history":
 		printHistory(s.log)
-	case line == "r" || line == "redial":
+	case "r", "redial":
 		if s.lastDest == "" {
 			fmt.Println("no previous destination")
 			return true

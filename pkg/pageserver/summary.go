@@ -33,37 +33,37 @@ func PrintStartupSummaryTo(w io.Writer, r *Reticulum) {
 	}
 	sort.Strings(files)
 
-	fmt.Fprintf(w, "%s %s\n", term.BoldW(w, "pageserver node destination hash:"), term.CyanW(w, h))
-	fmt.Fprintf(w, "  node name: %s\n", r.config.AppName)
-	fmt.Fprintf(w, "  pages (%d): ", len(pages))
+	_, _ = fmt.Fprintf(w, "%s %s\n", term.BoldW(w, "pageserver node destination hash:"), term.CyanW(w, h))
+	_, _ = fmt.Fprintf(w, "  node name: %s\n", r.config.AppName)
+	_, _ = fmt.Fprintf(w, "  pages (%d): ", len(pages))
 	if len(pages) == 0 {
-		fmt.Fprintln(w, term.YellowW(w, "(none)"))
+		_, _ = fmt.Fprintln(w, term.YellowW(w, "(none)"))
 	} else {
-		fmt.Fprintln(w, strings.Join(pages, ", "))
+		_, _ = fmt.Fprintln(w, strings.Join(pages, ", "))
 	}
-	fmt.Fprintf(w, "  files (%d): ", len(files))
+	_, _ = fmt.Fprintf(w, "  files (%d): ", len(files))
 	if len(files) == 0 {
-		fmt.Fprintln(w, term.YellowW(w, "(none)"))
+		_, _ = fmt.Fprintln(w, term.YellowW(w, "(none)"))
 	} else {
-		fmt.Fprintln(w, strings.Join(files, ", "))
+		_, _ = fmt.Fprintln(w, strings.Join(files, ", "))
 	}
 	if r.pageStatsDisabled {
-		fmt.Fprintln(w, "  page view stats:", term.YellowW(w, "off"))
+		_, _ = fmt.Fprintln(w, "  page view stats:", term.YellowW(w, "off"))
 	} else {
-		fmt.Fprintf(w, "  page view stats: %s\n", BuiltInPageViewsPath)
+		_, _ = fmt.Fprintf(w, "  page view stats: %s\n", BuiltInPageViewsPath)
 	}
 	if r.announceEveryMinutes > 0 {
 		ann := time.Duration(r.announceEveryMinutes) * time.Minute
-		fmt.Fprintf(w, "  periodic announce: every %d min (%s)\n", r.announceEveryMinutes, FormatDuration(ann))
+		_, _ = fmt.Fprintf(w, "  periodic announce: every %d min (%s)\n", r.announceEveryMinutes, FormatDuration(ann))
 	} else {
-		fmt.Fprintln(w, "  periodic announce:", term.YellowW(w, "off (initial announce only)"))
+		_, _ = fmt.Fprintln(w, "  periodic announce:", term.YellowW(w, "off (initial announce only)"))
 	}
 	if r.pagesRefreshInterval > 0 {
 		sec := int(r.pagesRefreshInterval / time.Second)
-		fmt.Fprintf(w, "  pages rescan: every %ds (%s)\n", sec, FormatDuration(r.pagesRefreshInterval))
+		_, _ = fmt.Fprintf(w, "  pages rescan: every %ds (%s)\n", sec, FormatDuration(r.pagesRefreshInterval))
 	}
 	if r.filesRefreshInterval > 0 {
 		sec := int(r.filesRefreshInterval / time.Second)
-		fmt.Fprintf(w, "  files rescan: every %ds (%s)\n", sec, FormatDuration(r.filesRefreshInterval))
+		_, _ = fmt.Fprintf(w, "  files rescan: every %ds (%s)\n", sec, FormatDuration(r.filesRefreshInterval))
 	}
 }

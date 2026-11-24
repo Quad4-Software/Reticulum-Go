@@ -104,7 +104,7 @@ func TestRequestReceiptTimeout_UnblocksDuplicatePath(t *testing.T) {
 // wedge the link at ErrLinkRequestBusy after eight silent requests.
 func TestRequestReceiptTimeout_FreesMaxPendingSlot(t *testing.T) {
 	l := &Link{}
-	for i := 0; i < MaxPendingRequests; i++ {
+	for i := range MaxPendingRequests {
 		r := newTestRequestReceipt(l, byte(0x30+i), 30*time.Millisecond)
 		if err := l.registerPendingRequest(r); err != nil {
 			t.Fatalf("register %d: %v", i, err)
@@ -465,16 +465,16 @@ func TestCompleteRequestWithResourcePayload_SkipsActiveReceipt(t *testing.T) {
 	if err := l.registerPendingRequest(r); err != nil {
 		t.Fatalf("register: %v", err)
 	}
-	var calls int32
+	var calls atomic.Int32
 	r.mutex.Lock()
 	r.status = StatusActive
-	r.responseCb = func(*RequestReceipt) { atomic.AddInt32(&calls, 1) }
+	r.responseCb = func(*RequestReceipt) { calls.Add(1) }
 	r.mutex.Unlock()
 	l.removePendingRequest(r)
 
 	l.completeRequestWithResourcePayload(r, []byte("late"), nil)
 	time.Sleep(50 * time.Millisecond)
-	if n := atomic.LoadInt32(&calls); n != 0 {
+	if n := calls.Load(); n != 0 {
 		t.Fatalf("response callback fired %d times on concluded receipt", n)
 	}
 }

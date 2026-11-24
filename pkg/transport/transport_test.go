@@ -39,12 +39,12 @@ func TestNewTransport(t *testing.T) {
 	if tr == nil {
 		t.Fatal("NewTransport returned nil")
 	}
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 }
 
 func TestRegisterInterface(t *testing.T) {
 	tr := NewTransport(&common.ReticulumConfig{})
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 
 	iface := &mockInterface{}
 	iface.Name = "test"
@@ -64,7 +64,7 @@ func TestRegisterInterface(t *testing.T) {
 
 func TestPathManagement(t *testing.T) {
 	tr := NewTransport(&common.ReticulumConfig{})
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 
 	destHash := []byte("test-destination-hash")
 	nextHop := []byte("next-hop")
@@ -93,7 +93,7 @@ func TestPathManagement(t *testing.T) {
 
 func TestDestinationRegistration(t *testing.T) {
 	tr := NewTransport(&common.ReticulumConfig{})
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 
 	destHash := []byte("dest")
 	tr.RegisterDestination(destHash, "test-dest")
@@ -109,7 +109,7 @@ func TestDestinationRegistration(t *testing.T) {
 
 func TestRegisterDestinationRejectsNilAndEmptyHash(t *testing.T) {
 	tr := NewTransport(&common.ReticulumConfig{})
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 
 	tr.mutex.RLock()
 	before := len(tr.destinations)
@@ -129,7 +129,7 @@ func TestRegisterDestinationRejectsNilAndEmptyHash(t *testing.T) {
 
 func TestSendPacketNoPathUsesErrNoPathToDestination(t *testing.T) {
 	tr := NewTransport(&common.ReticulumConfig{})
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 
 	destHash := make([]byte, 16)
 	for i := range destHash {
@@ -143,7 +143,7 @@ func TestSendPacketNoPathUsesErrNoPathToDestination(t *testing.T) {
 
 func TestTransportStatus(t *testing.T) {
 	tr := NewTransport(&common.ReticulumConfig{})
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 
 	destHash := []byte("dest")
 	if tr.PathIsUnresponsive(destHash) {
@@ -163,7 +163,7 @@ func TestTransportStatus(t *testing.T) {
 
 func TestUpdatePathResetsState(t *testing.T) {
 	tr := NewTransport(&common.ReticulumConfig{})
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 
 	destHash := []byte("dest-state-reset-hash")
 	nextHop := []byte("nh")
@@ -202,7 +202,7 @@ func TestUpdatePathResetsState(t *testing.T) {
 func TestAnnounceHopCount(t *testing.T) {
 	config := common.DefaultConfig()
 	tr := NewTransport(config)
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 
 	iface := &mockInterface{}
 	iface.Name = "wasm0"
@@ -269,7 +269,7 @@ func TestAnnounceHopCount(t *testing.T) {
 func TestAnnounceRejectsOverMaxHops(t *testing.T) {
 	config := common.DefaultConfig()
 	tr := NewTransport(config)
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 
 	iface := &mockInterface{}
 	iface.Name = "wasm0"

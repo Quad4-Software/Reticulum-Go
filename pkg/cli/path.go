@@ -84,7 +84,7 @@ func RunPath(args []string, opt ...Options) int {
 	if fs.NArg() > 0 {
 		destHash, err = rnsutil.ParseDestHash(fs.Arg(0))
 		if err != nil {
-			fmt.Fprintf(stderr, "%v\n", err)
+			_, _ = fmt.Fprintf(stderr, "%v\n", err)
 			return 1
 		}
 	}
@@ -99,14 +99,14 @@ func RunPath(args []string, opt ...Options) int {
 		}
 	}
 	if modeCount > 1 {
-		fmt.Fprintln(stderr, "specify only one of -t -r -d -D -x -b -B -U -p -A")
+		_, _ = fmt.Fprintln(stderr, "specify only one of -t -r -d -D -x -b -B -U -p -A")
 		return 2
 	}
 
 	if *analyze {
 		// Python rnpath analyze_tables is a stub. Mirror it.
 		_ = *capture
-		fmt.Fprintln(stdout, "Not yet implemented")
+		_, _ = fmt.Fprintln(stdout, "Not yet implemented")
 		return 0
 	}
 
@@ -159,7 +159,7 @@ func RunPath(args []string, opt ...Options) int {
 			}
 			if *jsonOut {
 				if err := rnsutil.WritePathTableJSON(stdout, paths); err != nil {
-					fmt.Fprintf(stderr, "%v\n", err)
+					_, _ = fmt.Fprintf(stderr, "%v\n", err)
 					return 1
 				}
 				return 0
@@ -168,11 +168,11 @@ func RunPath(args []string, opt ...Options) int {
 				Active: *active, Usage: *usage, Vias: *vias, Expiry: *expiry, MinValue: *minValue,
 			})
 			if err != nil {
-				fmt.Fprintf(stderr, "%v\n", err)
+				_, _ = fmt.Fprintf(stderr, "%v\n", err)
 				return 1
 			}
 			if len(destHash) > 0 && n == 0 {
-				fmt.Fprintln(stdout, warnMsg(stdout, "No path known"))
+				_, _ = fmt.Fprintln(stdout, warnMsg(stdout, "No path known"))
 				return 1
 			}
 			return 0
@@ -185,25 +185,25 @@ func RunPath(args []string, opt ...Options) int {
 			}
 			if *jsonOut {
 				if err := rnsutil.WriteRateTableJSON(stdout, table); err != nil {
-					fmt.Fprintf(stderr, "%v\n", err)
+					_, _ = fmt.Fprintf(stderr, "%v\n", err)
 					return 1
 				}
 				return 0
 			}
 			n, err := rnsutil.WriteRateTableHuman(stdout, table, destHash)
 			if err != nil {
-				fmt.Fprintf(stderr, "%v\n", err)
+				_, _ = fmt.Fprintf(stderr, "%v\n", err)
 				return 1
 			}
 			if len(destHash) > 0 && n == 0 {
-				fmt.Fprintln(stdout, warnMsg(stdout, "No information available"))
+				_, _ = fmt.Fprintln(stdout, warnMsg(stdout, "No information available"))
 				return 1
 			}
 			return 0
 
 		case *drop:
 			if len(destHash) == 0 {
-				fmt.Fprintln(stderr, "destination hash required for -d")
+				_, _ = fmt.Fprintln(stderr, "destination hash required for -d")
 				return 2
 			}
 			ok, err := client.DropPath(destHash)
@@ -212,15 +212,15 @@ func RunPath(args []string, opt ...Options) int {
 				return 1
 			}
 			if !ok {
-				fmt.Fprintln(stdout, warnMsg(stdout, fmt.Sprintf("Unable to drop path to %s. Does it exist?", rnsutil.PrettyHex(destHash))))
+				_, _ = fmt.Fprintln(stdout, warnMsg(stdout, fmt.Sprintf("Unable to drop path to %s. Does it exist?", rnsutil.PrettyHex(destHash))))
 				return 1
 			}
-			fmt.Fprintln(stdout, okMsg(stdout, fmt.Sprintf("Dropped path to %s", rnsutil.PrettyHex(destHash))))
+			_, _ = fmt.Fprintln(stdout, okMsg(stdout, fmt.Sprintf("Dropped path to %s", rnsutil.PrettyHex(destHash))))
 			return 0
 
 		case *dropVia:
 			if len(destHash) == 0 {
-				fmt.Fprintln(stderr, "transport hash required for -x")
+				_, _ = fmt.Fprintln(stderr, "transport hash required for -x")
 				return 2
 			}
 			n, err := client.DropAllVia(destHash)
@@ -229,10 +229,10 @@ func RunPath(args []string, opt ...Options) int {
 				return 1
 			}
 			if n == 0 {
-				fmt.Fprintln(stdout, warnMsg(stdout, fmt.Sprintf("Unable to drop paths via %s. Does the transport instance exist?", rnsutil.PrettyHex(destHash))))
+				_, _ = fmt.Fprintln(stdout, warnMsg(stdout, fmt.Sprintf("Unable to drop paths via %s. Does the transport instance exist?", rnsutil.PrettyHex(destHash))))
 				return 1
 			}
-			fmt.Fprintln(stdout, okMsg(stdout, fmt.Sprintf("Dropped all paths via %s (%d)", rnsutil.PrettyHex(destHash), n)))
+			_, _ = fmt.Fprintln(stdout, okMsg(stdout, fmt.Sprintf("Dropped all paths via %s (%d)", rnsutil.PrettyHex(destHash), n)))
 			return 0
 
 		case *dropQueues:
@@ -241,7 +241,7 @@ func RunPath(args []string, opt ...Options) int {
 				diagErr(stderr, "drop queues", err)
 				return 1
 			}
-			fmt.Fprintln(stdout, okMsg(stdout, fmt.Sprintf("Dropping announce queues on all interfaces... (%d cleared)", n)))
+			_, _ = fmt.Fprintln(stdout, okMsg(stdout, fmt.Sprintf("Dropping announce queues on all interfaces... (%d cleared)", n)))
 			return 0
 
 		case *blackholed:
@@ -253,7 +253,7 @@ func RunPath(args []string, opt ...Options) int {
 			entries := rnsutil.NormalizeBlackholeRPC(raw)
 			if *jsonOut {
 				if err := rnsutil.WriteBlackholeJSON(stdout, entries); err != nil {
-					fmt.Fprintf(stderr, "%v\n", err)
+					_, _ = fmt.Fprintf(stderr, "%v\n", err)
 					return 1
 				}
 				return 0
@@ -263,17 +263,17 @@ func RunPath(args []string, opt ...Options) int {
 				filt = rnsutil.HexHash(destHash)
 			}
 			if err := rnsutil.WriteBlackholeHuman(stdout, entries, filt); err != nil {
-				fmt.Fprintf(stderr, "%v\n", err)
+				_, _ = fmt.Fprintf(stderr, "%v\n", err)
 				return 1
 			}
 			if len(entries) == 0 {
-				fmt.Fprintln(stdout, "No blackholed identity data available")
+				_, _ = fmt.Fprintln(stdout, "No blackholed identity data available")
 			}
 			return 0
 
 		case *blackhole:
 			if len(destHash) == 0 {
-				fmt.Fprintln(stderr, "identity hash required for -B")
+				_, _ = fmt.Fprintln(stderr, "identity hash required for -B")
 				return 2
 			}
 			var until float64
@@ -286,15 +286,15 @@ func RunPath(args []string, opt ...Options) int {
 				return 1
 			}
 			if ok {
-				fmt.Fprintln(stdout, okMsg(stdout, fmt.Sprintf("Blackholed identity %s", rnsutil.HexHash(destHash))))
+				_, _ = fmt.Fprintln(stdout, okMsg(stdout, fmt.Sprintf("Blackholed identity %s", rnsutil.HexHash(destHash))))
 			} else {
-				fmt.Fprintln(stdout, warnMsg(stdout, fmt.Sprintf("Identity %s already blackholed", rnsutil.HexHash(destHash))))
+				_, _ = fmt.Fprintln(stdout, warnMsg(stdout, fmt.Sprintf("Identity %s already blackholed", rnsutil.HexHash(destHash))))
 			}
 			return 0
 
 		case *unblackhole:
 			if len(destHash) == 0 {
-				fmt.Fprintln(stderr, "identity hash required for -U")
+				_, _ = fmt.Fprintln(stderr, "identity hash required for -U")
 				return 2
 			}
 			ok, err := client.UnblackholeIdentity(destHash)
@@ -303,9 +303,9 @@ func RunPath(args []string, opt ...Options) int {
 				return 1
 			}
 			if ok {
-				fmt.Fprintln(stdout, okMsg(stdout, fmt.Sprintf("Lifted blackhole for identity %s", rnsutil.HexHash(destHash))))
+				_, _ = fmt.Fprintln(stdout, okMsg(stdout, fmt.Sprintf("Lifted blackhole for identity %s", rnsutil.HexHash(destHash))))
 			} else {
-				fmt.Fprintln(stdout, warnMsg(stdout, fmt.Sprintf("Identity %s not blackholed", rnsutil.HexHash(destHash))))
+				_, _ = fmt.Fprintln(stdout, warnMsg(stdout, fmt.Sprintf("Identity %s not blackholed", rnsutil.HexHash(destHash))))
 			}
 			return 0
 		}
@@ -314,9 +314,9 @@ func RunPath(args []string, opt ...Options) int {
 	// Default: request path (node-attached, like rnpath without -t).
 	if len(destHash) == 0 {
 		usageErr(stderr, "rgopath [flags] <destination_hash>")
-		fmt.Fprintln(stderr, "  -t path table  -r rates  -d drop  -D drop announce queues  -x drop via")
-		fmt.Fprintln(stderr, "  -b list blackholes  -B blackhole  -U unblackhole  -p published list")
-		fmt.Fprintln(stderr, "  -R transport_id  -i identity  -W seconds")
+		_, _ = fmt.Fprintln(stderr, "  -t path table  -r rates  -d drop  -D drop announce queues  -x drop via")
+		_, _ = fmt.Fprintln(stderr, "  -b list blackholes  -B blackhole  -U unblackhole  -p published list")
+		_, _ = fmt.Fprintln(stderr, "  -R transport_id  -i identity  -W seconds")
 		return 2
 	}
 
@@ -329,15 +329,15 @@ func RunPath(args []string, opt ...Options) int {
 		diagErr(stderr, "start", err)
 		return 1
 	}
-	defer n.Stop()
+	defer func() { _ = n.Stop() }()
 
 	tr := n.Transport()
 	timeout := time.Duration(*timeoutSec * float64(time.Second))
-	fmt.Fprintln(stdout, infoMsg(stdout, fmt.Sprintf("Path to %s requested", rnsutil.PrettyHex(destHash))))
+	_, _ = fmt.Fprintln(stdout, infoMsg(stdout, fmt.Sprintf("Path to %s requested", rnsutil.PrettyHex(destHash))))
 	ctx, cancel := rnsutil.CLIWaitContext(timeout)
 	defer cancel()
 	if err := rnsutil.WaitPath(ctx, tr, destHash); err != nil {
-		fmt.Fprintln(stdout, errMsg(stdout, "Path request timed out"))
+		_, _ = fmt.Fprintln(stdout, errMsg(stdout, "Path request timed out"))
 		report := rnsutil.DiagnoseReachability(tr, destHash)
 		_ = rnsutil.WriteReachReportHuman(stdout, report)
 		return 12
@@ -349,14 +349,14 @@ func RunPath(args []string, opt ...Options) int {
 	if hops == 1 {
 		hopWord = "hop"
 	}
-	fmt.Fprintln(stdout, okMsg(stdout, fmt.Sprintf("Path found: %d %s via %s on %s",
+	_, _ = fmt.Fprintln(stdout, okMsg(stdout, fmt.Sprintf("Path found: %d %s via %s on %s",
 		hops, hopWord, rnsutil.PrettyHex(via), iface)))
 	return 0
 }
 
 func runPathPublishedBlackhole(cfg *common.ReticulumConfig, transportHash []byte, listFilter string, jsonOut bool, timeoutSec float64, stdout, stderr io.Writer) int {
 	if len(transportHash) == 0 {
-		fmt.Fprintln(stderr, "transport identity hash required for -p")
+		_, _ = fmt.Fprintln(stderr, "transport identity hash required for -p")
 		return 2
 	}
 	n, err := node.New(cfg)
@@ -368,32 +368,32 @@ func runPathPublishedBlackhole(cfg *common.ReticulumConfig, transportHash []byte
 		diagErr(stderr, "start", err)
 		return 1
 	}
-	defer n.Stop()
+	defer func() { _ = n.Stop() }()
 
 	timeout := time.Duration(timeoutSec * float64(time.Second))
 	ctx, cancel := rnsutil.CLIWaitContext(timeout)
 	defer cancel()
 
-	fmt.Fprintln(stdout, infoMsg(stdout, "Sending request..."))
+	_, _ = fmt.Fprintln(stdout, infoMsg(stdout, "Sending request..."))
 	entries, err := rnsutil.FetchPublishedBlackholeList(ctx, n.Transport(), transportHash)
 	if err != nil {
-		fmt.Fprintln(stdout, errMsg(stdout, "The remote request failed."))
-		fmt.Fprintf(stderr, "%v\n", err)
+		_, _ = fmt.Fprintln(stdout, errMsg(stdout, "The remote request failed."))
+		_, _ = fmt.Fprintf(stderr, "%v\n", err)
 		return 10
 	}
 	if len(entries) == 0 {
-		fmt.Fprintln(stdout, "No blackholed identity data available")
+		_, _ = fmt.Fprintln(stdout, "No blackholed identity data available")
 		return 20
 	}
 	if jsonOut {
 		if err := rnsutil.WriteBlackholeJSON(stdout, entries); err != nil {
-			fmt.Fprintf(stderr, "%v\n", err)
+			_, _ = fmt.Fprintf(stderr, "%v\n", err)
 			return 1
 		}
 		return 0
 	}
 	if err := rnsutil.WriteBlackholeHuman(stdout, entries, listFilter); err != nil {
-		fmt.Fprintf(stderr, "%v\n", err)
+		_, _ = fmt.Fprintf(stderr, "%v\n", err)
 		return 1
 	}
 	return 0
@@ -421,34 +421,34 @@ type pathRemoteOpts struct {
 func runPathRemote(cfg *common.ReticulumConfig, destHash []byte, opts pathRemoteOpts) int {
 	stdout, stderr := opts.stdout, opts.stderr
 	if opts.drop {
-		fmt.Fprintln(stdout, "Dropping path on remote instances not yet implemented")
+		_, _ = fmt.Fprintln(stdout, "Dropping path on remote instances not yet implemented")
 		return 255
 	}
 	if opts.dropVia {
-		fmt.Fprintln(stdout, "Dropping all paths via specific transport instance on remote instances yet not implemented")
+		_, _ = fmt.Fprintln(stdout, "Dropping all paths via specific transport instance on remote instances yet not implemented")
 		return 255
 	}
 	if opts.dropQueues {
-		fmt.Fprintln(stdout, "Dropping announce queues on remote instances not yet implemented")
+		_, _ = fmt.Fprintln(stdout, "Dropping announce queues on remote instances not yet implemented")
 		return 255
 	}
 	if opts.blackholed || opts.blackhole || opts.unblackhole {
-		fmt.Fprintln(stdout, "Blackholing identity on remote instances not yet implemented")
+		_, _ = fmt.Fprintln(stdout, "Blackholing identity on remote instances not yet implemented")
 		return 255
 	}
 	if !opts.table && !opts.rates {
-		fmt.Fprintln(stdout, "Requesting paths on remote instances not implemented")
+		_, _ = fmt.Fprintln(stdout, "Requesting paths on remote instances not implemented")
 		return 255
 	}
 
 	tid, err := rnsutil.ParseDestHash(opts.remoteHex)
 	if err != nil {
-		fmt.Fprintf(stderr, "%v\n", err)
+		_, _ = fmt.Fprintf(stderr, "%v\n", err)
 		return 20
 	}
 	auth, err := rnsutil.LoadManagementIdentity(opts.identPath)
 	if err != nil {
-		fmt.Fprintf(stderr, "%v\n", err)
+		_, _ = fmt.Fprintf(stderr, "%v\n", err)
 		return 20
 	}
 
@@ -461,21 +461,21 @@ func runPathRemote(cfg *common.ReticulumConfig, destHash []byte, opts pathRemote
 		diagErr(stderr, "start", err)
 		return 1
 	}
-	defer n.Stop()
+	defer func() { _ = n.Stop() }()
 
 	timeout := time.Duration(opts.timeoutSec * float64(time.Second))
 	ctx, cancel := rnsutil.CLIWaitContext(timeout)
 	defer cancel()
 
-	fmt.Fprintln(stdout, infoMsg(stdout, "Establishing link with remote transport instance..."))
+	_, _ = fmt.Fprintln(stdout, infoMsg(stdout, "Establishing link with remote transport instance..."))
 	l, err := rnsutil.EstablishRemoteManagementLink(ctx, n.Transport(), tid, auth)
 	if err != nil {
-		fmt.Fprintln(stdout, errMsg(stdout, err.Error()))
+		_, _ = fmt.Fprintln(stdout, errMsg(stdout, err.Error()))
 		return 12
 	}
 	defer l.Teardown()
 
-	fmt.Fprintln(stdout, infoMsg(stdout, "Sending request..."))
+	_, _ = fmt.Fprintln(stdout, infoMsg(stdout, "Sending request..."))
 	var mh *int
 	if opts.maxHops >= 0 {
 		mh = &opts.maxHops
@@ -486,7 +486,7 @@ func runPathRemote(cfg *common.ReticulumConfig, destHash []byte, opts pathRemote
 	}
 	raw, err := rnsutil.RemotePathRequest(ctx, l, cmd, destHash, mh)
 	if err != nil {
-		fmt.Fprintln(stdout, errMsg(stdout, "The remote request failed. Likely authentication failure."))
+		_, _ = fmt.Fprintln(stdout, errMsg(stdout, "The remote request failed. Likely authentication failure."))
 		return 10
 	}
 
@@ -494,18 +494,18 @@ func runPathRemote(cfg *common.ReticulumConfig, destHash []byte, opts pathRemote
 		table := rnsutil.RateTableFromResponse(raw)
 		if opts.jsonOut {
 			if err := rnsutil.WriteRateTableJSON(stdout, table); err != nil {
-				fmt.Fprintf(stderr, "%v\n", err)
+				_, _ = fmt.Fprintf(stderr, "%v\n", err)
 				return 1
 			}
 			return 0
 		}
 		nshown, err := rnsutil.WriteRateTableHuman(stdout, table, destHash)
 		if err != nil {
-			fmt.Fprintf(stderr, "%v\n", err)
+			_, _ = fmt.Fprintf(stderr, "%v\n", err)
 			return 1
 		}
 		if len(destHash) > 0 && nshown == 0 {
-			fmt.Fprintln(stdout, warnMsg(stdout, "No information available"))
+			_, _ = fmt.Fprintln(stdout, warnMsg(stdout, "No information available"))
 			return 1
 		}
 		return 0
@@ -514,18 +514,18 @@ func runPathRemote(cfg *common.ReticulumConfig, destHash []byte, opts pathRemote
 	table := rnsutil.PathTableFromResponse(raw)
 	if opts.jsonOut {
 		if err := rnsutil.WritePathTableJSON(stdout, table); err != nil {
-			fmt.Fprintf(stderr, "%v\n", err)
+			_, _ = fmt.Fprintf(stderr, "%v\n", err)
 			return 1
 		}
 		return 0
 	}
 	nshown, err := rnsutil.WritePathTableHuman(stdout, table, destHash, opts.display)
 	if err != nil {
-		fmt.Fprintf(stderr, "%v\n", err)
+		_, _ = fmt.Fprintf(stderr, "%v\n", err)
 		return 1
 	}
 	if len(destHash) > 0 && nshown == 0 {
-		fmt.Fprintln(stdout, warnMsg(stdout, "No path known"))
+		_, _ = fmt.Fprintln(stdout, warnMsg(stdout, "No path known"))
 		return 1
 	}
 	return 0

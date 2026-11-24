@@ -65,7 +65,7 @@ func TestLiveManagePythonClientAgainstGoSharedInstance(t *testing.T) {
 	if err := n.Start(); err != nil {
 		t.Fatalf("node start: %v", err)
 	}
-	defer n.Stop()
+	defer func() { _ = n.Stop() }()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()

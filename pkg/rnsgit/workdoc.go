@@ -864,7 +864,7 @@ func (n *Node) workDocPermAccess(workPath, group, repo string, req map[any]any, 
 	interactAccess := n.accessTable().Resolve(group, repo, remote.Hash(), permInteract)
 	adminAccess := n.accessTable().ResolveDoc(group, repo, docID, remote.Hash(), permAdmin)
 	manageAccess := interactAccess && writeAccess
-	if !(isAuthor && manageAccess) && !adminAccess {
+	if (!isAuthor || !manageAccess) && !adminAccess {
 		return 0, "", StatusResponse(ResDisallowed, "Not allowed")
 	}
 	return docID, docDir, nil

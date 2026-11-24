@@ -57,7 +57,7 @@ func TestPipeInterfaceHDLCRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewPipeInterface: %v", err)
 	}
-	defer pi.Stop()
+	defer func() { _ = pi.Stop() }()
 
 	var received atomic.Int32
 	var last []byte
@@ -100,7 +100,7 @@ func TestPipeInterfaceRespawnAfterExit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewPipeInterface: %v", err)
 	}
-	defer pi.Stop()
+	defer func() { _ = pi.Stop() }()
 
 	pi.killProcess()
 	time.Sleep(150 * time.Millisecond)
@@ -128,7 +128,7 @@ func TestNewFromConfigPipeInterface(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected *PipeInterface, got %T", iface)
 	}
-	defer pi.Stop()
+	defer func() { _ = pi.Stop() }()
 	if pi.MTU != pipeHWMTU {
 		t.Fatalf("MTU = %d, want %d", pi.MTU, pipeHWMTU)
 	}
@@ -249,5 +249,5 @@ func TestPipeCommandFromEnv(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer pi.Stop()
+	defer func() { _ = pi.Stop() }()
 }

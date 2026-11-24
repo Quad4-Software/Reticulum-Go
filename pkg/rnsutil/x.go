@@ -465,7 +465,8 @@ func ExecuteRNXCommandLocally(req RNXRequest) RNXResult {
 	case <-timeout:
 		timedOut = true
 		_ = cmd.Process.Kill()
-		<-done
+		waitErr := <-done
+		_ = waitErr
 		if cmd.ProcessState != nil {
 			code := cmd.ProcessState.ExitCode()
 			result.ReturnCode = &code

@@ -74,21 +74,21 @@ func startGoSharedOwner(t *testing.T, enableTransport bool, sharedPort, ctrlPort
 		true,
 	)
 	if err != nil {
-		n.Stop()
+		_ = n.Stop()
 		t.Fatalf("udp iface: %v", err)
 	}
 	if err := n.Transport().RegisterInterface("interop_udp", udpIface); err != nil {
-		n.Stop()
+		_ = n.Stop()
 		t.Fatalf("register udp: %v", err)
 	}
 	if err := udpIface.Start(); err != nil {
-		n.Stop()
+		_ = n.Stop()
 		t.Fatalf("start udp: %v", err)
 	}
 
 	cleanup := func() {
 		_ = udpIface.Stop()
-		n.Stop()
+		_ = n.Stop()
 	}
 	return n, cfgDir, cleanup
 }

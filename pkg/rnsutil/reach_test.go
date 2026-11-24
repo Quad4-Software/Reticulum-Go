@@ -37,7 +37,7 @@ func TestDiagnoseReachabilityNilTransport(t *testing.T) {
 
 func TestDiagnoseReachabilityNoInterfaces(t *testing.T) {
 	tr := transport.NewTransport(&common.ReticulumConfig{EnableTransport: true})
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	dest := bytes.Repeat([]byte{0xab}, 16)
 	report := DiagnoseReachability(tr, dest)
 	if report.Stage != ReachStageNoInterfaces {
@@ -53,7 +53,7 @@ func TestDiagnoseReachabilityNoInterfaces(t *testing.T) {
 
 func TestDiagnoseReachabilityNoPath(t *testing.T) {
 	tr := transport.NewTransport(&common.ReticulumConfig{EnableTransport: true})
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	mock := &reachMockIface{}
 	mock.Name = "udp0"
 	mock.Enabled = true
@@ -81,7 +81,7 @@ func TestDiagnoseReachabilityNoPath(t *testing.T) {
 
 func TestDiagnoseReachabilityReachable(t *testing.T) {
 	tr := transport.NewTransport(&common.ReticulumConfig{EnableTransport: true})
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	mock := &reachMockIface{}
 	mock.Name = "udp0"
 	mock.Enabled = true

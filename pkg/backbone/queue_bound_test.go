@@ -52,10 +52,7 @@ func (c *throttledConn) Read([]byte) (int, error) { time.Sleep(time.Hour); retur
 func (c *throttledConn) Write(b []byte) (int, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	n := len(b)
-	if n > c.left {
-		n = c.left
-	}
+	n := min(len(b), c.left)
 	c.left -= n
 	c.writes = append(c.writes, append([]byte(nil), b[:n]...))
 	return n, nil

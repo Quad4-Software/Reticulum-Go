@@ -29,7 +29,7 @@ func TestLiveInteropDNSRendezvousGoGo(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer peer.Close()
+	defer func() { _ = peer.Close() }()
 	peerPort := peer.LocalAddr().(*net.UDPAddr).Port
 	go func() {
 		buf := make([]byte, 2048)
@@ -46,7 +46,7 @@ func TestLiveInteropDNSRendezvousGoGo(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer dnsUDP.Close()
+	defer func() { _ = dnsUDP.Close() }()
 	dnsPort := dnsUDP.LocalAddr().(*net.UDPAddr).Port
 
 	mux := dns.NewServeMux()
@@ -88,7 +88,7 @@ func TestLiveInteropDNSRendezvousGoGo(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer di.Stop()
+	defer func() { _ = di.Stop() }()
 
 	var got atomic.Pointer[[]byte]
 	di.SetPacketCallback(func(data []byte, _ common.NetworkInterface) {

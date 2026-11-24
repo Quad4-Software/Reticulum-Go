@@ -303,7 +303,7 @@ func (r *Reticulum) StopDaemon() error {
 		}
 		r.controlAPI = nil
 	}
-	return r.Node.Stop()
+	return r.Stop()
 }
 
 func initializeDirectories() error {

@@ -1108,7 +1108,7 @@ func (d *Destination) reloadRatchets() error {
 	if err != nil {
 		return fmt.Errorf("failed to open ratchet file: %w", err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	// Read all data
 	fileData, err := io.ReadAll(file)

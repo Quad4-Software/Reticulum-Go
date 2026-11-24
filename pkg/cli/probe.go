@@ -52,7 +52,7 @@ func RunProbe(args []string, opt ...Options) int {
 
 	destHash, err := hex.DecodeString(fs.Arg(1))
 	if err != nil || len(destHash) != 16 {
-		fmt.Fprintln(stderr, "destination hash must be 32 hex characters (16 bytes)")
+		_, _ = fmt.Fprintln(stderr, "destination hash must be 32 hex characters (16 bytes)")
 		return 2
 	}
 
@@ -71,7 +71,7 @@ func RunProbe(args []string, opt ...Options) int {
 		diagErr(stderr, "start", err)
 		return 1
 	}
-	defer n.Stop()
+	defer func() { _ = n.Stop() }()
 
 	tr := n.Transport()
 	var pathTimeout time.Duration
@@ -83,9 +83,9 @@ func RunProbe(args []string, opt ...Options) int {
 
 	pathCtx, cancel := context.WithTimeout(context.Background(), pathTimeout)
 	defer cancel()
-	fmt.Fprintln(stdout, infoMsg(stdout, fmt.Sprintf("Path to %s requested", rnsutil.PrettyHex(destHash))))
+	_, _ = fmt.Fprintln(stdout, infoMsg(stdout, fmt.Sprintf("Path to %s requested", rnsutil.PrettyHex(destHash))))
 	if err := rnsutil.WaitPath(pathCtx, tr, destHash); err != nil {
-		fmt.Fprintf(stderr, "%s: %v\n", errMsg(stderr, "path request timed out"), err)
+		_, _ = fmt.Fprintf(stderr, "%s: %v\n", errMsg(stderr, "path request timed out"), err)
 		report := rnsutil.DiagnoseReachability(tr, destHash)
 		_ = rnsutil.WriteReachReportHuman(stderr, report)
 		return 1
@@ -124,7 +124,7 @@ func RunProbe(args []string, opt ...Options) int {
 			}
 		}
 		if !*jsonOut {
-			fmt.Fprintf(stdout, "Sent probe %d (%d bytes) to %s%s\n", i+1, *size, rnsutil.PrettyHex(destHash), more)
+			_, _ = fmt.Fprintf(stdout, "Sent probe %d (%d bytes) to %s%s\n", i+1, *size, rnsutil.PrettyHex(destHash), more)
 		}
 		sent++
 
@@ -134,7 +134,7 @@ func RunProbe(args []string, opt ...Options) int {
 			if *jsonOut {
 				jsonResults = append(jsonResults, probeJSON{Index: i + 1, Error: err.Error()})
 			} else {
-				fmt.Fprintf(stderr, "%s: %v\n", errMsg(stderr, "probe failed"), err)
+				_, _ = fmt.Fprintf(stderr, "%s: %v\n", errMsg(stderr, "probe failed"), err)
 			}
 			continue
 		}
@@ -142,7 +142,7 @@ func RunProbe(args []string, opt ...Options) int {
 			if *jsonOut {
 				jsonResults = append(jsonResults, probeJSON{Index: i + 1, Delivered: false})
 			} else {
-				fmt.Fprintln(stdout, warnMsg(stdout, "Probe timed out"))
+				_, _ = fmt.Fprintln(stdout, warnMsg(stdout, "Probe timed out"))
 			}
 			continue
 		}
@@ -165,7 +165,7 @@ func RunProbe(args []string, opt ...Options) int {
 		if res.Hops == 1 {
 			hopWord = "hop"
 		}
-		fmt.Fprintf(stdout, "%s %s\nRound-trip time is %s over %d %s\n",
+		_, _ = fmt.Fprintf(stdout, "%s %s\nRound-trip time is %s over %d %s\n",
 			okMsg(stdout, "Valid reply from"), rnsutil.PrettyHex(destHash), rttStr, res.Hops, hopWord)
 	}
 
@@ -197,7 +197,7 @@ func RunProbe(args []string, opt ...Options) int {
 		default:
 			summary = okMsg(stdout, summary)
 		}
-		fmt.Fprintln(stdout, summary)
+		_, _ = fmt.Fprintln(stdout, summary)
 	}
 	if replies == 0 {
 		return 1

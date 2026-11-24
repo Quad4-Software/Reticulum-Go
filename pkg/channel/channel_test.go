@@ -191,7 +191,9 @@ func TestGenericMessage(t *testing.T) {
 	if !bytes.Equal(p, []byte("test")) {
 		t.Error("Pack failed")
 	}
-	msg.Unpack([]byte("new"))
+	if err := msg.Unpack([]byte("new")); err != nil {
+		t.Fatalf("Unpack: %v", err)
+	}
 	if !bytes.Equal(msg.Data, []byte("new")) {
 		t.Error("Unpack failed")
 	}

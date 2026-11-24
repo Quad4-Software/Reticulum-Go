@@ -95,7 +95,7 @@ func TestLocalSpawnedClientNameTCP(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer ln.Close()
+	defer func() { _ = ln.Close() }()
 
 	serverConnCh := make(chan net.Conn, 1)
 	go func() {
@@ -110,10 +110,10 @@ func TestLocalSpawnedClientNameTCP(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer clientConn.Close()
+	defer func() { _ = clientConn.Close() }()
 
 	serverConn := <-serverConnCh
-	defer serverConn.Close()
+	defer func() { _ = serverConn.Close() }()
 
 	ls := &LocalServerInterface{useUnix: false}
 	name := localSpawnedClientName(serverConn, ls)
@@ -131,7 +131,7 @@ func TestLocalSpawnedClientNameUnix(t *testing.T) {
 	ls.clients.Store(2)
 
 	serverConn, clientConn := net.Pipe()
-	defer serverConn.Close()
+	defer func() { _ = serverConn.Close() }()
 	_ = clientConn.Close()
 
 	name := localSpawnedClientName(serverConn, ls)
@@ -173,7 +173,7 @@ func TestLocalServerUnixMultipleClientsRegister(t *testing.T) {
 	if err := ls.Start(); err != nil {
 		t.Fatal(err)
 	}
-	defer ls.Stop()
+	defer func() { _ = ls.Stop() }()
 
 	dial := func() net.Conn {
 		t.Helper()
@@ -185,7 +185,7 @@ func TestLocalServerUnixMultipleClientsRegister(t *testing.T) {
 	}
 
 	conn1 := dial()
-	defer conn1.Close()
+	defer func() { _ = conn1.Close() }()
 	time.Sleep(50 * time.Millisecond)
 
 	mu.Lock()
@@ -198,7 +198,7 @@ func TestLocalServerUnixMultipleClientsRegister(t *testing.T) {
 	mu.Unlock()
 
 	conn2 := dial()
-	defer conn2.Close()
+	defer func() { _ = conn2.Close() }()
 	time.Sleep(50 * time.Millisecond)
 
 	mu.Lock()
@@ -214,7 +214,7 @@ func TestLocalServerUnixMultipleClientsRegister(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	conn3 := dial()
-	defer conn3.Close()
+	defer func() { _ = conn3.Close() }()
 	time.Sleep(50 * time.Millisecond)
 
 	mu.Lock()

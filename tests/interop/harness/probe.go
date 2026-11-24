@@ -220,7 +220,7 @@ func StartPython(t *testing.T, opts ProbeOpts) *Probe {
 }
 
 func (p *Probe) drainStderr(r io.ReadCloser) {
-	defer r.Close()
+	defer func() { _ = r.Close() }()
 	br := bufio.NewReader(r)
 	for {
 		line, err := br.ReadString('\n')
@@ -264,7 +264,8 @@ func (p *Probe) Kill(d time.Duration) {
 		d = 3 * time.Second
 	}
 	select {
-	case <-p.done:
+	case err := <-p.done:
+		_ = err
 	case <-time.After(d):
 	}
 }

@@ -15,7 +15,7 @@ import (
 
 func TestInterfaceAnnouncerStartStopRace(t *testing.T) {
 	tr := transport.NewTransport(&common.ReticulumConfig{EnableTransport: true})
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	id, err := identity.New()
 	if err != nil {
 		t.Fatal(err)

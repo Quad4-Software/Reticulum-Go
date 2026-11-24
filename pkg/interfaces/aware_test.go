@@ -131,7 +131,7 @@ func TestAwarePeerSpawnAndCap(t *testing.T) {
 	if err := ai.Start(); err != nil {
 		t.Fatalf("Start: %v", err)
 	}
-	defer ai.Stop()
+	defer func() { _ = ai.Stop() }()
 
 	d.linkUp(11)
 	d.linkUp(12)
@@ -169,7 +169,7 @@ func TestAwarePeerHDLCRoundTrip(t *testing.T) {
 	if err := ai.Start(); err != nil {
 		t.Fatalf("Start: %v", err)
 	}
-	defer ai.Stop()
+	defer func() { _ = ai.Stop() }()
 
 	d.linkUp(7)
 	ai.Mutex.RLock()
@@ -211,7 +211,7 @@ func TestAwarePeerSendErrorTearsDown(t *testing.T) {
 	if err := ai.Start(); err != nil {
 		t.Fatalf("Start: %v", err)
 	}
-	defer ai.Stop()
+	defer func() { _ = ai.Stop() }()
 
 	d.linkUp(3)
 	ai.Mutex.RLock()
@@ -280,7 +280,7 @@ func TestAwareRestartRecreatesSession(t *testing.T) {
 	if ai.PeerCount() != 1 {
 		t.Fatalf("restart did not spawn peer: %d", ai.PeerCount())
 	}
-	defer ai.Stop()
+	defer func() { _ = ai.Stop() }()
 }
 
 func TestAwareFromConfig(t *testing.T) {
@@ -309,5 +309,5 @@ func TestAwareFromConfig(t *testing.T) {
 	if len(spawned) != 1 {
 		t.Fatalf("spawn hook not invoked: %d", len(spawned))
 	}
-	defer iface.Stop()
+	defer func() { _ = iface.Stop() }()
 }

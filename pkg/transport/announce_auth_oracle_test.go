@@ -79,7 +79,7 @@ func signedAnnounceRaw(t *testing.T, tr *Transport, id *identity.Identity) (raw,
 func TestOracleBadAnnounceSignatureLeavesStateClean(t *testing.T) {
 	health.Default.Reset()
 	tr := NewTransport(common.DefaultConfig())
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 
 	iface := &mockInterface{}
 	iface.Name = "oracle-announce"
@@ -130,7 +130,7 @@ func TestOracleBadAnnounceSignatureLeavesStateClean(t *testing.T) {
 // Guarantee: destination hash mismatch after signature tamper still leaves state clean.
 func TestOracleBadAnnounceDestHashLeavesStateClean(t *testing.T) {
 	tr := NewTransport(common.DefaultConfig())
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 
 	iface := &mockInterface{}
 	iface.Name = "oracle-dest"
@@ -174,7 +174,7 @@ func TestOracleBadAnnounceDestHashLeavesStateClean(t *testing.T) {
 // and does not replace the stored key, register a path, or notify handlers.
 func TestOracleAnnouncePublicKeyMismatchLeavesStateClean(t *testing.T) {
 	tr := NewTransport(common.DefaultConfig())
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 
 	iface := &mockInterface{}
 	iface.Name = "oracle-mismatch"

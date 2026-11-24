@@ -109,7 +109,8 @@ func runPythonPageRequest(
 	probe.WaitExact(t, ctx, "REQUEST_OK", 120*time.Second, harness.KindRequest)
 	sess.Emit("request_ok", harness.KindRequest, reqPath)
 	select {
-	case <-probe.Done():
+	case err := <-probe.Done():
+		_ = err
 	case <-ctx.Done():
 		probe.Kill(3 * time.Second)
 		t.Fatalf("pageserver client did not exit: %v", ctx.Err())

@@ -94,11 +94,6 @@ func TestInterop_Live_GoPropagationGoGolxmd(t *testing.T) {
 	}
 	requireInterop(t)
 
-	const (
-		goPort = 43210
-		pyPort = 43211
-	)
-
 	root, err := repoRoot()
 	if err != nil {
 		t.Fatal(err)
@@ -170,9 +165,9 @@ func TestInterop_Live_GoPropagationGoGolxmd(t *testing.T) {
 	if err := tr.Start(); err != nil {
 		t.Fatal(err)
 	}
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	iface := startLXMFUDP(t, "PN-client", "127.0.0.1:43211", "127.0.0.1:43210", tr)
-	defer iface.Stop()
+	defer func() { _ = iface.Stop() }()
 
 	id1 := mustNewIdentity(t)
 	id2 := mustNewIdentity(t)
@@ -332,9 +327,9 @@ func TestInterop_Live_GoDeliveryGolxmd(t *testing.T) {
 	if err := tr.Start(); err != nil {
 		t.Fatal(err)
 	}
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	iface := startLXMFUDP(t, "Go-client", "127.0.0.1:"+strconv.Itoa(pyPort), "127.0.0.1:"+strconv.Itoa(goPort), tr)
-	defer iface.Stop()
+	defer func() { _ = iface.Stop() }()
 
 	id := mustNewIdentity(t)
 	messenger, err := NewDeliveryMessenger(id, tr)

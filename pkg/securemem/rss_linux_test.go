@@ -18,7 +18,7 @@ func readRSS(t *testing.T) int64 {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, line := range strings.Split(string(b), "\n") {
+	for line := range strings.SplitSeq(string(b), "\n") {
 		if strings.HasPrefix(line, "VmRSS:") {
 			f := strings.Fields(line)
 			kb, err := strconv.ParseInt(f[1], 10, 64)

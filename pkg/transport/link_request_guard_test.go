@@ -53,7 +53,7 @@ func buildShortLinkRequest(destHash, linkID []byte) []byte {
 
 func TestRunPacketJobSurvivesHandlerPanic(t *testing.T) {
 	tr := NewTransport(&common.ReticulumConfig{})
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 
 	iface := newOnlineTestIface("panic-iface")
 	destHash := bytes.Repeat([]byte{0x33}, 16)
@@ -83,7 +83,7 @@ func TestLinkRequestShortIDLogsSafely(t *testing.T) {
 	defer debug.SetDebugLevel(0)
 
 	tr := NewTransport(&common.ReticulumConfig{})
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 
 	iface := newOnlineTestIface("shortid-iface")
 	destHash := bytes.Repeat([]byte{0x55}, 16)

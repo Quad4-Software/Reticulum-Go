@@ -60,7 +60,7 @@ func TestLiveInteropPythonRPCAgainstGoSharedInstance(t *testing.T) {
 	if err := n.Start(); err != nil {
 		t.Fatalf("node start: %v", err)
 	}
-	defer n.Stop()
+	defer func() { _ = n.Stop() }()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -112,7 +112,7 @@ func TestLiveInteropPythonRPCAgainstGoUnixSharedInstance(t *testing.T) {
 	if err := n.Start(); err != nil {
 		t.Fatalf("node start: %v", err)
 	}
-	defer n.Stop()
+	defer func() { _ = n.Stop() }()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -168,7 +168,7 @@ func TestLiveGoRPCUnixSharedInstance(t *testing.T) {
 	if err := n.Start(); err != nil {
 		t.Fatalf("node start: %v", err)
 	}
-	defer n.Stop()
+	defer func() { _ = n.Stop() }()
 
 	clientCfg := &common.ReticulumConfig{
 		InstanceName:       name,
@@ -239,7 +239,7 @@ func TestLiveInteropKnownDestinationsOverRPC(t *testing.T) {
 	if err := n.Start(); err != nil {
 		t.Fatalf("node start: %v", err)
 	}
-	defer n.Stop()
+	defer func() { _ = n.Stop() }()
 
 	// Seed a known destination on the Go server.
 	id, err := identity.New()

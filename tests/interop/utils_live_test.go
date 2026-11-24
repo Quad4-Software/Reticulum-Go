@@ -173,7 +173,7 @@ func TestLiveRgostatusAgainstGoDaemon(t *testing.T) {
 	if err := n.Start(); err != nil {
 		t.Fatal(err)
 	}
-	defer n.Stop()
+	defer func() { _ = n.Stop() }()
 
 	cfg, err := rnsutil.LoadConfigDir(cfgDir)
 	if err != nil {

@@ -18,7 +18,7 @@ func BenchmarkRoutingTableScale(b *testing.B) {
 	for _, size := range sizes {
 		b.Run(fmt.Sprintf("Size-%d", size), func(b *testing.B) {
 			tr := NewTransport(&common.ReticulumConfig{})
-			defer tr.Close()
+			defer func() { _ = tr.Close() }()
 
 			// Mock interface
 			iface := &mockInterface{}
@@ -55,19 +55,19 @@ func BenchmarkRoutingTableUpdates(b *testing.B) {
 	for _, size := range sizes {
 		b.Run(fmt.Sprintf("Size-%d", size), func(b *testing.B) {
 			tr := NewTransport(&common.ReticulumConfig{})
-			defer tr.Close()
+			defer func() { _ = tr.Close() }()
 
 			iface := &mockInterface{}
 			iface.Name = "eth0"
 			_ = tr.RegisterInterface("eth0", iface)
 
 			hashes := make([][]byte, size)
-			for i := 0; i < size; i++ {
+			for i := range size {
 				h := make([]byte, 16)
 				_, _ = rand.Read(h)
 				hashes[i] = h
 			}
-			for i := 0; i < size; i++ {
+			for i := range size {
 				tr.UpdatePath(hashes[i], nil, "eth0", uint8(i%10))
 			}
 

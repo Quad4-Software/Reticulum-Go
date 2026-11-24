@@ -435,7 +435,7 @@ func TestInterop_Spec_4_FullSession_GoClientPyHub(t *testing.T) {
 	if err := tr.Start(); err != nil {
 		t.Fatal(err)
 	}
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	var iface interfaces.Interface
 	iface, err = interfaces.NewUDPInterface("RRCI-GOCLI", addr(goPort), addr(pyPort), true)
 	if err != nil {
@@ -445,7 +445,7 @@ func TestInterop_Spec_4_FullSession_GoClientPyHub(t *testing.T) {
 	if err := iface.Start(); err != nil {
 		t.Fatal(err)
 	}
-	defer iface.Stop()
+	defer func() { _ = iface.Stop() }()
 	if ni, ok := iface.(common.NetworkInterface); ok {
 		_ = tr.RegisterInterface("RRCI-GOCLI", ni)
 	}

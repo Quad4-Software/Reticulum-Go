@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"time"
 
@@ -24,7 +25,7 @@ func checkSandbox(ctx context.Context, opts Options) Result {
 	if err != nil {
 		return result(nameSandboxApply, SeverityFail, err.Error())
 	}
-	defer os.RemoveAll(dir)
+	defer func() { _ = os.RemoveAll(dir) }()
 
 	cfgPath := filepath.Join(dir, "config")
 	if err := os.WriteFile(cfgPath, []byte("[reticulum]\n  enable_sandbox = yes\n"), fileModePrivate); err != nil {
@@ -83,8 +84,8 @@ func checkSandbox(ctx context.Context, opts Options) Result {
 
 func sandboxChildDetail(out []byte) string {
 	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
-	for i := len(lines) - 1; i >= 0; i-- {
-		line := strings.TrimSpace(lines[i])
+	for _, line := range slices.Backward(lines) {
+		line := strings.TrimSpace(line)
 		if line == "" {
 			continue
 		}
@@ -140,7 +141,7 @@ func checkSecuremem() Result {
 	if err != nil {
 		return result("securemem/alloc", SeverityFail, err.Error())
 	}
-	defer b.Close()
+	defer func() { _ = b.Close() }()
 	copy(b.Bytes(), bytes.Repeat([]byte{0xab}, 64))
 	b.Wipe()
 	if b.Locked() {

@@ -64,7 +64,7 @@ func TestAutoconnectQualifyMatrix(t *testing.T) {
 		}
 		info := qualifyInfo(tc.impl, tc.vers)
 		got := n.autoconnectQualified(info)
-		n.Stop()
+		_ = n.Stop()
 		if got != tc.want {
 			t.Fatalf("%s: qualified=%v want %v", tc.name, got, tc.want)
 		}
@@ -86,7 +86,7 @@ func TestAutoconnectQualifiedRequiresTransport(t *testing.T) {
 		info := qualifyInfo("RNS", "1.5.6")
 		info.Info.Transport = false
 		got := n.autoconnectQualified(info)
-		n.Stop()
+		_ = n.Stop()
 		if got {
 			t.Fatalf("non-transport announce qualified (unverified=%v)", unverified)
 		}
@@ -102,7 +102,7 @@ func TestAutoconnectQualifiedBlocksConnect(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer n.Stop()
+	defer func() { _ = n.Stop() }()
 	n.autoconnect(qualifyInfo("nomadnet", "9.9.9"))
 	if n.autoconnectCount() != 0 {
 		t.Fatal("unqualified impl must not autoconnect")
@@ -125,7 +125,7 @@ func TestAutoconnectSequentialNamingCollision(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer n.Stop()
+	defer func() { _ = n.Stop() }()
 
 	base := "peer (10.0.0.9:4242)"
 	for _, name := range []string{base, base + " (2)"} {

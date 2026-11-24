@@ -19,19 +19,6 @@ const (
 	pathWaitForDelivery        = 60 * time.Second
 )
 
-func (m *Messenger) clearDeliveryLink() {
-	m.deliveryLinkMu.Lock()
-	lnk := m.deliveryLink
-	m.deliveryLink = nil
-	m.deliveryLinkPeer = nil
-	m.deliveryLinkMu.Unlock()
-	if lnk != nil {
-		// Teardown invokes the closed callback synchronously, and the
-		// callback takes deliveryLinkMu, so it cannot run under the lock.
-		lnk.Teardown()
-	}
-}
-
 func (m *Messenger) ensureDeliveryLink(peerHash []byte) (*link.Link, error) {
 	if m == nil || m.transport == nil {
 		return nil, errors.New("lxmf: messenger not initialized")

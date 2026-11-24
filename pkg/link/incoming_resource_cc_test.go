@@ -31,7 +31,7 @@ func TestCCClassifyPromotesAfterFastRounds(t *testing.T) {
 	if cc.class != ClassSlow {
 		t.Fatalf("initial class = %v, want slow", cc.class)
 	}
-	for i := 0; i < ccFastRoundsToPromote-1; i++ {
+	for i := range ccFastRoundsToPromote - 1 {
 		cc.rateBps = 100_000
 		cc.knownRate = true
 		cc.classify()
@@ -51,7 +51,7 @@ func TestCCClassifyPromotesAfterFastRounds(t *testing.T) {
 
 func TestCCClassifyDemotesAfterVerySlowRounds(t *testing.T) {
 	cc := newTestCC()
-	for i := 0; i < ccVerySlowRoundsToDemote-1; i++ {
+	for i := range ccVerySlowRoundsToDemote - 1 {
 		cc.rateBps = 100
 		cc.knownRate = true
 		cc.classify()
@@ -71,7 +71,7 @@ func TestCCClassifyDemotesAfterVerySlowRounds(t *testing.T) {
 
 func TestCCClassifyMiddleBandStaysSlow(t *testing.T) {
 	cc := newTestCC()
-	for i := 0; i < 50; i++ {
+	for range 50 {
 		cc.rateBps = 2000 // between RateVerySlow (250) and RateFast (6250)
 		cc.knownRate = true
 		cc.classify()
@@ -121,7 +121,7 @@ func TestCCClassifyFastToVerySlowDemotes(t *testing.T) {
 		cc.knownRate = true
 		cc.classify()
 	}
-	for i := 0; i < ccFastRoundsToPromote; i++ {
+	for range ccFastRoundsToPromote {
 		apply(1_000_000)
 	}
 	if cc.class != ClassFast {
@@ -146,7 +146,7 @@ func TestCCClassifyFastToVerySlowDemotes(t *testing.T) {
 	if cc.class != ClassVerySlow {
 		t.Fatalf("recovery promoted early: %v", cc.class)
 	}
-	for i := 0; i < ccFastRoundsToPromote-1; i++ {
+	for range ccFastRoundsToPromote - 1 {
 		apply(1_000_000)
 	}
 	if cc.class != ClassFast {
@@ -178,7 +178,7 @@ func TestCCClassifySlowFastSlowFastOscillation(t *testing.T) {
 }
 
 func applyN(cc *resourceCC, rateBps float64, n int) {
-	for i := 0; i < n; i++ {
+	for range n {
 		cc.rateBps = rateBps
 		cc.knownRate = true
 		cc.classify()
@@ -332,17 +332,15 @@ type impairedPipe struct {
 func newImpairedPair(nameA, nameB string, opts impairedOptions) *impairedPipe {
 	makeOne := func(name string) *impairedPipe {
 		return &impairedPipe{
-			BaseInterface: common.BaseInterface{
-				Name:    name,
-				Type:    common.IFTypeUDP,
-				Enabled: true,
-				Online:  true,
-			},
-			online: true,
-			opts:   opts,
-			queue:  make(chan []byte, 1024),
-			closed: make(chan struct{}),
-			rng:    rand.New(rand.NewPCG(rand.Uint64(), rand.Uint64())),
+			Name:    name,
+			Type:    common.IFTypeUDP,
+			Enabled: true,
+			Online:  true,
+			online:  true,
+			opts:    opts,
+			queue:   make(chan []byte, 1024),
+			closed:  make(chan struct{}),
+			rng:     rand.New(rand.NewPCG(rand.Uint64(), rand.Uint64())),
 		}
 	}
 	a, b := makeOne(nameA), makeOne(nameB)
@@ -520,8 +518,8 @@ func establishImpairedLinkOn(t *testing.T, pair *impairedPipe) (initiator *Link,
 
 	cleanup = func() {
 		initiatorLink.Teardown()
-		trA.Close()
-		trB.Close()
+		_ = trA.Close()
+		_ = trB.Close()
 	}
 	return initiatorLink, resp, cleanup
 }

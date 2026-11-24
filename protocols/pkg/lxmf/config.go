@@ -107,7 +107,7 @@ func LoadConfig(path string) (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	return ParseConfig(f)
 }
 
@@ -253,11 +253,11 @@ func SaveConfig(cfg Config, path string) error {
 func WriteConfig(cfg Config, w io.Writer) error {
 	buf := bufio.NewWriter(w)
 	emitSection := func(name string, kv []kvPair) {
-		fmt.Fprintf(buf, "[%s]\n\n", name)
+		_, _ = fmt.Fprintf(buf, "[%s]\n\n", name)
 		for _, p := range kv {
-			fmt.Fprintf(buf, "%s = %s\n", p.k, p.v)
+			_, _ = fmt.Fprintf(buf, "%s = %s\n", p.k, p.v)
 		}
-		fmt.Fprintln(buf)
+		_, _ = fmt.Fprintln(buf)
 	}
 	emitSection("lxmf", []kvPair{
 		{"display_name", cfg.LXMF.DisplayName},

@@ -26,7 +26,7 @@ func useFastPathfinder(t *testing.T) {
 
 func TestScheduleAnnounceForwardJob_BacklogFullDrops(t *testing.T) {
 	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 
 	tr.pendingAnnounceMu.Lock()
 	for range MaxPendingAnnounceForwards {
@@ -54,7 +54,7 @@ func TestScheduleAnnounceForwardJob_BacklogFullDrops(t *testing.T) {
 
 func TestProcessDelayedAnnounceJobs_RunsDueOnly(t *testing.T) {
 	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 
 	in := newRelayIface("due-in")
 	out := newRelayIface("due-out")
@@ -97,7 +97,7 @@ func TestProcessDelayedAnnounceJobs_RunsDueOnly(t *testing.T) {
 func TestRegression_AnnounceForwardSurvivesCallerBufferReuse(t *testing.T) {
 	useFastPathfinder(t)
 	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 
 	in := newRelayIface("fwd-in")
 	out := newRelayIface("fwd-out")
@@ -131,7 +131,7 @@ func TestRegression_AnnounceForwardSurvivesCallerBufferReuse(t *testing.T) {
 func TestAnnounceForwardStorm_NoGoroutineExplosion(t *testing.T) {
 	useFastPathfinder(t)
 	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 
 	in := newRelayIface("storm-in")
 	out := newRelayIface("storm-out")

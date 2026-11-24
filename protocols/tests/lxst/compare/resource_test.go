@@ -452,7 +452,7 @@ func packedFrameSize(t *testing.T) int {
 		}
 		return len(raw)
 	}
-	defer enc.Close()
+	defer func() { _ = enc.Close() }()
 	pcm := make([]int16, 1440)
 	const hz = 1000.0
 	const rate = 24000.0

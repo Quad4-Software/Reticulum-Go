@@ -29,7 +29,7 @@ func announceReasonHarness(t *testing.T) (*Transport, *simIface) {
 	}
 	tr.ifaceStates.put(iface.GetName(), &ifaceState{})
 	t.Cleanup(func() {
-		tr.Close()
+		_ = tr.Close()
 		iface.stop()
 	})
 	return tr, iface
@@ -118,7 +118,7 @@ func TestAnnounceRejectHeldByIngress(t *testing.T) {
 	icCfg.BurstFreqNew = 0.000001
 	icCfg.BurstFreq = 0.000001
 	st.ingress = rate.NewIngressControlWith(icCfg)
-	for i := 0; i < 12; i++ {
+	for range 12 {
 		pkt, _, _ = buildValidAnnounceForReceiver(t)
 		_ = tr.handleAnnouncePacket(pkt, iface)
 	}

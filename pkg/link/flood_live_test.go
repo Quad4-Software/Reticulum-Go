@@ -126,8 +126,8 @@ func TestFloodLinkRequestCap(t *testing.T) {
 
 	nodeA := newPipeNode(t, "floodA")
 	nodeB := newPipeNode(t, "floodB")
-	defer nodeA.tr.Close()
-	defer nodeB.tr.Close()
+	defer func() { _ = nodeA.tr.Close() }()
+	defer func() { _ = nodeB.tr.Close() }()
 	pair(nodeA, nodeB)
 
 	idA, err := identity.New()
@@ -142,7 +142,7 @@ func TestFloodLinkRequestCap(t *testing.T) {
 
 	const N = 6000
 	g0 := runtime.NumGoroutine()
-	for i := 0; i < N; i++ {
+	for range N {
 		nodeA.tr.HandlePacket(craftLinkRequest(t, destA.GetHash()), nodeA.pipe)
 	}
 
@@ -183,8 +183,8 @@ func TestFloodLinkRequestReplayDedup(t *testing.T) {
 
 	nodeA := newPipeNode(t, "replayA")
 	nodeB := newPipeNode(t, "replayB")
-	defer nodeA.tr.Close()
-	defer nodeB.tr.Close()
+	defer func() { _ = nodeA.tr.Close() }()
+	defer func() { _ = nodeB.tr.Close() }()
 	pair(nodeA, nodeB)
 
 	idA, err := identity.New()
@@ -220,7 +220,7 @@ func TestFloodLinkRequestReplayDedup(t *testing.T) {
 	const N = 2000
 	replayStart := time.Now()
 	var last *Link
-	for i := 0; i < N; i++ {
+	for i := range N {
 		l, err := HandleIncomingLinkRequest(pkt, destA, nodeA.tr, nodeA.pipe)
 		if err != nil {
 			t.Fatalf("replay %d: %v", i, err)
@@ -257,8 +257,8 @@ func TestFloodResourceReqAmplification(t *testing.T) {
 
 	nodeA := newPipeNode(t, "reqA")
 	nodeB := newPipeNode(t, "reqB")
-	defer nodeA.tr.Close()
-	defer nodeB.tr.Close()
+	defer func() { _ = nodeA.tr.Close() }()
+	defer func() { _ = nodeB.tr.Close() }()
 	pair(nodeA, nodeB)
 
 	idA, err := identity.New()
@@ -314,7 +314,7 @@ func TestFloodResourceReqAmplification(t *testing.T) {
 	before := nodeA.pipe.delivered.Load()
 
 	const N = 3000
-	for i := 0; i < N; i++ {
+	for i := range N {
 		if err := initiator.SendPacketWithContext(reqBody, packet.ContextResourceReq); err != nil {
 			t.Fatalf("REQ send %d: %v", i, err)
 		}
@@ -357,8 +357,8 @@ func TestFloodResourceAdvSupersede(t *testing.T) {
 
 	nodeA := newPipeNode(t, "advA")
 	nodeB := newPipeNode(t, "advB")
-	defer nodeA.tr.Close()
-	defer nodeB.tr.Close()
+	defer func() { _ = nodeA.tr.Close() }()
+	defer func() { _ = nodeB.tr.Close() }()
 	pair(nodeA, nodeB)
 
 	idA, err := identity.New()
@@ -419,7 +419,7 @@ func TestFloodResourceAdvSupersede(t *testing.T) {
 
 	const N = 800
 	g0 := runtime.NumGoroutine()
-	for i := 0; i < N; i++ {
+	for i := range N {
 		if err := initiator.SendPacketWithContext(mkAdv(), packet.ContextResourceAdv); err != nil {
 			t.Fatalf("adv send %d: %v", i, err)
 		}

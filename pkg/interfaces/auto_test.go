@@ -213,7 +213,7 @@ func TestAutoInterfacePeerManagement(t *testing.T) {
 
 	// Ensure cleanup
 	defer func() {
-		ai.Stop()
+		_ = ai.Stop()
 	}()
 
 	// Simulate receiving peer announces
@@ -492,9 +492,9 @@ func setupRegressionVeth(t *testing.T, base string) (string, func()) {
 	if err != nil {
 		t.Skipf("veth not available: %v\n%s", err, out)
 	}
-	exec.Command("ip", "link", "set", name, "up").Run()
-	exec.Command("ip", "link", "set", peer, "up").Run()
-	exec.Command("ip", "-6", "addr", "add", "fe80::1/64", "dev", name, "nodad").Run()
+	_ = exec.Command("ip", "link", "set", name, "up").Run()
+	_ = exec.Command("ip", "link", "set", peer, "up").Run()
+	_ = exec.Command("ip", "-6", "addr", "add", "fe80::1/64", "dev", name, "nodad").Run()
 	time.Sleep(100 * time.Millisecond)
 	return name, func() { _ = exec.Command("ip", "link", "del", name).Run() }
 }
@@ -534,7 +534,7 @@ func TestAutoInterfaceConfiguresBindableLinkLocalOnVeth(t *testing.T) {
 	if err := ai.Start(); err != nil {
 		t.Fatalf("Start: %v", err)
 	}
-	defer ai.Stop()
+	defer func() { _ = ai.Stop() }()
 
 	ai.Mutex.RLock()
 	adopted, ok := ai.adoptedInterfaces[ifaceName]
@@ -625,7 +625,7 @@ func TestAutoInterfaceStartOnHostInterface(t *testing.T) {
 	if err := ai.Start(); err != nil {
 		t.Fatalf("Start on %s: %v", candidate.Name, err)
 	}
-	defer ai.Stop()
+	defer func() { _ = ai.Stop() }()
 
 	ai.Mutex.RLock()
 	_, adopted := ai.adoptedInterfaces[candidate.Name]

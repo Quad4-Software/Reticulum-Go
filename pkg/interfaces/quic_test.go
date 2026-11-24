@@ -25,7 +25,7 @@ func freeUDPPort(t *testing.T) int {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer c.Close()
+	defer func() { _ = c.Close() }()
 	return c.LocalAddr().(*net.UDPAddr).Port
 }
 
@@ -45,13 +45,13 @@ func TestQUICClientServerEcho(t *testing.T) {
 	if err := srv.Start(); err != nil {
 		t.Fatal(err)
 	}
-	defer srv.Stop()
+	defer func() { _ = srv.Stop() }()
 
 	cli, err := NewQUICClientInterfaceWithRetries("quic_cli", "127.0.0.1", port, true, 20, QUICClientOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer cli.Stop()
+	defer func() { _ = cli.Stop() }()
 	waitOnline(t, cli, 5*time.Second)
 
 	payload := []byte{0x01, 0x02, 0x03, 0xaa, 0xbb}
@@ -95,13 +95,13 @@ func TestQUICServerToClientEcho(t *testing.T) {
 	if err := srv.Start(); err != nil {
 		t.Fatal(err)
 	}
-	defer srv.Stop()
+	defer func() { _ = srv.Stop() }()
 
 	cli, err := NewQUICClientInterfaceWithRetries("quic_cli2", "127.0.0.1", port, true, 20, QUICClientOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer cli.Stop()
+	defer func() { _ = cli.Stop() }()
 	waitOnline(t, cli, 5*time.Second)
 	waitSessions(t, srv, 1, 5*time.Second)
 
@@ -146,7 +146,7 @@ func TestQUICPeerKeyPinAccept(t *testing.T) {
 	if err := srv.Start(); err != nil {
 		t.Fatal(err)
 	}
-	defer srv.Stop()
+	defer func() { _ = srv.Stop() }()
 
 	cli, err := NewQUICClientInterfaceWithRetries("quic_pin_cli", "127.0.0.1", port, true, 10, QUICClientOptions{
 		PeerKey: pin,
@@ -154,7 +154,7 @@ func TestQUICPeerKeyPinAccept(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer cli.Stop()
+	defer func() { _ = cli.Stop() }()
 	waitOnline(t, cli, 5*time.Second)
 }
 
@@ -167,7 +167,7 @@ func TestQUICPeerKeyPinReject(t *testing.T) {
 	if err := srv.Start(); err != nil {
 		t.Fatal(err)
 	}
-	defer srv.Stop()
+	defer func() { _ = srv.Stop() }()
 
 	bad := hex.EncodeToString(bytes.Repeat([]byte{0xab}, sha256.Size))
 	cli, err := NewQUICClientInterfaceWithRetries("quic_badpin_cli", "127.0.0.1", port, true, 3, QUICClientOptions{
@@ -176,7 +176,7 @@ func TestQUICPeerKeyPinReject(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer cli.Stop()
+	defer func() { _ = cli.Stop() }()
 	time.Sleep(2 * time.Second)
 	if cli.IsOnline() {
 		t.Fatal("client should not come online with bad peer_key")
@@ -213,7 +213,7 @@ func TestQUICFileBackedCert(t *testing.T) {
 	if err := srv.Start(); err != nil {
 		t.Fatal(err)
 	}
-	defer srv.Stop()
+	defer func() { _ = srv.Stop() }()
 
 	cli, err := NewQUICClientInterfaceWithRetries("quic_file_cli", "127.0.0.1", port, true, 10, QUICClientOptions{
 		PeerKey: pin,
@@ -221,7 +221,7 @@ func TestQUICFileBackedCert(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer cli.Stop()
+	defer func() { _ = cli.Stop() }()
 	waitOnline(t, cli, 5*time.Second)
 
 	var got atomic.Value
@@ -269,7 +269,7 @@ func TestQUICIFACRoundTrip(t *testing.T) {
 	if err := srv.Start(); err != nil {
 		t.Fatal(err)
 	}
-	defer srv.Stop()
+	defer func() { _ = srv.Stop() }()
 
 	cliCfg := &common.InterfaceConfig{
 		Name:           "quic_ifac_cli",
@@ -286,7 +286,7 @@ func TestQUICIFACRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 	cli := cliIface.(*QUICClientInterface)
-	defer cli.Stop()
+	defer func() { _ = cli.Stop() }()
 	waitOnline(t, cli, 5*time.Second)
 	waitSessions(t, srv, 1, 5*time.Second)
 
@@ -339,7 +339,7 @@ func TestQUICReconnectAfterServerRestart(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer cli.Stop()
+	defer func() { _ = cli.Stop() }()
 	waitOnline(t, cli, 5*time.Second)
 
 	_ = srv.Stop()
@@ -365,7 +365,7 @@ func TestQUICReconnectAfterServerRestart(t *testing.T) {
 	if startErr != nil {
 		t.Fatal(startErr)
 	}
-	defer srv2.Stop()
+	defer func() { _ = srv2.Stop() }()
 	waitOnline(t, cli, 15*time.Second)
 	waitSessions(t, srv2, 1, 10*time.Second)
 
@@ -408,13 +408,13 @@ func TestQUICConcurrentSend(t *testing.T) {
 	if err := srv.Start(); err != nil {
 		t.Fatal(err)
 	}
-	defer srv.Stop()
+	defer func() { _ = srv.Stop() }()
 
 	cli, err := NewQUICClientInterfaceWithRetries("quic_conc_cli", "127.0.0.1", port, true, 20, QUICClientOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer cli.Stop()
+	defer func() { _ = cli.Stop() }()
 	waitOnline(t, cli, 5*time.Second)
 	waitSessions(t, srv, 1, 5*time.Second)
 
@@ -460,13 +460,13 @@ func TestQUICStopStart(t *testing.T) {
 	if startErr != nil {
 		t.Fatal(startErr)
 	}
-	defer srv.Stop()
+	defer func() { _ = srv.Stop() }()
 
 	cli, err := NewQUICClientInterfaceWithRetries("quic_ss_cli", "127.0.0.1", port, true, 10, QUICClientOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer cli.Stop()
+	defer func() { _ = cli.Stop() }()
 	waitOnline(t, cli, 5*time.Second)
 	waitSessions(t, srv, 1, 5*time.Second)
 	if err := cli.Stop(); err != nil {

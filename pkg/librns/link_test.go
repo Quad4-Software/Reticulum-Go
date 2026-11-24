@@ -92,7 +92,7 @@ func TestFacadeLinkOpenSendClose(t *testing.T) {
 
 	var establishedB, establishedA bool
 	deadline = time.Now().Add(5 * time.Second)
-	for time.Now().Before(deadline) && !(establishedA && establishedB) {
+	for time.Now().Before(deadline) && (!establishedA || !establishedB) {
 		if !establishedB {
 			ev, code := EventPoll(nodeB, 50*time.Millisecond)
 			if code == OK && ev.Kind == EventLinkEstablished {

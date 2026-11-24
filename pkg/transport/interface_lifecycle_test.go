@@ -22,7 +22,7 @@ func mockIface(name string, enabled bool) *mockInterface {
 
 func TestUnregisterInterfaceScrubsPaths(t *testing.T) {
 	tr := NewTransport(unstampedTestConfig(false))
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 
 	a := mockIface("a", true)
 	b := mockIface("b", true)
@@ -55,7 +55,7 @@ func TestUnregisterInterfaceScrubsPaths(t *testing.T) {
 
 func TestUnregisterInterfaceScrubsLinkRelay(t *testing.T) {
 	tr := NewTransport(unstampedTestConfig(false))
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 
 	a := mockIface("a", true)
 	b := mockIface("b", true)
@@ -97,7 +97,7 @@ func TestUnregisterInterfaceScrubsLinkRelay(t *testing.T) {
 
 func TestUnregisterInterfaceScrubsDiscoveryAndAnnounceTables(t *testing.T) {
 	tr := NewTransport(unstampedTestConfig(false))
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 
 	a := mockIface("wan", true)
 	if err := tr.RegisterInterface("wan", a); err != nil {
@@ -138,7 +138,7 @@ func TestUnregisterInterfaceScrubsDiscoveryAndAnnounceTables(t *testing.T) {
 
 func TestReplaceInterfaceSwapsRegistration(t *testing.T) {
 	tr := NewTransport(unstampedTestConfig(false))
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 
 	first := mockIface("u1", true)
 	second := mockIface("u1", true)
@@ -162,7 +162,7 @@ func TestReplaceInterfaceSwapsRegistration(t *testing.T) {
 
 func TestRequestPathSkipsDisabledInterface(t *testing.T) {
 	tr := NewTransport(unstampedTestConfig(false))
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 
 	up := mockIface("up", true)
 	down := mockIface("down", false)
@@ -187,13 +187,13 @@ func TestRequestPathSkipsDisabledInterface(t *testing.T) {
 
 func TestUnregisterInterfaceIdempotent(t *testing.T) {
 	tr := NewTransport(unstampedTestConfig(false))
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	tr.UnregisterInterface("nonexistent")
 }
 
 func TestSendAnnounceSkipsDisabledInterface(t *testing.T) {
 	tr := NewTransport(unstampedTestConfig(false))
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	SetTransportInstance(tr)
 	defer SetTransportInstance(nil)
 

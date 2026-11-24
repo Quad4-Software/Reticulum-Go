@@ -40,7 +40,7 @@ func StampWorkblock(material []byte, expandRounds int) ([]byte, error) {
 	}
 	out := make([]byte, 0, WorkblockExpandChunk*expandRounds)
 	nBuf := make([]byte, 0, 16)
-	for n := 0; n < expandRounds; n++ {
+	for n := range expandRounds {
 		var err error
 		nBuf, err = msgpack.AppendMarshal(nBuf[:0], n)
 		if err != nil {

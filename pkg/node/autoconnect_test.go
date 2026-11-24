@@ -22,7 +22,7 @@ func TestStartInterfaceDiscoveryFromAutoconnectOnly(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer n.Stop()
+	defer func() { _ = n.Stop() }()
 	n.StartInterfaceDiscovery()
 	if n.discovery == nil {
 		t.Fatal("expected discovery listener when autoconnect is enabled")
@@ -36,7 +36,7 @@ func TestAutoconnectSkipsYgg(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer n.Stop()
+	defer func() { _ = n.Stop() }()
 
 	before := n.autoconnectCount()
 	n.autoconnect(&discovery.ReceivedAnnounceInfo{
@@ -54,7 +54,7 @@ func TestAutoconnectTCPClientFromTCPServerAnnounce(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer n.Stop()
+	defer func() { _ = n.Stop() }()
 
 	info := &discovery.ReceivedAnnounceInfo{
 		Info: discovery.Info{
@@ -91,7 +91,7 @@ func TestAutoconnectExistsDetectsTCPClient(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer n.Stop()
+	defer func() { _ = n.Stop() }()
 
 	info := &discovery.ReceivedAnnounceInfo{
 		Info: discovery.Info{
@@ -126,7 +126,7 @@ func TestOnInterfaceDiscoveredPersists(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer n.Stop()
+	defer func() { _ = n.Stop() }()
 
 	info := &discovery.ReceivedAnnounceInfo{
 		Info: discovery.Info{
@@ -158,7 +158,7 @@ func TestStopAutoconnectMonitor(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer n.Stop()
+	defer func() { _ = n.Stop() }()
 	n.ensureAutoconnectMonitor()
 	n.stopAutoconnectMonitor()
 	n.acMu.Lock()

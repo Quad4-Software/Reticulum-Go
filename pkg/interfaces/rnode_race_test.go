@@ -21,7 +21,7 @@ func TestRNodeConcurrentSendAndIncoming(t *testing.T) {
 	if err := r.Start(); err != nil {
 		t.Fatal(err)
 	}
-	defer r.Stop()
+	defer func() { _ = r.Stop() }()
 	r.SetPacketCallback(func([]byte, common.NetworkInterface) {})
 
 	var wg sync.WaitGroup

@@ -963,6 +963,9 @@ func nestedIntKey(v any) (int, bool) {
 	case int64:
 		n = x
 	case uint:
+		if x > 0xFF {
+			return 0, false
+		}
 		n = int64(x)
 	case uint8:
 		n = int64(x)

@@ -4,6 +4,7 @@
 package rnsgit
 
 import (
+	"slices"
 	"strings"
 	"time"
 
@@ -74,8 +75,8 @@ func (n *Node) serveRefsPage(_ string, data []byte, _ []byte, _ []byte, remote *
 			if len(tags) == 0 {
 				b.WriteString("  No tags\n")
 			}
-			for i := len(tags) - 1; i >= 0; i-- {
-				r := tags[i]
+			for _, r := range slices.Backward(tags) {
+
 				annotated := ""
 				if r.ObjectType == "tag" {
 					annotated = " " + mDim("(annotated)")

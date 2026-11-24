@@ -21,7 +21,7 @@ func TestValidateLinkProof_HopMismatch(t *testing.T) {
 		t.Fatal(err)
 	}
 	tr := transport.NewTransport(&common.ReticulumConfig{EnableTransport: true})
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	dest, err := destination.New(ident, destination.Out, destination.Single, "app", tr, "peer")
 	if err != nil {
 		t.Fatal(err)
@@ -60,7 +60,7 @@ func TestValidateLinkProof_AccountedHopsMatch(t *testing.T) {
 		t.Fatal(err)
 	}
 	tr := transport.NewTransport(&common.ReticulumConfig{EnableTransport: true})
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	dest, err := destination.New(ident, destination.Out, destination.Single, "app", tr, "peer")
 	if err != nil {
 		t.Fatal(err)
@@ -103,7 +103,7 @@ func TestValidateLinkProof_UnknownHopsAllowsAny(t *testing.T) {
 		t.Fatal(err)
 	}
 	tr := transport.NewTransport(&common.ReticulumConfig{EnableTransport: true})
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	dest, err := destination.New(ident, destination.Out, destination.Single, "app", tr, "peer")
 	if err != nil {
 		t.Fatal(err)

@@ -98,10 +98,7 @@ func newTestMesh(t testing.TB, basePort int, hubCfg HubConfig) *testMesh {
 	identity.Remember(nil, hubHash, idH.GetPublicKey(), nil)
 
 	deadline := time.Now().Add(rrcPathWait)
-	for {
-		if trA.HasPath(hubHash) && trB.HasPath(hubHash) {
-			break
-		}
+	for !trA.HasPath(hubHash) || !trB.HasPath(hubHash) {
 		if time.Now().After(deadline) {
 			t.Fatal("path timeout")
 		}

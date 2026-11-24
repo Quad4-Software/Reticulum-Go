@@ -263,7 +263,7 @@ func (g *GitRunner) LsRemoteHead(source string) string {
 	if err != nil {
 		return ""
 	}
-	for _, line := range strings.Split(string(out), "\n") {
+	for line := range strings.SplitSeq(string(out), "\n") {
 		if !strings.HasPrefix(line, "ref: refs/heads/") {
 			continue
 		}

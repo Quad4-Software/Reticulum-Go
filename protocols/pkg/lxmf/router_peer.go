@@ -550,7 +550,7 @@ func peerFromBytes(r *Router, data []byte) (*Peer, error) {
 	if v, ok := dict["metadata"].(map[any]any); ok {
 		peer.Metadata = mapAnyToByteKey(v)
 	}
-	if v, ok := dict["sync_strategy"].(int64); ok {
+	if v, ok := dict["sync_strategy"].(int64); ok && v >= 0 && v <= 0xFF {
 		peer.SyncStrategy = byte(v)
 	}
 	if v, ok := asInt64(dict["propagation_stamp_cost"]); ok {

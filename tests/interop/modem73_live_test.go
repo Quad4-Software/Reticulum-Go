@@ -35,12 +35,12 @@ func TestLiveInteropModem73FakeKISS(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer kissLn.Close()
+	defer func() { _ = kissLn.Close() }()
 	ctrlLn, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer ctrlLn.Close()
+	defer func() { _ = ctrlLn.Close() }()
 
 	var (
 		got []byte
@@ -395,7 +395,7 @@ func serveFakeModem73KISS(ln net.Listener, got *[]byte, mu *sync.Mutex) {
 			return
 		}
 		go func(conn net.Conn) {
-			defer conn.Close()
+			defer func() { _ = conn.Close() }()
 			var (
 				inFrame bool
 				escape  bool
@@ -465,7 +465,7 @@ func serveFakeModem73Control(ln net.Listener) {
 			return
 		}
 		go func(conn net.Conn) {
-			defer conn.Close()
+			defer func() { _ = conn.Close() }()
 			for {
 				msg, err := interfaces.Modem73ReadControl(conn)
 				if err != nil {

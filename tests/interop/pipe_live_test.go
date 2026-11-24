@@ -38,7 +38,7 @@ func TestLiveInteropPipeInterfacePythonEcho(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewPipeInterface: %v", err)
 	}
-	defer pi.Stop()
+	defer func() { _ = pi.Stop() }()
 
 	var received atomic.Int32
 	var last []byte
@@ -127,10 +127,10 @@ func TestLiveInteropPipeFullStackPython(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewPipeInterface: %v", err)
 	}
-	defer pi.Stop()
+	defer func() { _ = pi.Stop() }()
 
 	tr := transport.NewTransport(interopPeerConfig())
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	if err := tr.RegisterInterface("go_pipe", pi); err != nil {
 		t.Fatalf("register: %v", err)
 	}

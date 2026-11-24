@@ -65,14 +65,14 @@ func TestLiveInteropWebTransportGoGoEcho(t *testing.T) {
 	if err := srv.Start(); err != nil {
 		t.Fatal(err)
 	}
-	defer srv.Stop()
+	defer func() { _ = srv.Stop() }()
 	port = wtServerPort(t, srv)
 
 	cli, err := interfaces.NewWebTransportClientInterfaceWithRetries("live_wt_cli", "127.0.0.1", port, "/rns", true, -1, interfaces.WebTransportClientOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer cli.Stop()
+	defer func() { _ = cli.Stop() }()
 	waitWTOnline(t, cli, 15*time.Second)
 
 	payload := []byte{0x01, 0x02, 0x7e, 0x7d, 0xaa}
@@ -108,14 +108,14 @@ func TestLiveInteropWebTransportBidirectional(t *testing.T) {
 	if err := srv.Start(); err != nil {
 		t.Fatal(err)
 	}
-	defer srv.Stop()
+	defer func() { _ = srv.Stop() }()
 	port = wtServerPort(t, srv)
 
 	cli, err := interfaces.NewWebTransportClientInterfaceWithRetries("live_wt_cli2", "127.0.0.1", port, "/rns", true, -1, interfaces.WebTransportClientOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer cli.Stop()
+	defer func() { _ = cli.Stop() }()
 	waitWTOnline(t, cli, 15*time.Second)
 
 	var srvGot atomic.Value

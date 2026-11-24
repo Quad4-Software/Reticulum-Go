@@ -63,7 +63,7 @@ func TestBenchMixedFlood(t *testing.T) {
 	}
 
 	cfg := &common.ReticulumConfig{}
-	for round := 0; round < rounds; round++ {
+	for round := range rounds {
 		stop := make(chan struct{})
 		var wg sync.WaitGroup
 		var sent atomic.Int64
@@ -139,7 +139,7 @@ func procRSSKB() int64 {
 	if err != nil {
 		return 0
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	sc := bufio.NewScanner(f)
 	for sc.Scan() {
 		line := sc.Text()

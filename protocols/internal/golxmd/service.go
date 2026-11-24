@@ -53,7 +53,6 @@ type Service struct {
 	tr     *transport.Transport
 	ifaces []interfaces.Interface
 
-	mu               sync.Mutex
 	lastPeerAnnounce time.Time
 	lastNodeAnnounce time.Time
 	stop             chan struct{}
@@ -322,7 +321,7 @@ func loadHashList(path string) [][]byte {
 	if err != nil {
 		return nil
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	var out [][]byte
 	sc := bufio.NewScanner(f)
 	for sc.Scan() {

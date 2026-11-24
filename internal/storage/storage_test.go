@@ -12,9 +12,7 @@ import (
 
 func TestNewManager(t *testing.T) {
 	tmpDir := t.TempDir()
-	originalHome := os.Getenv("HOME")
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", originalHome)
+	t.Setenv("HOME", tmpDir)
 
 	m, err := NewManager()
 	if err != nil {
@@ -48,9 +46,7 @@ func TestNewManager(t *testing.T) {
 
 func TestSaveLoadRatchets(t *testing.T) {
 	tmpDir := t.TempDir()
-	originalHome := os.Getenv("HOME")
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", originalHome)
+	t.Setenv("HOME", tmpDir)
 
 	m, err := NewManager()
 	if err != nil {
@@ -93,9 +89,7 @@ func TestSaveLoadRatchets(t *testing.T) {
 
 func TestGetters(t *testing.T) {
 	tmpDir := t.TempDir()
-	originalHome := os.Getenv("HOME")
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", originalHome)
+	t.Setenv("HOME", tmpDir)
 
 	m, _ := NewManager()
 

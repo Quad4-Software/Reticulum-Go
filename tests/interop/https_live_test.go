@@ -43,7 +43,7 @@ func TestLiveInteropHTTPSGoGoEcho(t *testing.T) {
 	if err := srv.Start(); err != nil {
 		t.Fatal(err)
 	}
-	defer srv.Stop()
+	defer func() { _ = srv.Stop() }()
 
 	cli, err := interfaces.NewHTTPSClientInterfaceWithRetries("live_https_cli", "127.0.0.1", port, true, -1, interfaces.HTTPSClientOptions{
 		PeerKey:  pin,
@@ -53,7 +53,7 @@ func TestLiveInteropHTTPSGoGoEcho(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer cli.Stop()
+	defer func() { _ = cli.Stop() }()
 
 	deadline := time.Now().Add(10 * time.Second)
 	for time.Now().Before(deadline) && !cli.IsOnline() {
@@ -95,7 +95,7 @@ func TestLiveInteropHTTPSBidirectional(t *testing.T) {
 	if err := srv.Start(); err != nil {
 		t.Fatal(err)
 	}
-	defer srv.Stop()
+	defer func() { _ = srv.Stop() }()
 
 	cli, err := interfaces.NewHTTPSClientInterfaceWithRetries("live_https_bi_cli", "127.0.0.1", port, true, -1, interfaces.HTTPSClientOptions{
 		LongPoll: 2 * time.Second,
@@ -103,7 +103,7 @@ func TestLiveInteropHTTPSBidirectional(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer cli.Stop()
+	defer func() { _ = cli.Stop() }()
 
 	deadline := time.Now().Add(10 * time.Second)
 	for time.Now().Before(deadline) && !cli.IsOnline() {

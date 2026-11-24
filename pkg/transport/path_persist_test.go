@@ -35,7 +35,7 @@ func TestPathTablePersistenceRoundTrip(t *testing.T) {
 	cfg := &common.ReticulumConfig{ConfigPath: cfgPath}
 
 	tr := NewTransport(cfg)
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	iface := newPersistMockInterface("wan")
 	if err := tr.RegisterInterface("wan", iface); err != nil {
 		t.Fatalf("RegisterInterface: %v", err)
@@ -56,7 +56,7 @@ func TestPathTablePersistenceRoundTrip(t *testing.T) {
 	}
 
 	tr2 := NewTransport(cfg)
-	defer tr2.Close()
+	defer func() { _ = tr2.Close() }()
 	iface2 := newPersistMockInterface("wan")
 	if err := tr2.RegisterInterface("wan", iface2); err != nil {
 		t.Fatalf("RegisterInterface reload: %v", err)
@@ -87,7 +87,7 @@ func TestPathTablePersistenceInterfaceRegisteredLater(t *testing.T) {
 	cfg := &common.ReticulumConfig{ConfigPath: cfgPath}
 
 	tr := NewTransport(cfg)
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	iface := newPersistMockInterface("wan")
 	_ = tr.RegisterInterface("wan", iface)
 	dest := bytes.Repeat([]byte{0x55}, 16)
@@ -95,7 +95,7 @@ func TestPathTablePersistenceInterfaceRegisteredLater(t *testing.T) {
 	tr.savePathTableSync()
 
 	tr2 := NewTransport(cfg) // loads snapshot, but "wan" is not registered yet
-	defer tr2.Close()
+	defer func() { _ = tr2.Close() }()
 	tr2.mutex.RLock()
 	_, ok := tr2.paths[pathMapKey(dest)]
 	pendingBefore := len(tr2.pendingPathEntries)
@@ -148,7 +148,7 @@ func TestPathTablePersistenceSkipsExpiredEntries(t *testing.T) {
 	writeDestinationTable(t, cfgPath, data)
 
 	tr := NewTransport(cfg)
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	iface := newPersistMockInterface("wan")
 	_ = tr.RegisterInterface("wan", iface)
 
@@ -167,7 +167,7 @@ func TestPathTablePersistenceFallsBackOnWriteFailure(t *testing.T) {
 	cfg := &common.ReticulumConfig{ConfigPath: cfgPath}
 
 	tr := NewTransport(cfg)
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	iface := newPersistMockInterface("wan")
 	_ = tr.RegisterInterface("wan", iface)
 	tr.UpdatePath(bytes.Repeat([]byte{0x33}, 16), bytes.Repeat([]byte{0x44}, 16), "wan", 1)
@@ -203,7 +203,7 @@ func TestInMemoryPathTableConfig(t *testing.T) {
 		InMemoryPathTable: true,
 	}
 	tr := NewTransport(cfg)
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	if !tr.pathPersistMemory.Load() {
 		t.Fatal("expected in-memory path table")
 	}
@@ -214,7 +214,7 @@ func TestInMemoryPathTableEnvOverride(t *testing.T) {
 	tmp := t.TempDir()
 	cfg := &common.ReticulumConfig{ConfigPath: filepath.Join(tmp, "config")}
 	tr := NewTransport(cfg)
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	if !tr.pathPersistMemory.Load() {
 		t.Fatal("expected env override to force in-memory path table")
 	}
@@ -360,7 +360,7 @@ func TestPathTableLoad_CorruptFileFallsBackToInMemory(t *testing.T) {
 
 	cfg := &common.ReticulumConfig{ConfigPath: cfgPath}
 	tr := NewTransport(cfg)
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	if !tr.pathPersistMemory.Load() || !tr.pathPersistDisabled.Load() {
 		t.Fatal("corrupt destination_table should force in-memory fallback")
 	}
@@ -378,7 +378,7 @@ func TestPathTableLoad_NonMapGarbageDoesNotPanicTransportStartup(t *testing.T) {
 
 	cfg := &common.ReticulumConfig{ConfigPath: cfgPath}
 	tr := NewTransport(cfg)
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	if !tr.pathPersistMemory.Load() {
 		t.Fatal("wrong-shape snapshot should force in-memory fallback")
 	}
@@ -430,7 +430,7 @@ func TestPathPersistence_ConcurrentUpdateAndSaveNoRace(t *testing.T) {
 	cfg := &common.ReticulumConfig{ConfigPath: cfgPath}
 
 	tr := NewTransport(cfg)
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	iface := newPersistMockInterface("wan")
 	_ = tr.RegisterInterface("wan", iface)
 
@@ -536,11 +536,11 @@ func TestPathPersistence_NoGoroutineLeakAcrossManyTransports(t *testing.T) {
 	for i := range 50 {
 		cfg := &common.ReticulumConfig{ConfigPath: filepath.Join(tmp, "config")}
 		tr := NewTransport(cfg)
-		defer tr.Close()
+		defer func() { _ = tr.Close() }()
 		iface := newPersistMockInterface("wan")
 		_ = tr.RegisterInterface("wan", iface)
 		tr.UpdatePath(bytes.Repeat([]byte{byte(i)}, 16), bytes.Repeat([]byte{0x01}, 16), "wan", 1)
-		tr.Close()
+		_ = tr.Close()
 	}
 
 	time.Sleep(100 * time.Millisecond)
@@ -622,7 +622,7 @@ func TestPathTablePersistence_FullLifecycleSmokeTest(t *testing.T) {
 
 	// Process 2: restart, verify every path survived.
 	tr2 := NewTransport(cfg)
-	defer tr2.Close()
+	defer func() { _ = tr2.Close() }()
 	iface2 := newPersistMockInterface("wan")
 	if err := tr2.RegisterInterface("wan", iface2); err != nil {
 		t.Fatalf("RegisterInterface: %v", err)
@@ -646,7 +646,7 @@ func BenchmarkMarkPathTableDirty(b *testing.B) {
 	tmp := b.TempDir()
 	cfg := &common.ReticulumConfig{ConfigPath: filepath.Join(tmp, "config")}
 	tr := NewTransport(cfg)
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
@@ -658,7 +658,7 @@ func BenchmarkUpdatePath_WithPersistence(b *testing.B) {
 	tmp := b.TempDir()
 	cfg := &common.ReticulumConfig{ConfigPath: filepath.Join(tmp, "config")}
 	tr := NewTransport(cfg)
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	iface := newPersistMockInterface("wan")
 	_ = tr.RegisterInterface("wan", iface)
 
@@ -675,7 +675,7 @@ func BenchmarkUpdatePath_InMemoryOnly(b *testing.B) {
 	tmp := b.TempDir()
 	cfg := &common.ReticulumConfig{ConfigPath: filepath.Join(tmp, "config"), InMemoryPathTable: true}
 	tr := NewTransport(cfg)
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	iface := newPersistMockInterface("wan")
 	_ = tr.RegisterInterface("wan", iface)
 
@@ -692,7 +692,7 @@ func BenchmarkSavePathTable(b *testing.B) {
 	tmp := b.TempDir()
 	cfg := &common.ReticulumConfig{ConfigPath: filepath.Join(tmp, "config")}
 	tr := NewTransport(cfg)
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	iface := newPersistMockInterface("wan")
 	_ = tr.RegisterInterface("wan", iface)
 

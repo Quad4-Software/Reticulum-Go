@@ -23,7 +23,7 @@ func TestTransportLeak(t *testing.T) {
 		tr := NewTransport(cfg)
 		// Give it a tiny bit of time to start the goroutine
 		time.Sleep(1 * time.Millisecond)
-		tr.Close()
+		_ = tr.Close()
 	}
 
 	// Wait for goroutines to finish

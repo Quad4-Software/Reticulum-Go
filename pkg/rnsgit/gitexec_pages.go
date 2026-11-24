@@ -53,11 +53,11 @@ func (g *GitRunner) LsTree(repoPath, ref, dirPath string) ([]TreeEntry, error) {
 			continue
 		}
 		// format: "<mode> <type> <sha> <size|- >\t<name>"
-		tab := strings.IndexByte(line, '\t')
-		if tab < 0 {
+		before, after, ok := strings.Cut(line, "\t")
+		if !ok {
 			continue
 		}
-		meta := strings.Fields(line[:tab])
+		meta := strings.Fields(before)
 		if len(meta) < 3 {
 			continue
 		}
@@ -65,7 +65,7 @@ func (g *GitRunner) LsTree(repoPath, ref, dirPath string) ([]TreeEntry, error) {
 			Mode: meta[0],
 			Type: meta[1],
 			SHA:  meta[2],
-			Name: line[tab+1:],
+			Name: after,
 		}
 		if len(meta) >= 4 && meta[3] != "-" {
 			e.Size, _ = strconv.ParseInt(meta[3], 10, 64)
@@ -218,8 +218,8 @@ func (g *GitRunner) CommitDetail(repoPath, sha string) (*CommitDetail, error) {
 	inSig := false
 	for line := range strings.SplitSeq(head, "\n") {
 		if inSig {
-			if strings.HasPrefix(line, " ") {
-				sig.WriteString(strings.TrimPrefix(line, " "))
+			if after, ok := strings.CutPrefix(line, " "); ok {
+				sig.WriteString(after)
 				sig.WriteString("\n")
 				continue
 			}
@@ -318,11 +318,11 @@ func (g *GitRunner) DiffNumstat(repoPath, sha string) ([]DiffFileStat, error) {
 // parseRename splits the numstat "old => new" rename notation, including the
 // compacted "dir/{old => new}/rest" form git emits for shared prefixes.
 func parseRename(field string) (old, newp string, ok bool) {
-	i := strings.Index(field, " => ")
-	if i < 0 {
+	before, after, ok := strings.Cut(field, " => ")
+	if !ok {
 		return "", "", false
 	}
-	old, newp = field[:i], field[i+4:]
+	old, newp = before, after
 	l := strings.Index(old, "{")
 	r := strings.Index(newp, "}")
 	if l >= 0 && r >= 0 {

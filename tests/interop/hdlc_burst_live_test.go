@@ -57,7 +57,7 @@ func TestLiveInteropHDLCBurstPythonToGo(t *testing.T) {
 		if err != nil {
 			return
 		}
-		defer conn.Close()
+		defer func() { _ = conn.Close() }()
 		d := backbone.NewHDLCDecoder(4096, func(pkt []byte) {
 			got <- append([]byte(nil), pkt...)
 		})
@@ -138,7 +138,7 @@ func TestLiveInteropHDLCBurstGoToPython(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer c.Close()
+	defer func() { _ = c.Close() }()
 	var blob []byte
 	for i := range n {
 		blob = append(blob, burstFrame(burstPayload(i))...)

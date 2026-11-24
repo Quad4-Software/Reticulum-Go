@@ -64,7 +64,7 @@ func fetchOnlineI2PPeers(t *testing.T, limit int) []string {
 	if err != nil {
 		t.Skipf("directory fetch failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		t.Skipf("directory status %d", resp.StatusCode)
 	}
@@ -143,7 +143,7 @@ func TestLiveI2PPeerStaysOfflineUntilConnect(t *testing.T) {
 	// Synthetic destination that will not have a LeaseSet.
 	dest := "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.b32.i2p"
 	peer := NewI2PInterfacePeer(parent, "offline-truth to "+dest, dest, 1, parent.cfg)
-	defer peer.Stop()
+	defer func() { _ = peer.Stop() }()
 
 	time.Sleep(3 * time.Second)
 	if peer.IsOnline() {

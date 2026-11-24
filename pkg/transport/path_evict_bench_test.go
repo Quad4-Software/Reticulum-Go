@@ -13,13 +13,13 @@ func BenchmarkCleanupExpiredPaths_350k(b *testing.B) {
 	cfg.MaxInMemoryPaths = 600000
 	cfg.MaxInMemoryPathsSet = true
 	tr := NewTransport(cfg)
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	iface := newSimIface("s")
 	_ = tr.RegisterInterface("s", iface)
 
 	tr.mutex.Lock()
 	now := time.Now()
-	for i := 0; i < 350000; i++ {
+	for i := range 350000 {
 		var k [PathMapKeySize]byte
 		k[0] = byte(i)
 		k[1] = byte(i >> 8)
@@ -50,12 +50,12 @@ func BenchmarkUpdatePath_AtCap350k(b *testing.B) {
 	cfg.MaxInMemoryPaths = 350000
 	cfg.MaxInMemoryPathsSet = true
 	tr := NewTransport(cfg)
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	iface := newSimIface("s")
 	_ = tr.RegisterInterface("s", iface)
 
 	var k [PathMapKeySize]byte
-	for i := 0; i < 350000; i++ {
+	for i := range 350000 {
 		k[0] = byte(i)
 		k[1] = byte(i >> 8)
 		k[2] = byte(i >> 16)

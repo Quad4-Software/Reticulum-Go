@@ -15,7 +15,7 @@ func TestPeerSkipsOwnPropagationHash(t *testing.T) {
 	if err := tr.Start(); err != nil {
 		t.Fatal(err)
 	}
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 
 	id := mustNewIdentity(t)
 	home := t.TempDir()
@@ -46,7 +46,7 @@ func TestHandlePropagationPacketIgnoresEmptyMessages(t *testing.T) {
 	if err := tr.Start(); err != nil {
 		t.Fatal(err)
 	}
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 
 	id := mustNewIdentity(t)
 	home := t.TempDir()
@@ -77,7 +77,7 @@ func TestThrottlePeerRecordsCooldown(t *testing.T) {
 	if err := tr.Start(); err != nil {
 		t.Fatal(err)
 	}
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 
 	id := mustNewIdentity(t)
 	home := t.TempDir()

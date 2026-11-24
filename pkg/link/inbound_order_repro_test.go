@@ -22,8 +22,8 @@ func TestInboundOrderBurst(t *testing.T) {
 
 	nodeA := newPipeNode(t, "ordA")
 	nodeB := newPipeNode(t, "ordB")
-	defer nodeA.tr.Close()
-	defer nodeB.tr.Close()
+	defer func() { _ = nodeA.tr.Close() }()
+	defer func() { _ = nodeB.tr.Close() }()
 	pair(nodeA, nodeB)
 
 	idA, _ := identity.New()
@@ -55,9 +55,9 @@ func TestInboundOrderBurst(t *testing.T) {
 		}
 	})
 
-	for i := int64(0); i < total; i++ {
+	for i := range int64(total) {
 		var buf [8]byte
-		for j := 0; j < 8; j++ {
+		for j := range 8 {
 			buf[j] = byte(i >> (8 * j))
 		}
 		if err := initiator.SendPacket(buf[:]); err != nil {
@@ -89,8 +89,8 @@ func TestIdentifyBeforeRequest(t *testing.T) {
 
 	nodeA := newPipeNode(t, "idA")
 	nodeB := newPipeNode(t, "idB")
-	defer nodeA.tr.Close()
-	defer nodeB.tr.Close()
+	defer func() { _ = nodeA.tr.Close() }()
+	defer func() { _ = nodeB.tr.Close() }()
 	pair(nodeA, nodeB)
 
 	idA, _ := identity.New()

@@ -72,7 +72,7 @@ func freeUDPPort(t *testing.T) int {
 	if err != nil {
 		t.Fatalf("listen udp: %v", err)
 	}
-	defer c.Close()
+	defer func() { _ = c.Close() }()
 	return c.LocalAddr().(*net.UDPAddr).Port
 }
 
@@ -125,7 +125,7 @@ func setupGoUDPPeer(t *testing.T, pyListen, pyForward int) (*transport.Transport
 	if err := tr.InitializePathRequestHandler(); err != nil {
 		t.Fatalf("path handler: %v", err)
 	}
-	cleanup := func() { tr.Close() }
+	cleanup := func() { _ = tr.Close() }
 	return tr, iface, cleanup
 }
 
@@ -1278,7 +1278,7 @@ func TestLiveInteropGoFileResourceToPython(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	pyListen := freeUDPPort(t)
 	pyForward := freeUDPPort(t)
@@ -1819,7 +1819,7 @@ func TestLiveInteropGoLinkRequestTimeoutRecoveryPython(t *testing.T) {
 	})
 	defer cleanup()
 
-	for i := 0; i < rlink.MaxPendingRequests+2; i++ {
+	for i := range rlink.MaxPendingRequests + 2 {
 		receipt, err := lnk.Request("interop_silent", []byte("ping-silent"), 1500*time.Millisecond)
 		if err != nil {
 			t.Fatalf("request %d rejected: %v (link status=%d)", i, err, lnk.GetStatus())

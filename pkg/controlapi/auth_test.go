@@ -39,7 +39,7 @@ func TestAuthMiddlewareRejectsMissingOrWrongToken(t *testing.T) {
 			if err != nil {
 				t.Fatalf("do request: %v", err)
 			}
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 			if resp.StatusCode != http.StatusUnauthorized {
 				t.Errorf("status = %d, want %d", resp.StatusCode, http.StatusUnauthorized)
 			}
@@ -62,7 +62,7 @@ func TestAuthMiddlewareAcceptsValidToken(t *testing.T) {
 	if err != nil {
 		t.Fatalf("do request: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("status = %d, want %d", resp.StatusCode, http.StatusOK)
 	}

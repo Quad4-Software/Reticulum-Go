@@ -50,7 +50,7 @@ func RunDump(args []string, opt ...Options) int {
 			diagErr(stderr, "pcap open", err)
 			return 1
 		}
-		defer f.Close()
+		defer func() { _ = f.Close() }()
 		caps, err := packet.ReadPCAPUDPPayloads(f)
 		if err != nil {
 			diagErr(stderr, "pcap read", err)
@@ -71,13 +71,13 @@ func RunDump(args []string, opt ...Options) int {
 		for _, p := range fs.Args() {
 			b, err := os.ReadFile(p) // #nosec G304 -- operator-chosen input path
 			if err != nil {
-				fmt.Fprintf(stderr, "read %s: %v\n", p, err)
+				_, _ = fmt.Fprintf(stderr, "read %s: %v\n", p, err)
 				return 1
 			}
 			if looksLikePCAP(b) {
 				caps, err := packet.ReadPCAPUDPPayloads(bytes.NewReader(b))
 				if err != nil {
-					fmt.Fprintf(stderr, "pcap %s: %v\n", p, err)
+					_, _ = fmt.Fprintf(stderr, "pcap %s: %v\n", p, err)
 					return 1
 				}
 				for _, c := range caps {
@@ -93,7 +93,7 @@ func RunDump(args []string, opt ...Options) int {
 				}
 				raw, err := decodeHexBlob(line)
 				if err != nil {
-					fmt.Fprintf(stderr, "hex line: %v\n", err)
+					_, _ = fmt.Fprintf(stderr, "hex line: %v\n", err)
 					return 1
 				}
 				frames = append(frames, packet.DecodeFrame(raw))
@@ -115,7 +115,7 @@ func RunDump(args []string, opt ...Options) int {
 			}
 			caps, err := packet.ReadPCAPUDPPayloads(bytes.NewReader(all))
 			if err != nil {
-				fmt.Fprintf(stderr, "pcap stdin: %v\n", err)
+				_, _ = fmt.Fprintf(stderr, "pcap stdin: %v\n", err)
 				return 1
 			}
 			for _, c := range caps {
@@ -131,7 +131,7 @@ func RunDump(args []string, opt ...Options) int {
 				}
 				raw, err := decodeHexBlob(line)
 				if err != nil {
-					fmt.Fprintf(stderr, "hex line: %v\n", err)
+					_, _ = fmt.Fprintf(stderr, "hex line: %v\n", err)
 					return 1
 				}
 				frames = append(frames, packet.DecodeFrame(raw))

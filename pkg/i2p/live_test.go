@@ -74,7 +74,7 @@ func TestLiveSAMStreamLoopback(t *testing.T) {
 	if err != nil {
 		t.Fatalf("server session: %v", err)
 	}
-	defer serverSess.Close()
+	defer func() { _ = serverSess.Close() }()
 
 	acceptDone := make(chan net.Conn, 1)
 	acceptErr := make(chan error, 1)
@@ -92,12 +92,12 @@ func TestLiveSAMStreamLoopback(t *testing.T) {
 	if err != nil {
 		t.Fatalf("client session: %v", err)
 	}
-	defer clientSess.Close()
+	defer func() { _ = clientSess.Close() }()
 	clientConn, err := c.StreamConnect(ctx, clientID, dest.Base64())
 	if err != nil {
 		t.Fatalf("stream connect: %v", err)
 	}
-	defer clientConn.Close()
+	defer func() { _ = clientConn.Close() }()
 
 	var serverConn net.Conn
 	select {
@@ -107,7 +107,7 @@ func TestLiveSAMStreamLoopback(t *testing.T) {
 	case <-ctx.Done():
 		t.Fatal("timed out waiting for stream accept")
 	}
-	defer serverConn.Close()
+	defer func() { _ = serverConn.Close() }()
 
 	payload := []byte("reticulum-go-i2p-live-test")
 	if _, err := clientConn.Write(payload); err != nil {
@@ -149,7 +149,7 @@ func TestLiveServerClientTunnel(t *testing.T) {
 	if err != nil {
 		t.Fatalf("listen on tunnel local addr %s: %v", tun.LocalAddr(), err)
 	}
-	defer ln.Close()
+	defer func() { _ = ln.Close() }()
 
 	echoDone := make(chan struct{})
 	go func() {
@@ -235,13 +235,13 @@ func TestLiveDialStreamToLocalServer(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer ln.Close()
+	defer func() { _ = ln.Close() }()
 	go func() {
 		c, err := ln.Accept()
 		if err != nil {
 			return
 		}
-		defer c.Close()
+		defer func() { _ = c.Close() }()
 		buf := make([]byte, 64)
 		n, _ := c.Read(buf)
 		_, _ = c.Write(buf[:n])
@@ -254,7 +254,7 @@ func TestLiveDialStreamToLocalServer(t *testing.T) {
 		t.Fatalf("DialStream: %v", err)
 	}
 	defer ctrl.ReleaseDialSession(sess)
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	msg := []byte("dialstream-echo")
 	_ = conn.SetDeadline(time.Now().Add(60 * time.Second))

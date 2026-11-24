@@ -228,7 +228,7 @@ func TestLiveInteropChainPythonGoPython(t *testing.T) {
 	defer backbone.Shutdown()
 
 	trB := chainTransport(t)
-	defer trB.Close()
+	defer func() { _ = trB.Close() }()
 	if err := trB.InitializePathRequestHandler(); err != nil {
 		t.Fatal(err)
 	}
@@ -251,10 +251,10 @@ func TestLiveInteropChainPythonGoPython(t *testing.T) {
 	dChex := hex.EncodeToString(dC)
 
 	// Announce from each end and let the relay propagate at hops=2.
-	io.WriteString(inC, "WATCH "+dAhex+"\n")
-	io.WriteString(inA, "WATCH "+dChex+"\n")
-	io.WriteString(inA, "ANNOUNCE\n")
-	io.WriteString(inC, "ANNOUNCE\n")
+	_, _ = io.WriteString(inC, "WATCH "+dAhex+"\n")
+	_, _ = io.WriteString(inA, "WATCH "+dChex+"\n")
+	_, _ = io.WriteString(inA, "ANNOUNCE\n")
+	_, _ = io.WriteString(inC, "ANNOUNCE\n")
 
 	waitPyHops(t, linesC, dAhex, 2, 90*time.Second)
 	waitPyHops(t, linesA, dChex, 2, 90*time.Second)
@@ -271,7 +271,7 @@ func TestLiveInteropChainPythonGoPython(t *testing.T) {
 	txA0 := spawnA[0].GetTxBytes()
 	txC0 := spawnC[0].GetTxBytes()
 
-	io.WriteString(inC, "REQUEST "+dAhex+"\n")
+	_, _ = io.WriteString(inC, "REQUEST "+dAhex+"\n")
 	time.Sleep(8 * time.Second)
 
 	txAd := spawnA[0].GetTxBytes() - txA0
@@ -297,7 +297,7 @@ func TestLiveInteropChainPythonGoPython(t *testing.T) {
 	// toward the requestor.
 	txA2 := spawnA[0].GetTxBytes()
 	txC2 := spawnC[0].GetTxBytes()
-	io.WriteString(inA, "REQUEST "+dChex+"\n")
+	_, _ = io.WriteString(inA, "REQUEST "+dChex+"\n")
 	time.Sleep(8 * time.Second)
 	if d := spawnA[0].GetTxBytes() - txA2; d == 0 {
 		t.Fatal("no cached PATH_RESPONSE toward requestor after C offline")
@@ -325,7 +325,7 @@ func TestLiveInteropChainGoPythonGo(t *testing.T) {
 
 	// A: Go server end announcing dA.
 	trA := chainTransport(t)
-	defer trA.Close()
+	defer func() { _ = trA.Close() }()
 	if err := trA.InitializePathRequestHandler(); err != nil {
 		t.Fatal(err)
 	}
@@ -397,7 +397,7 @@ func TestLiveInteropChainGoPythonGo(t *testing.T) {
 
 	// Take C offline. No ghost announces for dC may arrive at A.
 	base := handA.count(dC)
-	trC.Close()
+	_ = trC.Close()
 	time.Sleep(15 * time.Second)
 	if d := handA.count(dC) - base; d != 0 {
 		t.Fatalf("ghost announces for offline dC: +%d", d)

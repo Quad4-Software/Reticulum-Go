@@ -57,12 +57,14 @@ const (
 // packet is recycled by the transport.
 var incomingPartPool = sync.Pool{
 	New: func() any {
-		return make([]byte, 0, 512)
+		b := make([]byte, 0, 512)
+		return &b
 	},
 }
 
 func cloneIncomingPart(data []byte) []byte {
-	b, _ := incomingPartPool.Get().([]byte)
+	p := incomingPartPool.Get().(*[]byte)
+	b := *p
 	if cap(b) < len(data) {
 		b = make([]byte, len(data))
 	} else {
@@ -76,7 +78,8 @@ func releaseIncomingPart(b []byte) {
 	if b == nil {
 		return
 	}
-	incomingPartPool.Put(b[:0])
+	b = b[:0]
+	incomingPartPool.Put(&b)
 }
 
 // IncomingResource is delivered to resource concluded callbacks when the
@@ -1471,10 +1474,7 @@ func (l *Link) assembleIncomingPayload(inner []byte, adv *resource.ResourceAdver
 		if !adv.Split && adv.DataSize > int64(resource.AutoCompressMaxSize) {
 			return nil, errors.New("incoming compressed resource exceeds AutoCompressMaxSize")
 		}
-		bound := adv.DataSize
-		if bound > int64(resource.AutoCompressMaxSize) {
-			bound = int64(resource.AutoCompressMaxSize)
-		}
+		bound := min(adv.DataSize, int64(resource.AutoCompressMaxSize))
 		r := bzip2.NewReader(bytes.NewReader(data))
 		limited := io.LimitReader(r, bound+1)
 		decompressed, err := io.ReadAll(limited)

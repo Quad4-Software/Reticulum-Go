@@ -122,7 +122,7 @@ func TestConvertFileToWebPValidImage(t *testing.T) {
 	if !ok {
 		t.Fatal("valid jpeg file rejected")
 	}
-	defer os.Remove(out)
+	defer func() { _ = os.Remove(out) }()
 	argv, err := os.ReadFile(marker)
 	if err != nil {
 		t.Fatalf("encoder argv not recorded: %v", err)
@@ -146,7 +146,7 @@ func TestConvertFileToWebPSizeCap(t *testing.T) {
 	if err := f.Truncate(convSizeMax + 1); err != nil {
 		t.Fatal(err)
 	}
-	f.Close()
+	_ = f.Close()
 	if _, ok := ConvertFileToWebP(src, 85, 0, 0); ok {
 		t.Fatal("oversized file converted")
 	}

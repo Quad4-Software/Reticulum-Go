@@ -13,7 +13,7 @@ import (
 
 func TestOutboundEstablishOccupancy(t *testing.T) {
 	tr := NewTransport(common.DefaultConfig())
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	dest := bytes.Repeat([]byte{0x11}, 16)
 	if err := tr.TryBeginOutboundEstablish(dest); err != nil {
 		t.Fatalf("first begin: %v", err)
@@ -29,7 +29,7 @@ func TestOutboundEstablishOccupancy(t *testing.T) {
 
 func TestRequestPathRejectsShortHash(t *testing.T) {
 	tr := NewTransport(common.DefaultConfig())
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	err := tr.RequestPath([]byte{0x01}, "", nil, false)
 	if !errors.Is(err, common.ErrTransportEmptyDestinationHash) {
 		t.Fatalf("short RequestPath = %v, want ErrTransportEmptyDestinationHash", err)

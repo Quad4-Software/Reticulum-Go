@@ -105,7 +105,7 @@ func TestIdentitySignVerifyFile(t *testing.T) {
 func TestRPCClientInterfaceStats(t *testing.T) {
 	cfg := &common.ReticulumConfig{EnableTransport: false}
 	tr := transport.NewTransport(cfg)
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 
 	port := freeTCPPort(t)
 	cfg.InstanceControlPort = port
@@ -114,7 +114,7 @@ func TestRPCClientInterfaceStats(t *testing.T) {
 	if err != nil {
 		t.Fatalf("StartRPCServer: %v", err)
 	}
-	defer srv.Close()
+	defer func() { _ = srv.Close() }()
 
 	client, err := DialRPC(cfg, tr.RPCAuthKey())
 	if err != nil {
@@ -175,7 +175,7 @@ func freeTCPPort(t *testing.T) int {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer ln.Close()
+	defer func() { _ = ln.Close() }()
 	return ln.Addr().(*net.TCPAddr).Port
 }
 

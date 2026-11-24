@@ -231,7 +231,7 @@ func (s *RPCServer) serve() {
 		s.wg.Add(1)
 		go func(c net.Conn) {
 			defer s.wg.Done()
-			defer c.Close()
+			defer func() { _ = c.Close() }()
 			defer func() {
 				if r := recover(); r != nil {
 					debug.Log(debug.DebugCritical, "Shared instance RPC panic",

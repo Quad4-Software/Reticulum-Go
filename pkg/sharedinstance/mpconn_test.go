@@ -11,8 +11,8 @@ import (
 func TestMPConnAuthRoundTrip(t *testing.T) {
 	authkey := []byte("test-auth-key-for-shared-instance")
 	serverConn, clientConn := net.Pipe()
-	defer serverConn.Close()
-	defer clientConn.Close()
+	defer func() { _ = serverConn.Close() }()
+	defer func() { _ = clientConn.Close() }()
 
 	errCh := make(chan error, 2)
 	go func() {
@@ -52,8 +52,8 @@ func TestMPConnAuthRoundTrip(t *testing.T) {
 
 func TestMPConnAuthRejectsWrongKey(t *testing.T) {
 	serverConn, clientConn := net.Pipe()
-	defer serverConn.Close()
-	defer clientConn.Close()
+	defer func() { _ = serverConn.Close() }()
+	defer func() { _ = clientConn.Close() }()
 	go func() { _ = AuthenticateServer(serverConn, []byte("server-key")) }()
 	err := AuthenticateClient(clientConn, []byte("client-key"))
 	if err == nil {
@@ -67,8 +67,8 @@ func TestMPConnAuthRejectsWrongKey(t *testing.T) {
 func TestMPConnAuthRejectsSingleRoundServer(t *testing.T) {
 	authkey := []byte("shared-instance-authkey")
 	serverConn, clientConn := net.Pipe()
-	defer serverConn.Close()
-	defer clientConn.Close()
+	defer func() { _ = serverConn.Close() }()
+	defer func() { _ = clientConn.Close() }()
 
 	serverErrCh := make(chan error, 1)
 	clientErrCh := make(chan error, 1)

@@ -18,7 +18,7 @@ func TestAdversarialAutoconnectIgnoresUnknownType(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer n.Stop()
+	defer func() { _ = n.Stop() }()
 
 	before := n.autoconnectCount()
 	n.autoconnect(&discovery.ReceivedAnnounceInfo{
@@ -36,7 +36,7 @@ func TestAdversarialAutoconnectSkipsEmptyReachableOn(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer n.Stop()
+	defer func() { _ = n.Stop() }()
 
 	n.autoconnect(&discovery.ReceivedAnnounceInfo{
 		Info: discovery.Info{Type: "BackboneInterface", Name: "empty", HasPort: true, Port: 1, TransportImpl: "RNS", TransportVers: "1.6.0"},
@@ -53,7 +53,7 @@ func TestAdversarialAutoconnectDisabledWhenMaxZero(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer n.Stop()
+	defer func() { _ = n.Stop() }()
 
 	n.onInterfaceDiscovered(&discovery.ReceivedAnnounceInfo{
 		Info: discovery.Info{

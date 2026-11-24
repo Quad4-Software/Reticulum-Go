@@ -638,7 +638,7 @@ func BenchmarkBackboneSend(b *testing.B) {
 	if err := server.Start(); err != nil {
 		b.Fatal(err)
 	}
-	defer server.Stop()
+	defer func() { _ = server.Stop() }()
 
 	client, err := NewBackboneClientInterface("client", &common.InterfaceConfig{
 		Enabled:    true,
@@ -651,7 +651,7 @@ func BenchmarkBackboneSend(b *testing.B) {
 	if err := client.Start(); err != nil {
 		b.Fatal(err)
 	}
-	defer client.Stop()
+	defer func() { _ = client.Stop() }()
 
 	deadline := time.Now().Add(5 * time.Second)
 	for time.Now().Before(deadline) {

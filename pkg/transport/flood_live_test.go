@@ -74,7 +74,7 @@ func TestFloodAnnounceReplayIsCheap(t *testing.T) {
 	}
 	health.Default.Reset()
 	tr := NewTransport(&common.ReticulumConfig{})
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 
 	iface := newFloodIface("flood1")
 	iface.ingressOff = true
@@ -101,7 +101,7 @@ func TestFloodAnnounceReplayIsCheap(t *testing.T) {
 	// replay reaches the dedup check and the dup count stays exact.
 	const replays = 4000
 	start := time.Now()
-	for i := 0; i < replays; i++ {
+	for range replays {
 		tr.HandlePacketBlocking(append([]byte(nil), raw...), iface)
 	}
 	waitInboundDrain(t, tr, 0)
@@ -126,7 +126,7 @@ func TestFloodAnnounceReplayIsCheap(t *testing.T) {
 	}
 	const verifyIters = 8
 	verifyStart := time.Now()
-	for i := 0; i < verifyIters; i++ {
+	for range verifyIters {
 		if !refID.Verify(msg, sig) {
 			t.Fatal("verify probe failed")
 		}
@@ -169,7 +169,7 @@ func TestFloodDistinctAnnouncesBounded(t *testing.T) {
 		t.Skip("flood test")
 	}
 	tr := NewTransport(&common.ReticulumConfig{})
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 
 	iface := newFloodIface("flood2")
 	if err := tr.RegisterInterface("flood2", iface); err != nil {
@@ -178,7 +178,7 @@ func TestFloodDistinctAnnouncesBounded(t *testing.T) {
 
 	const N = 3000
 	raws := make([][]byte, N)
-	for i := 0; i < N; i++ {
+	for i := range N {
 		id, err := identity.New()
 		if err != nil {
 			t.Fatal(err)
@@ -238,7 +238,7 @@ func TestFloodGarbagePackets(t *testing.T) {
 		t.Skip("flood test")
 	}
 	tr := NewTransport(&common.ReticulumConfig{})
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 
 	iface := newFloodIface("flood3")
 	if err := tr.RegisterInterface("flood3", iface); err != nil {
@@ -248,7 +248,7 @@ func TestFloodGarbagePackets(t *testing.T) {
 	const N = 20000
 	buf := make([]byte, 256)
 	start := time.Now()
-	for i := 0; i < N; i++ {
+	for i := range N {
 		n := 2 + i%254
 		if _, err := rand.Read(buf[:n]); err != nil {
 			t.Fatal(err)
@@ -283,7 +283,7 @@ func TestProtectPreventDropsShedFirst(t *testing.T) {
 
 	const N = 4000
 	dropped := 0
-	for i := 0; i < N; i++ {
+	for range N {
 		if !protect.AdmitPacketOpts("flood-iface", len(data), protect.AdmitOpts{
 			Class: protect.PeekPacketClass(data),
 		}).Allow {
@@ -321,7 +321,7 @@ func TestProtectPreferKeepSurvivesAnnounceFlood(t *testing.T) {
 	// shed-first traffic must be dropped while link traffic still flows.
 	const annN = 350
 	dropped := 0
-	for i := 0; i < annN; i++ {
+	for range annN {
 		if !protect.AdmitPacketOpts("shared", len(annData), protect.AdmitOpts{Class: protect.ClassShedFirst}).Allow {
 			dropped++
 		}
@@ -330,7 +330,7 @@ func TestProtectPreferKeepSurvivesAnnounceFlood(t *testing.T) {
 		t.Fatalf("shed-first traffic not shed over trip line: %d/%d dropped", dropped, annN)
 	}
 	allowed := 0
-	for i := 0; i < 200; i++ {
+	for range 200 {
 		if protect.AdmitPacketOpts("shared", len(linkData), protect.AdmitOpts{Class: protect.ClassPreferKeep}).Allow {
 			allowed++
 		}
@@ -360,7 +360,7 @@ func TestLiveUDPInterfacePreventMode(t *testing.T) {
 		DoSMaxPPS:        300,
 		DoSMaxBPS:        1024 * 1024,
 	})
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 
 	// Grab a free loopback port, then bind the interface to it.
 	probe, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.ParseIP("127.0.0.1")})
@@ -368,7 +368,7 @@ func TestLiveUDPInterfacePreventMode(t *testing.T) {
 		t.Fatalf("probe listen: %v", err)
 	}
 	addr := probe.LocalAddr().(*net.UDPAddr)
-	probe.Close()
+	_ = probe.Close()
 
 	ui, err := interfaces.NewUDPInterface("udp-flood", addr.String(), "", true)
 	if err != nil {
@@ -386,14 +386,14 @@ func TestLiveUDPInterfacePreventMode(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DialUDP: %v", err)
 	}
-	defer sock.Close()
+	defer func() { _ = sock.Close() }()
 
 	// Announce-class datagrams: header byte 0x01 (packetType=announce).
 	pkt := append([]byte{0x01, 0x00}, make([]byte, 400)...)
 	const N = 4000
 	start := time.Now()
 	sent := 0
-	for i := 0; i < N; i++ {
+	for range N {
 		if _, err := sock.Write(pkt); err != nil {
 			continue
 		}
@@ -431,7 +431,7 @@ func TestProtectPeerIsolation(t *testing.T) {
 	data := append([]byte{annHdr, 0x00}, make([]byte, 64)...)
 
 	// Peer A floods.
-	for i := 0; i < 5000; i++ {
+	for range 5000 {
 		protect.AdmitPacketOpts("shared-udp", len(data), protect.AdmitOpts{
 			Class:   protect.ClassShedFirst,
 			PeerKey: "attacker:5000",
@@ -439,7 +439,7 @@ func TestProtectPeerIsolation(t *testing.T) {
 	}
 	// Peer B, quiet, must still be admitted.
 	allowed := 0
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		if protect.AdmitPacketOpts("shared-udp", len(data), protect.AdmitOpts{
 			Class:   protect.ClassShedFirst,
 			PeerKey: "victim:5001",

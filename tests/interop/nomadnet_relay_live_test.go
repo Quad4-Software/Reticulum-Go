@@ -139,7 +139,7 @@ func setupGoTransportRelay(t *testing.T, pyListen, pyForward int, peers []direct
 		t.Fatalf("path handler: %v", err)
 	}
 
-	return tr, func() { tr.Close() }
+	return tr, func() { _ = tr.Close() }
 }
 
 // TestLiveNomadNetLinkThroughGoRelay exercises the meshchatx-style topology:
@@ -227,7 +227,6 @@ func TestLiveNomadNetLinkThroughGoRelay(t *testing.T) {
 
 		probe.WaitExact(t, probeCtx, "READY", 30*time.Second, harness.KindReady)
 
-		ok := false
 		deadline = time.Now().Add(linkTimeout + time.Minute)
 	readLoop:
 		for time.Now().Before(deadline) {
@@ -272,7 +271,6 @@ func TestLiveNomadNetLinkThroughGoRelay(t *testing.T) {
 			case line == "NOMADNET_LINK_OK":
 				t.Log("python established nomadnet link and fetched a page through Go relay")
 				sess.Emit("link_ok", harness.KindLink, "")
-				ok = true
 				probeCancel()
 				return
 			default:
@@ -281,9 +279,6 @@ func TestLiveNomadNetLinkThroughGoRelay(t *testing.T) {
 		}
 		probeCancel()
 		probe.Kill(3 * time.Second)
-		if ok {
-			return
-		}
 		t.Logf("node %x failed (%v), trying next candidate", nodeHash, lastErr)
 	}
 	sess.Emit("fail", harness.KindTimeout, "timed out waiting for NOMADNET_LINK_OK")
@@ -307,7 +302,7 @@ func TestDirectoryMeshPeersOnline(t *testing.T) {
 	if err != nil {
 		t.Fatalf("directory fetch: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("directory status = %d", resp.StatusCode)
 	}

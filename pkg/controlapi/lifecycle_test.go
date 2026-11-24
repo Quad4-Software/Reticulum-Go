@@ -188,7 +188,7 @@ func TestListenPortConflict(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Listen: %v", err)
 	}
-	defer holder.Close()
+	defer func() { _ = holder.Close() }()
 	port := holder.Addr().(*net.TCPAddr).Port
 
 	key := make([]byte, 32)
@@ -399,7 +399,9 @@ func TestListenUnixSocket(t *testing.T) {
 	go func() { errCh <- srv.Serve() }()
 	t.Cleanup(func() {
 		_ = srv.Close()
-		<-errCh
+		if err := <-errCh; err != nil {
+			t.Errorf("Serve: %v", err)
+		}
 	})
 
 	auth := hex.EncodeToString(key)

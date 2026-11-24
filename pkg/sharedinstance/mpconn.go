@@ -123,8 +123,8 @@ func recvBytes(r io.Reader, maxSize int) ([]byte, error) {
 	}
 	size := int32(binary.BigEndian.Uint32(header)) // #nosec G115 -- multiprocessing.connection length prefix
 	var n int64
-	switch {
-	case size == -1:
+	switch size {
+	case -1:
 		ext := make([]byte, 8)
 		if _, err := io.ReadFull(r, ext); err != nil {
 			return nil, err

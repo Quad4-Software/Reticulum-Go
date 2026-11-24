@@ -60,7 +60,7 @@ func (l *Log) Record(peer []byte, incoming bool, started time.Time, outcome stri
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	_, err = f.Write(append(raw, '\n'))
 	return err
 }
@@ -72,7 +72,7 @@ func readTail(path string, limit int) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	st, err := f.Stat()
 	if err != nil {
 		return nil, err

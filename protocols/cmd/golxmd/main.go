@@ -166,7 +166,7 @@ func run(args []string) int {
 		return 1
 	}
 	if closer != nil {
-		defer closer.Close()
+		defer func() { _ = closer.Close() }()
 	}
 
 	readyPath := golxmd.DefaultReadyPath()
@@ -208,14 +208,14 @@ func run(args []string) int {
 
 func exitCodeForRemoteErr(err error) int {
 	msg := err.Error()
-	switch {
-	case msg == "remote received no identity":
+	switch msg {
+	case "remote received no identity":
 		return 203
-	case msg == "access denied":
+	case "access denied":
 		return 204
-	case msg == "invalid data received by remote":
+	case "invalid data received by remote":
 		return 205
-	case msg == "the requested peer was not found":
+	case "the requested peer was not found":
 		return 206
 	default:
 		return 1

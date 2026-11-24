@@ -19,7 +19,7 @@ import (
 func newShardingTransport(t *testing.T) *Transport {
 	t.Helper()
 	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
-	t.Cleanup(func() { tr.Close() })
+	t.Cleanup(func() { _ = tr.Close() })
 	tr.SetIdentity(mustIdentity(t))
 	return tr
 }

@@ -52,7 +52,7 @@ func TestProtectedRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer b.Close()
+	defer func() { _ = b.Close() }()
 	if b.Bytes() != nil {
 		t.Fatal("protected Bytes() must be nil")
 	}
@@ -88,7 +88,7 @@ func TestFinalizerReleases(t *testing.T) {
 		}
 		_ = b.CopyFrom(bytes.Repeat([]byte{9}, 32))
 	}()
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		runtime.GC()
 	}
 	after := PoolStats()
@@ -100,11 +100,11 @@ func TestFinalizerReleases(t *testing.T) {
 // Concurrency under -race: parallel alloc/fill/use/close across classes.
 func TestConcurrentUse(t *testing.T) {
 	var wg sync.WaitGroup
-	for g := 0; g < 16; g++ {
+	for g := range 16 {
 		wg.Add(1)
 		go func(seed byte) {
 			defer wg.Done()
-			for i := 0; i < 200; i++ {
+			for i := range 200 {
 				b, err := New(32 + (i%4)*64)
 				if err != nil {
 					t.Error(err)
@@ -135,7 +135,7 @@ func TestConcurrentUse(t *testing.T) {
 func TestGCStress(t *testing.T) {
 	old := debug.SetGCPercent(1)
 	defer debug.SetGCPercent(old)
-	for i := 0; i < 2000; i++ {
+	for i := range 2000 {
 		b, err := New(96)
 		if err != nil {
 			t.Fatal(err)
@@ -164,7 +164,7 @@ func TestAllocFreeCyclesNoLeak(t *testing.T) {
 	const cycles = 100000
 	b0 := PoolStats()
 	rss0 := readRSS(t)
-	for i := 0; i < cycles; i++ {
+	for i := range cycles {
 		b, err := New(80)
 		if err != nil {
 			t.Fatal(err)

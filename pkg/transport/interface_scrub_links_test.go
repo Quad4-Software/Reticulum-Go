@@ -40,7 +40,7 @@ func (l *linkBoundIface) LinkedNetworkInterface() common.NetworkInterface { retu
 
 func TestUnregisterInterfaceScrubsRegisteredLinks(t *testing.T) {
 	tr := NewTransport(&common.ReticulumConfig{})
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 
 	iface := mockIface("wan", true)
 	if err := tr.RegisterInterface("wan", iface); err != nil {

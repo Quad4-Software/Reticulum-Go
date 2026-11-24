@@ -68,7 +68,7 @@ func fetchOnlineClearnetTCPPeers(t *testing.T, limit int) []directoryPeer {
 	if err != nil {
 		t.Fatalf("directory fetch: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("directory status %d", resp.StatusCode)
 	}

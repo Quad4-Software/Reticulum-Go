@@ -234,16 +234,16 @@ func TestResolvePassphrasePrecedence(t *testing.T) {
 	if _, err := w.WriteString("fd-pass\n"); err != nil {
 		t.Fatal(err)
 	}
-	w.Close()
+	_ = w.Close()
 	t.Setenv(PassphraseFDEnv, fdName(r))
 	p, err = ResolvePassphrase(path)
 	if err != nil || string(p) != "env-pass" {
 		t.Fatalf("env precedence broken: %q %v", p, err)
 	}
-	r.Close()
+	_ = r.Close()
 
 	// FD alone works and strips the trailing newline.
-	os.Unsetenv(PassphraseEnv)
+	_ = os.Unsetenv(PassphraseEnv)
 	r, w, err = os.Pipe()
 	if err != nil {
 		t.Fatal(err)
@@ -251,7 +251,7 @@ func TestResolvePassphrasePrecedence(t *testing.T) {
 	if _, err := w.WriteString("fd-pass\n"); err != nil {
 		t.Fatal(err)
 	}
-	w.Close()
+	_ = w.Close()
 	t.Setenv(PassphraseFDEnv, fdName(r))
 	p, err = ResolvePassphrase(path)
 	if err != nil || string(p) != "fd-pass" {

@@ -93,8 +93,8 @@ func newBackboneTransport(t *testing.T, hub *backbone.Hub, name, host string, po
 		t.Fatalf("RegisterInterface: %v", err)
 	}
 	cleanup := func() {
-		client.Stop()
-		tr.Close()
+		_ = client.Stop()
+		_ = tr.Close()
 	}
 	return tr, cleanup
 }
@@ -238,7 +238,7 @@ func runVegaPythonPeer(ctx context.Context, t *testing.T, mode string, extraEnv 
 func readVegaLine(ctx context.Context, br *bufio.Reader, want string, d time.Duration) (string, error) {
 	deadline := time.Now().Add(d)
 	for time.Now().Before(deadline) {
-		line, err := readLineTimeout(ctx, br, deadline.Sub(time.Now()))
+		line, err := readLineTimeout(ctx, br, time.Until(deadline))
 		if err != nil {
 			return "", err
 		}

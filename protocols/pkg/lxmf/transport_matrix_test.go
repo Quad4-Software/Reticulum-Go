@@ -252,7 +252,7 @@ func matrixUDPChain(t *testing.T, links int) []*transport.Transport {
 	for i := range nodes {
 		nodes[i] = matrixTransport(t, i != 0 && i != len(nodes)-1)
 	}
-	for i := 0; i < links; i++ {
+	for i := range links {
 		matrixUDPLink(t, nodes[i], nodes[i+1], fmt.Sprintf("hop%d", i))
 	}
 	return nodes

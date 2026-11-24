@@ -21,7 +21,7 @@ func TestEstablishRequiresPath(t *testing.T) {
 		t.Fatal(err)
 	}
 	tr := transport.NewTransport(nil)
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 
 	dest, err := destination.New(id, destination.Out, destination.Single, "test", tr, "link")
 	if err != nil {
@@ -56,7 +56,7 @@ func TestEstablishRequiresTransport(t *testing.T) {
 
 func TestEstablishRequiresDestination(t *testing.T) {
 	tr := transport.NewTransport(nil)
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	l := NewLink(nil, tr, nil, nil, nil)
 	err := l.Establish()
 	if !errors.Is(err, common.ErrLinkDestinationRequired) {
@@ -70,7 +70,7 @@ func TestEstablishRejectsInFlightAndSettled(t *testing.T) {
 		t.Fatal(err)
 	}
 	tr := transport.NewTransport(nil)
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	dest, err := destination.New(id, destination.Out, destination.Single, "test", tr, "link")
 	if err != nil {
 		t.Fatal(err)

@@ -87,7 +87,7 @@ func (c *trackingIface) counts() (getName, send, processOut int) {
 // packet because BaseInterface.ProcessOutgoing is a no-op.
 func TestRegisterInterfaceRejectsAbstractBase(t *testing.T) {
 	tr := NewTransport(&common.ReticulumConfig{})
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 
 	bareCommon := &common.BaseInterface{Name: "bare-common"}
 	if err := tr.RegisterInterface("bare-common", bareCommon); err == nil {
@@ -120,7 +120,7 @@ func TestRegisterInterfacePreservesConcreteType(t *testing.T) {
 	defer debug.SetDebugLevel(prevLevel)
 
 	tr := NewTransport(&common.ReticulumConfig{})
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 
 	registered := newTrackingIface("registered-iface")
 	if err := tr.RegisterInterface(registered.GetName(), registered); err != nil {
@@ -192,10 +192,10 @@ func TestTransportLoopbackOverTCP(t *testing.T) {
 	if err := server.Start(); err != nil {
 		t.Fatalf("server start: %v", err)
 	}
-	defer server.Stop() // #nosec G104
+	defer func() { _ = server.Stop() }() // #nosec G104
 
 	srvTr := NewTransport(&common.ReticulumConfig{})
-	defer srvTr.Close()
+	defer func() { _ = srvTr.Close() }()
 
 	srvRx := newRecordingPacketSink()
 	if err := srvTr.RegisterInterface(server.GetName(), server); err != nil {
@@ -207,10 +207,10 @@ func TestTransportLoopbackOverTCP(t *testing.T) {
 	if err != nil {
 		t.Fatalf("client interface: %v", err)
 	}
-	defer client.Stop() // #nosec G104
+	defer func() { _ = client.Stop() }() // #nosec G104
 
 	cliTr := NewTransport(&common.ReticulumConfig{})
-	defer cliTr.Close()
+	defer func() { _ = cliTr.Close() }()
 
 	cliRx := newRecordingPacketSink()
 	if err := cliTr.RegisterInterface(client.GetName(), client); err != nil {
@@ -244,7 +244,7 @@ func pickFreeTCPPort() (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	defer l.Close() // #nosec G104
+	defer func() { _ = l.Close() }() // #nosec G104
 	return l.Addr().(*net.TCPAddr).Port, nil
 }
 

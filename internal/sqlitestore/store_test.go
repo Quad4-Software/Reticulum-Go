@@ -36,13 +36,13 @@ func TestKnownDestinationsRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 	s.Checkpoint()
-	s.Close()
+	_ = s.Close()
 
 	ro, err := OpenKnownDestinations(filepath.Join(dir, "known_destinations.db"), 16, true)
 	if err != nil {
 		t.Fatalf("read-only open: %v", err)
 	}
-	defer ro.Close()
+	defer func() { _ = ro.Close() }()
 	rows, err := ro.LoadAll()
 	if err != nil {
 		t.Fatal(err)
@@ -84,7 +84,7 @@ func TestCloseFlushesPendingWrites(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read-only open: %v", err)
 	}
-	defer ro.Close()
+	defer func() { _ = ro.Close() }()
 	rows, err := ro.LoadAll()
 	if err != nil || len(rows) != 1 {
 		t.Fatalf("rows=%v %d", err, len(rows))
@@ -101,7 +101,7 @@ func TestAnnounceCacheOps(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer c.Close()
+	defer func() { _ = c.Close() }()
 	c.Store([]byte("hash1"), []byte("raw1"), "iface0")
 	if raw, ifn, ok := c.Fetch([]byte("hash1")); !ok || string(raw) != "raw1" || ifn != "iface0" {
 		t.Fatal("pending fetch failed")
@@ -151,7 +151,7 @@ func TestPythonRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 	s.Checkpoint()
-	s.Close()
+	_ = s.Close()
 
 	out, err := runPython(t, python, `
 import sys
@@ -198,7 +198,7 @@ print("OK")
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer g.Close()
+	defer func() { _ = g.Close() }()
 	rows, err := g.LoadAll()
 	if err != nil {
 		t.Fatal(err)

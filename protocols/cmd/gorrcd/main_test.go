@@ -32,7 +32,7 @@ func TestRunUnknownFlag(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer devnull.Close()
+	defer func() { _ = devnull.Close() }()
 	old := os.Stderr
 	os.Stderr = devnull
 	code := run([]string{"--not-a-flag"})

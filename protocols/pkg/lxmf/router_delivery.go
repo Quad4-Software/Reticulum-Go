@@ -4,7 +4,6 @@ package lxmf
 import (
 	"encoding/hex"
 	"errors"
-	"io"
 	"os"
 	"os/exec"
 	"time"
@@ -209,11 +208,4 @@ func resourceAdvertisedSize(adv any) int64 {
 		}
 	}
 	return 0
-}
-
-func readResourceBytes(r io.Reader) ([]byte, error) {
-	if r == nil {
-		return nil, errors.New("lxmf: nil resource reader")
-	}
-	return io.ReadAll(r)
 }

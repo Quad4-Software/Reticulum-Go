@@ -139,7 +139,7 @@ func TestLiveInteropI2PGoServerPythonClient(t *testing.T) {
 	if err := iface.Start(); err != nil {
 		skipI2PFlake(t, "Go I2P Start: %v", err)
 	}
-	defer iface.Stop()
+	defer func() { _ = iface.Stop() }()
 
 	deadline := time.Now().Add(3 * time.Minute)
 	for iface.Base32() == "" && time.Now().Before(deadline) {
@@ -249,10 +249,10 @@ func TestLiveInteropI2PPythonServerGoClient(t *testing.T) {
 	if err := parent.Start(); err != nil {
 		skipI2PFlake(t, "Go I2P client Start: %v", err)
 	}
-	defer parent.Stop()
+	defer func() { _ = parent.Stop() }()
 
 	peer := interfaces.NewI2PInterfacePeer(parent, "go_i2p_client to "+peerDest, peerDest, 3, parent.InterfaceConfig())
-	defer peer.Stop()
+	defer func() { _ = peer.Stop() }()
 
 	deadline := time.Now().Add(3 * time.Minute)
 	for time.Now().Before(deadline) {

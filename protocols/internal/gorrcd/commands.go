@@ -53,9 +53,7 @@ func (s *Service) handleCommand(peer []byte, room, text string) {
 
 func splitCmd(text string) []string {
 	text = strings.TrimSpace(text)
-	if strings.HasPrefix(text, "/") {
-		text = text[1:]
-	}
+	text = strings.TrimPrefix(text, "/")
 	fields := strings.Fields(text)
 	out := fields[:0]
 	for _, f := range fields {

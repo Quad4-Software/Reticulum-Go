@@ -75,19 +75,19 @@ func Main(args []string, opt Options) int {
 				printRootHelp(opt.Stdout)
 				return 0
 			case "-v", "--version", "version":
-				fmt.Fprintln(opt.Stdout, opt.VersionLine)
+				_, _ = fmt.Fprintln(opt.Stdout, opt.VersionLine)
 				return 0
 			}
 		}
 		if len(args) == 0 || strings.HasPrefix(args[0], "-") {
 			// Bare binary, or daemon flags without an explicit "daemon" subcommand.
 			if opt.RunDaemon == nil {
-				fmt.Fprintln(opt.Stderr, "daemon entry not configured")
+				_, _ = fmt.Fprintln(opt.Stderr, "daemon entry not configured")
 				return 1
 			}
 			return opt.RunDaemon(args)
 		}
-		fmt.Fprintf(opt.Stderr, "%s\n\n", errMsg(opt.Stderr, fmt.Sprintf("unknown command %q", args[0])))
+		_, _ = fmt.Fprintf(opt.Stderr, "%s\n\n", errMsg(opt.Stderr, fmt.Sprintf("unknown command %q", args[0])))
 		printRootHelp(opt.Stderr)
 		return 2
 	}
@@ -95,7 +95,7 @@ func Main(args []string, opt Options) int {
 	switch cmd {
 	case CmdDaemon:
 		if opt.RunDaemon == nil {
-			fmt.Fprintln(opt.Stderr, "daemon entry not configured")
+			_, _ = fmt.Fprintln(opt.Stderr, "daemon entry not configured")
 			return 1
 		}
 		return opt.RunDaemon(rest)
@@ -135,7 +135,7 @@ func Main(args []string, opt Options) int {
 		}
 		return RunGit(rest, opt)
 	default:
-		fmt.Fprintf(opt.Stderr, "unknown command %q\n\n", cmd)
+		_, _ = fmt.Fprintf(opt.Stderr, "unknown command %q\n\n", cmd)
 		printRootHelp(opt.Stderr)
 		return 2
 	}
@@ -249,7 +249,7 @@ func dimMsg(w io.Writer, s string) string  { return term.DimW(w, s) }
 func boldMsg(w io.Writer, s string) string { return term.BoldW(w, s) }
 
 func diagErr(w io.Writer, label string, err error) {
-	fmt.Fprintf(w, "%s: %v\n", errMsg(w, label), err)
+	_, _ = fmt.Fprintf(w, "%s: %v\n", errMsg(w, label), err)
 }
 
 func printRootHelp(w io.Writer) {
@@ -275,11 +275,11 @@ func printRootHelp(w io.Writer) {
 		helpLine{"reticulum-go self-check [flags]", "host OS preflight checklist"},
 		helpLine{"reticulum-go zen [flags] [packages]", "scan for path/link footguns (go fix style)"},
 	)
-	fmt.Fprintln(w)
+	_, _ = fmt.Fprintln(w)
 	helpSection(w, "Global:")
-	fmt.Fprintf(w, "  %s       print this help\n", dimMsg(w, "-h, --help"))
-	fmt.Fprintf(w, "  %s    print version\n", dimMsg(w, "-v, --version"))
-	fmt.Fprintln(w)
+	_, _ = fmt.Fprintf(w, "  %s       print this help\n", dimMsg(w, "-h, --help"))
+	_, _ = fmt.Fprintf(w, "  %s    print version\n", dimMsg(w, "-v, --version"))
+	_, _ = fmt.Fprintln(w)
 	helpNote(w, "Legacy tool names (rgostatus, rgoid, rgoprobe, rgopath, rgocp, rgox, rnx, rgosh, rgoslow, rgospeed, rgodump, rgosnap, rgozen) work as subcommands or when the binary is installed under those names (symlinks).")
 	helpNote(w, "Configuration defaults to ~/.reticulum-go/config.")
 }

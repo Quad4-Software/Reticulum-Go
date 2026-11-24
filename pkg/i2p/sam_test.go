@@ -90,7 +90,7 @@ func fakeSAM(t *testing.T, replies map[string]string) (string, func()) {
 				return
 			}
 			go func(conn net.Conn) {
-				defer conn.Close()
+				defer func() { _ = conn.Close() }()
 				br := bufio.NewReader(conn)
 				for {
 					line, err := br.ReadString('\n')
@@ -292,7 +292,7 @@ func TestOpenSessionSendsDefaultOptions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer ln.Close()
+	defer func() { _ = ln.Close() }()
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
@@ -300,7 +300,7 @@ func TestOpenSessionSendsDefaultOptions(t *testing.T) {
 		if err != nil {
 			return
 		}
-		defer conn.Close()
+		defer func() { _ = conn.Close() }()
 		br := bufio.NewReader(conn)
 		_, _ = br.ReadString('\n') // HELLO
 		_, _ = conn.Write([]byte("HELLO REPLY RESULT=OK\n"))

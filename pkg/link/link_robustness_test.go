@@ -296,7 +296,7 @@ func TestLinkRobustness_RequestResponseOverMTUClampedLink(t *testing.T) {
 	skipHeavyLinkTestsIfShort(t)
 	cfgA := unstampedLinkConfig()
 	trA := transport.NewTransport(cfgA)
-	defer trA.Close()
+	defer func() { _ = trA.Close() }()
 	idA, err := identity.New()
 	if err != nil {
 		t.Fatalf("identity.New A: %v", err)
@@ -304,7 +304,7 @@ func TestLinkRobustness_RequestResponseOverMTUClampedLink(t *testing.T) {
 
 	cfgB := unstampedLinkConfig()
 	trB := transport.NewTransport(cfgB)
-	defer trB.Close()
+	defer func() { _ = trB.Close() }()
 
 	pa := NewPipeInterface("rrpipeA")
 	pb := NewPipeInterface("rrpipeB")
@@ -322,7 +322,7 @@ func TestLinkRobustness_RequestResponseOverMTUClampedLink(t *testing.T) {
 		t.Fatalf("destination.New: %v", err)
 	}
 	destA.AcceptsLinks(true)
-	destA.RegisterRequestHandler("echo", func(_ string, data []byte, _ []byte, _ []byte, _ *identity.Identity, _ int64) []byte {
+	_ = destA.RegisterRequestHandler("echo", func(_ string, data []byte, _ []byte, _ []byte, _ *identity.Identity, _ int64) []byte {
 		return append([]byte("echo:"), data...)
 	}, destination.AllowAll, nil)
 
@@ -402,7 +402,7 @@ func TestLinkRobustness_LargeRequestResponseResourceCompletes(t *testing.T) {
 	const maxBody = 8 * 1024
 	bodyLen := max(min(mdu*12+256, maxBody), mdu+64)
 	largeResponse := bytes.Repeat([]byte("L"), bodyLen)
-	respLink.destination.RegisterRequestHandler("echo_large", func(_ string, data []byte, _ []byte, _ []byte, _ *identity.Identity, _ int64) []byte {
+	_ = respLink.destination.RegisterRequestHandler("echo_large", func(_ string, data []byte, _ []byte, _ []byte, _ *identity.Identity, _ int64) []byte {
 		_ = data
 		return largeResponse
 	}, destination.AllowAll, nil)
@@ -436,7 +436,7 @@ func TestLinkRobustness_LargeOutboundRequestAsResourceCompletes(t *testing.T) {
 		t.Fatal("mdu must be positive")
 	}
 	largeReq := bytes.Repeat([]byte("Q"), mdu+128)
-	respLink.destination.RegisterRequestHandler("echo_req", func(_ string, data []byte, _ []byte, _ []byte, _ *identity.Identity, _ int64) []byte {
+	_ = respLink.destination.RegisterRequestHandler("echo_req", func(_ string, data []byte, _ []byte, _ []byte, _ *identity.Identity, _ int64) []byte {
 		return append([]byte("ok:"), data...)
 	}, destination.AllowAll, nil)
 

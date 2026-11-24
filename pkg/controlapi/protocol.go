@@ -353,11 +353,10 @@ func decodeJSONBody(w http.ResponseWriter, r *http.Request, dst any) error {
 		return io.EOF
 	}
 	body := http.MaxBytesReader(w, r.Body, maxHTTPBodyBytes)
-	defer body.Close()
+	defer func() { _ = body.Close() }()
 	dec := json.NewDecoder(body)
 	if err := dec.Decode(dst); err != nil {
-		var maxErr *http.MaxBytesError
-		if errors.As(err, &maxErr) {
+		if _, ok := errors.AsType[*http.MaxBytesError](err); ok {
 			writeError(w, http.StatusRequestEntityTooLarge, "request body too large")
 			return err
 		}

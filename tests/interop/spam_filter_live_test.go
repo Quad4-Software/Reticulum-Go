@@ -32,7 +32,7 @@ func setupSpamLiveTopo(t *testing.T, gateway bool) (*spamLiveTopo, func()) {
 	// where another process can claim the port. Retry the whole topology on
 	// a bind failure rather than failing the test on a lost race.
 	var lastErr error
-	for attempt := 0; attempt < 3; attempt++ {
+	for attempt := range 3 {
 		topo, cleanup, err := setupSpamLiveTopoAttempt(t, gateway)
 		if err == nil {
 			return topo, cleanup

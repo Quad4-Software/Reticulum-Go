@@ -175,14 +175,7 @@ func TestEnsureConfigDir(t *testing.T) {
 
 func TestInitConfig(t *testing.T) {
 	tmpDir := t.TempDir()
-	originalHome := os.Getenv("HOME")
-	defer func() {
-		if originalHome != "" {
-			os.Setenv("HOME", originalHome)
-		}
-	}()
-
-	os.Setenv("HOME", tmpDir)
+	t.Setenv("HOME", tmpDir)
 
 	cfg, err := InitConfig()
 	if err != nil {

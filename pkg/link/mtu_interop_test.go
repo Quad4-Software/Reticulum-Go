@@ -136,8 +136,8 @@ func establishInteropLinkPipe(t *testing.T, asyncDelivery bool) (initiator *Link
 	}
 
 	cleanup = func() {
-		trA.Close()
-		trB.Close()
+		_ = trA.Close()
+		_ = trB.Close()
 	}
 	return initiatorLink, r, cleanup
 }
@@ -296,18 +296,18 @@ func TestLinkInterop_MultipleRoundTripsStable(t *testing.T) {
 }
 
 func boundaryName(size, mdu int) string {
-	switch {
-	case size == 1:
+	switch size {
+	case 1:
 		return "size_1"
-	case size == mdu:
+	case mdu:
 		return "size_mdu"
-	case size == mdu-1:
+	case mdu - 1:
 		return "size_mdu_minus_1"
-	case size == mdu/2:
+	case mdu / 2:
 		return "size_half_mdu"
-	case size == 16:
+	case 16:
 		return "size_16"
-	case size == 64:
+	case 64:
 		return "size_64"
 	default:
 		return "size_other"

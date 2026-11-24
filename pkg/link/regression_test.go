@@ -40,7 +40,7 @@ func TestRegression_RequestOnActiveLinkDoesNotSelfDeadlock(t *testing.T) {
 	initLink, respLink, cleanup := establishInteropLink(t)
 	defer cleanup()
 
-	respLink.destination.RegisterRequestHandler("echo", func(_ string, data []byte, _ []byte, _ []byte, _ *identity.Identity, _ int64) []byte {
+	_ = respLink.destination.RegisterRequestHandler("echo", func(_ string, data []byte, _ []byte, _ []byte, _ *identity.Identity, _ int64) []byte {
 		return append([]byte("echo:"), data...)
 	}, destination.AllowAll, nil)
 
@@ -138,7 +138,7 @@ func TestRegression_ValidateLinkProofSafeUnderConcurrentInbound(t *testing.T) {
 
 	cfg := &common.ReticulumConfig{EnableTransport: true}
 	tr := transport.NewTransport(cfg)
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	tr.SetIdentity(cliIdent)
 
 	iface := newNoopIface("wan")
@@ -382,7 +382,7 @@ func TestRegression_BlackholeIdentifyTearsDownLink(t *testing.T) {
 func TestHandleInboundLRRTTNoNestedLockDeadlock(t *testing.T) {
 	cfg := unstampedLinkConfig()
 	tr := transport.NewTransport(cfg)
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	id, err := identity.New()
 	if err != nil {
 		t.Fatal(err)

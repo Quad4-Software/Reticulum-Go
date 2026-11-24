@@ -58,28 +58,28 @@ func statusInterval(live bool) time.Duration {
 }
 
 func (c *operatorConsole) println(args ...any) {
-	fmt.Fprintln(c.out, args...)
+	_, _ = fmt.Fprintln(c.out, args...)
 	c.flush()
 }
 
 func (c *operatorConsole) printf(format string, args ...any) {
-	fmt.Fprintf(c.out, format, args...)
+	_, _ = fmt.Fprintf(c.out, format, args...)
 	c.flush()
 }
 
 func (c *operatorConsole) updateStatus(line string) {
 	if c.live {
-		fmt.Fprint(c.out, term.ProgressClear(c.out)+line)
+		_, _ = fmt.Fprint(c.out, term.ProgressClear(c.out)+line)
 		c.flush()
 		return
 	}
-	fmt.Fprintln(c.out, line)
+	_, _ = fmt.Fprintln(c.out, line)
 	c.flush()
 }
 
 func (c *operatorConsole) clearStatus() {
 	if c.live {
-		fmt.Fprintf(c.out, "%s\n", term.ProgressClear(c.out))
+		_, _ = fmt.Fprintf(c.out, "%s\n", term.ProgressClear(c.out))
 		c.flush()
 	}
 }

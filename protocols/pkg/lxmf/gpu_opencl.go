@@ -116,6 +116,7 @@ func openGPUEngine() (*gpuEngineState, error) {
 	}, nil
 }
 
+// #nosec G103 -- OpenCL build log query passes a caller byte buffer
 func programBuildLog(api *openclAPI, program clProgram, device clDeviceID) string {
 	var n uintptr
 	if st := api.getBuildInfo(program, device, clProgramBuildLog, 0, nil, &n); st != clSuccess || n == 0 {
@@ -166,6 +167,7 @@ func pickGPUDevice(api *openclAPI) (*clCandidate, error) {
 	return best, nil
 }
 
+// #nosec G103 -- OpenCL device info call passes a caller buffer
 func describeDevice(api *openclAPI, platform clPlatformID, device clDeviceID) (clCandidate, error) {
 	name, err := api.infoString(func(param uint32, size uintptr, ptr unsafe.Pointer, sz *uintptr) int32 {
 		return api.getDeviceInfo(device, param, size, ptr, sz)
@@ -205,6 +207,7 @@ func vendorScore(vendor, name string) int {
 	}
 }
 
+// #nosec G103 G115 -- OpenCL kernel launch passes raw device buffers and bounded sizes
 func (e *gpuEngineState) generate(ctx context.Context, workblock []byte, stampCost int) ([]byte, int, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
@@ -358,6 +361,7 @@ func (e *gpuEngineState) generate(ctx context.Context, workblock []byte, stampCo
 	}
 }
 
+// #nosec G103 G115 -- OpenCL kernel args pass raw device buffers and bounded sizes
 func (e *gpuEngineState) workblock(material []byte, rounds int) ([]byte, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
@@ -422,6 +426,7 @@ func gpuWorkblockVerifyEnabled() bool {
 	return v == "1" || v == "true" || v == "yes"
 }
 
+// #nosec G103 G115 -- OpenCL kernel args pass raw device buffers and bounded counts
 func (e *gpuEngineState) batchValidate(cands []StampCandidate, targetCost, expandRounds int) ([]bool, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()

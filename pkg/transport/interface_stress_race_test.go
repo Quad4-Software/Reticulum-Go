@@ -20,7 +20,7 @@ func TestStressConcurrentUnregisterReplacePath(t *testing.T) {
 		t.Skip()
 	}
 	tr := NewTransport(&common.ReticulumConfig{})
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 
 	dest := bytes.Repeat([]byte{0xAA}, 16)
 	nextHop := bytes.Repeat([]byte{0xBB}, 16)
@@ -50,7 +50,7 @@ func TestStressConcurrentAnnounceWhileReplace(t *testing.T) {
 		t.Skip()
 	}
 	tr := NewTransport(&common.ReticulumConfig{})
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	SetTransportInstance(tr)
 	defer SetTransportInstance(nil)
 
@@ -89,7 +89,7 @@ func TestStressConcurrentReadersDuringUnregister(t *testing.T) {
 		t.Skip()
 	}
 	tr := NewTransport(&common.ReticulumConfig{})
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 
 	iface := mockIface("eth", true)
 	if err := tr.RegisterInterface("eth", iface); err != nil {
@@ -132,7 +132,7 @@ func TestGoroutineBudgetAfterUnregisterStress(t *testing.T) {
 	}
 	before := runtime.NumGoroutine()
 	tr := NewTransport(&common.ReticulumConfig{})
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	dest := bytes.Repeat([]byte{0x11}, 16)
 	nh := bytes.Repeat([]byte{0x22}, 16)
 	var wg sync.WaitGroup

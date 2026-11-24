@@ -147,7 +147,7 @@ func TestProfSimNetworkLoad(t *testing.T) {
 	wg.Wait()
 
 	pprof.StopCPUProfile()
-	cpuF.Close()
+	_ = cpuF.Close()
 
 	runtime.ReadMemStats(&m2)
 	g2 := runtime.NumGoroutine()
@@ -159,7 +159,7 @@ func TestProfSimNetworkLoad(t *testing.T) {
 			t.Errorf("create %s: %v", p, err)
 			return
 		}
-		defer f.Close()
+		defer func() { _ = f.Close() }()
 		if err := fn(f); err != nil {
 			t.Errorf("write %s: %v", p, err)
 		}

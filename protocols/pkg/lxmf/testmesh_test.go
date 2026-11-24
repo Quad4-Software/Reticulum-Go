@@ -80,10 +80,7 @@ func newLXMFMesh(t *testing.T, basePort int) *lxmfMesh {
 	_ = dest1.Announce(false, nil, nil)
 	_ = dest2.Announce(false, nil, nil)
 	deadline := time.Now().Add(pathEstablishWait)
-	for {
-		if tr1.HasPath(h2) && tr2.HasPath(h1) {
-			break
-		}
+	for !tr1.HasPath(h2) || !tr2.HasPath(h1) {
 		if time.Now().After(deadline) {
 			t.Fatal("path timeout")
 		}

@@ -41,7 +41,7 @@ func fakeSAMForDial(t *testing.T, failConnect bool, sessionCreates *atomic.Int32
 			wg.Add(1)
 			go func(c net.Conn) {
 				defer wg.Done()
-				defer c.Close()
+				defer func() { _ = c.Close() }()
 				br := bufio.NewReader(c)
 				for {
 					line, err := br.ReadString('\n')
@@ -99,7 +99,7 @@ func TestI2PPeerDialFailStaysOffline(t *testing.T) {
 
 	peer := NewI2PInterfacePeer(parent, "i2p_offline to dest",
 		"abcdefghijklmnopqrstuvwxyz234567abcdefghijklmnopqrst.b32.i2p", 1, parent.cfg)
-	defer peer.Stop()
+	defer func() { _ = peer.Stop() }()
 
 	deadline := time.Now().Add(5 * time.Second)
 	for time.Now().Before(deadline) {
@@ -136,7 +136,7 @@ func TestI2PPeerDialSuccessGoesOnline(t *testing.T) {
 
 	peer := NewI2PInterfacePeer(parent, "i2p_online to dest",
 		"abcdefghijklmnopqrstuvwxyz234567abcdefghijklmnopqrst.b32.i2p", 1, parent.cfg)
-	defer peer.Stop()
+	defer func() { _ = peer.Stop() }()
 
 	deadline := time.Now().Add(5 * time.Second)
 	for time.Now().Before(deadline) {
@@ -170,7 +170,7 @@ func TestI2PPeerReconnectOpensNewSession(t *testing.T) {
 
 	peer := NewI2PInterfacePeer(parent, "i2p_reconn to dest",
 		"abcdefghijklmnopqrstuvwxyz234567abcdefghijklmnopqrst.b32.i2p", 3, parent.cfg)
-	defer peer.Stop()
+	defer func() { _ = peer.Stop() }()
 
 	deadline := time.Now().Add(5 * time.Second)
 	for time.Now().Before(deadline) {
@@ -249,7 +249,7 @@ func TestI2PPeerStopCancelsDial(t *testing.T) {
 			wg.Add(1)
 			go func(conn net.Conn) {
 				defer wg.Done()
-				defer conn.Close()
+				defer func() { _ = conn.Close() }()
 				br := bufio.NewReader(conn)
 				for {
 					line, err := br.ReadString('\n')
@@ -311,7 +311,7 @@ func TestI2PPeerMaxReconnectExhausted(t *testing.T) {
 	// maxReconnect=1: initial fail then reconnect path with one attempt.
 	peer := NewI2PInterfacePeer(parent, "i2p_maxre to dest",
 		"abcdefghijklmnopqrstuvwxyz234567abcdefghijklmnopqrst.b32.i2p", 1, parent.cfg)
-	defer peer.Stop()
+	defer func() { _ = peer.Stop() }()
 
 	deadline := time.Now().Add(40 * time.Second)
 	for time.Now().Before(deadline) {

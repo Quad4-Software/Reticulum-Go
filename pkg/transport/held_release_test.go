@@ -31,7 +31,7 @@ func TestHeldAnnouncePriorityRelease(t *testing.T) {
 		ICHeldReleaseInterval: 3600,
 	}
 	tr, _, out := transportWithIfaceConfig(t, inCfg, nil)
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 
 	st := tr.ifaceStates.get("in")
 	if st == nil || st.ingress == nil {
@@ -39,7 +39,7 @@ func TestHeldAnnouncePriorityRelease(t *testing.T) {
 	}
 
 	// Force the burst state with dummy non-new-destination arrivals.
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		var h [32]byte
 		h[0] = byte(i)
 		h[1] = byte(i >> 8)

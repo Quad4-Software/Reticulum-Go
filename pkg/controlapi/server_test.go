@@ -78,7 +78,7 @@ func doJSON(t testing.TB, method, url, authKeyHex string, body any) (*http.Respo
 	if err != nil {
 		t.Fatalf("do request: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	raw, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -321,7 +321,7 @@ func TestWebSocketAnnounceSubscription(t *testing.T) {
 	sessionID, _ := session["session_id"].(string)
 
 	ws := dialControlAPIWS(t, ts.URL, fmt.Sprintf("/v1/sessions/%s/events", sessionID), authKey)
-	defer ws.conn.Close()
+	defer func() { _ = ws.conn.Close() }()
 
 	ws.sendText(t, []byte(`{"type":"subscribe_announces"}`))
 

@@ -272,7 +272,7 @@ func TestStampedAnnounceJobCopiesTag(t *testing.T) {
 				job = got
 				found = true
 			}
-		case <-time.After(deadline.Sub(time.Now())):
+		case <-time.After(time.Until(deadline)):
 			t.Fatal("deferred announce job never queued")
 		}
 	}

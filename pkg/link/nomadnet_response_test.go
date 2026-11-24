@@ -144,12 +144,12 @@ func TestLinkRequestPassesMapDataAsDict(t *testing.T) {
 
 	cfgA := unstampedLinkConfig()
 	trA := transport.NewTransport(cfgA)
-	defer trA.Close()
+	defer func() { _ = trA.Close() }()
 	idA, _ := identity.New()
 
 	cfgB := unstampedLinkConfig()
 	trB := transport.NewTransport(cfgB)
-	defer trB.Close()
+	defer func() { _ = trB.Close() }()
 
 	pipeA := NewPipeInterface("pipeA")
 	pipeB := NewPipeInterface("pipeB")
@@ -165,7 +165,7 @@ func TestLinkRequestPassesMapDataAsDict(t *testing.T) {
 
 	var receivedMap map[string]any
 	var receivedRaw any
-	destA.RegisterRequestHandler("/page/index.mu", func(path string, data []byte, requestID []byte, linkID []byte, remoteIdentity *identity.Identity, requestedAt int64) []byte {
+	_ = destA.RegisterRequestHandler("/page/index.mu", func(path string, data []byte, requestID []byte, linkID []byte, remoteIdentity *identity.Identity, requestedAt int64) []byte {
 		var decoded any
 		if err := msgpack.Unmarshal(data, &decoded); err == nil {
 			receivedRaw = decoded

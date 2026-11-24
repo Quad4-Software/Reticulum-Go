@@ -87,9 +87,6 @@ func TestAdversarial_ShortPoWStampRejected(t *testing.T) {
 	if StampValid([]byte{0x01}, 8, wb) {
 		t.Fatal("short stamp must fail when targetCost>0")
 	}
-	if StampValid(bytes.Repeat([]byte{0x01}, StampSize), 8, wb) {
-		// Unlikely but ok if random happens to satisfy; only length is required here.
-	}
 }
 
 func TestAdversarial_ValidateStampRequiresHash(t *testing.T) {

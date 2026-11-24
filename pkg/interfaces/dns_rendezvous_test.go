@@ -41,7 +41,7 @@ func TestDNSRendezvousEcho(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer peer.Close()
+	defer func() { _ = peer.Close() }()
 	peerPort := peer.LocalAddr().(*net.UDPAddr).Port
 
 	var peerHits atomic.Uint64
@@ -69,7 +69,7 @@ func TestDNSRendezvousEcho(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer di.Stop()
+	defer func() { _ = di.Stop() }()
 
 	if di.ActiveTarget() == "" {
 		t.Fatal("expected active target after start")

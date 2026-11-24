@@ -16,7 +16,7 @@ func TestStartBlackholeUpdaterNoSources(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer n.Stop()
+	defer func() { _ = n.Stop() }()
 	n.StartBlackholeUpdater()
 	n.bhUpdaterMu.Lock()
 	running := n.bhUpdaterRunning
@@ -33,7 +33,7 @@ func TestStartBlackholeUpdaterIdempotent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer n.Stop()
+	defer func() { _ = n.Stop() }()
 	n.StartBlackholeUpdater()
 	n.StartBlackholeUpdater()
 	n.bhUpdaterMu.Lock()

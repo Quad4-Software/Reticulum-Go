@@ -17,7 +17,7 @@ func TestReestablishFromClosed(t *testing.T) {
 		t.Fatal(err)
 	}
 	tr := transport.NewTransport(nil)
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 
 	iface := newNoopIface("test")
 	iface.Enable()

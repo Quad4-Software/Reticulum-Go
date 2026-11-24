@@ -46,12 +46,10 @@ type dropFn func(data []byte) bool
 
 func NewPipeInterface(name string) *PipeInterface {
 	p := &PipeInterface{
-		BaseInterface: common.BaseInterface{
-			Name:    name,
-			Type:    common.IFTypeUDP,
-			Enabled: true,
-			Online:  true,
-		},
+		Name:    name,
+		Type:    common.IFTypeUDP,
+		Enabled: true,
+		Online:  true,
 	}
 	p.online.Store(true)
 	return p
@@ -186,13 +184,13 @@ func TestNodeInterop(t *testing.T) {
 	// Create Node A
 	cfgA := unstampedLinkConfig()
 	trA := transport.NewTransport(cfgA)
-	defer trA.Close()
+	defer func() { _ = trA.Close() }()
 	idA, _ := identity.New()
 
 	// Create Node B
 	cfgB := unstampedLinkConfig()
 	trB := transport.NewTransport(cfgB)
-	defer trB.Close()
+	defer func() { _ = trB.Close() }()
 	idB, _ := identity.New()
 	_ = idB // Use idB to avoid unused error
 
@@ -393,12 +391,12 @@ func TestLinkRequestResponseInterop(t *testing.T) {
 	// Create Nodes
 	cfgA := unstampedLinkConfig()
 	trA := transport.NewTransport(cfgA)
-	defer trA.Close()
+	defer func() { _ = trA.Close() }()
 	idA, _ := identity.New()
 
 	cfgB := unstampedLinkConfig()
 	trB := transport.NewTransport(cfgB)
-	defer trB.Close()
+	defer func() { _ = trB.Close() }()
 	idB, _ := identity.New()
 	_ = idB // Use idB to avoid unused error
 
@@ -417,11 +415,11 @@ func TestLinkRequestResponseInterop(t *testing.T) {
 	destA.AcceptsLinks(true)
 
 	// Register multiple handlers to test routing
-	destA.RegisterRequestHandler("test/1", func(path string, data []byte, requestID []byte, linkID []byte, remoteIdentity *identity.Identity, requestedAt int64) []byte {
+	_ = destA.RegisterRequestHandler("test/1", func(path string, data []byte, requestID []byte, linkID []byte, remoteIdentity *identity.Identity, requestedAt int64) []byte {
 		return []byte("resp 1")
 	}, destination.AllowAll, nil)
 
-	destA.RegisterRequestHandler("test/2", func(path string, data []byte, requestID []byte, linkID []byte, remoteIdentity *identity.Identity, requestedAt int64) []byte {
+	_ = destA.RegisterRequestHandler("test/2", func(path string, data []byte, requestID []byte, linkID []byte, remoteIdentity *identity.Identity, requestedAt int64) []byte {
 		return append([]byte("resp 2: "), data...)
 	}, destination.AllowAll, nil)
 

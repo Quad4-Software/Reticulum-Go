@@ -280,10 +280,7 @@ func newRouterMesh(t *testing.T, basePort int) *routerMesh {
 	_ = sendDest.Announce(false, nil, nil)
 	_ = recvDest.Announce(false, nil, nil)
 	deadline := time.Now().Add(pathEstablishWait)
-	for {
-		if sendTr.HasPath(recvHash) && recvTr.HasPath(sendHash) {
-			break
-		}
+	for !sendTr.HasPath(recvHash) || !recvTr.HasPath(sendHash) {
 		if time.Now().After(deadline) {
 			t.Fatal("router mesh path timeout")
 		}

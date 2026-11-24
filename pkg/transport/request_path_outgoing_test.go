@@ -13,7 +13,7 @@ import (
 
 func TestRequestPathNoOutgoingInterface(t *testing.T) {
 	tr := NewTransport(unstampedTestConfig(true))
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	tr.SetIdentity(mustIdentity(t))
 
 	dest := bytes.Repeat([]byte{0x22}, 16)
@@ -24,7 +24,7 @@ func TestRequestPathNoOutgoingInterface(t *testing.T) {
 
 func TestRequestPathIfaceNotReady(t *testing.T) {
 	tr := NewTransport(unstampedTestConfig(true))
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	tr.SetIdentity(mustIdentity(t))
 
 	out := newRelayIface("out")

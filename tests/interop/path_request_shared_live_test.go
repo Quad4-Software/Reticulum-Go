@@ -80,7 +80,7 @@ func TestLiveInteropSharedClientPathRequestForwarding(t *testing.T) {
 	if err := n.Start(); err != nil {
 		t.Fatalf("node start: %v", err)
 	}
-	defer n.Stop()
+	defer func() { _ = n.Stop() }()
 
 	// Add a UDP interface to the Go node pointing at the Python announce peer.
 	udpIface, err := interfaces.NewUDPInterface(
@@ -98,7 +98,7 @@ func TestLiveInteropSharedClientPathRequestForwarding(t *testing.T) {
 	if err := udpIface.Start(); err != nil {
 		t.Fatalf("start udp: %v", err)
 	}
-	defer udpIface.Stop()
+	defer func() { _ = udpIface.Stop() }()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()

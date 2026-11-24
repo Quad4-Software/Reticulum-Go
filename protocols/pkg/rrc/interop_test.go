@@ -163,7 +163,7 @@ func TestInterop_Live_PythonClientGoHub(t *testing.T) {
 	if err := tr.Start(); err != nil {
 		t.Fatalf("transport: %v", err)
 	}
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 
 	var iface interfaces.Interface
 	var err error
@@ -175,7 +175,7 @@ func TestInterop_Live_PythonClientGoHub(t *testing.T) {
 	if err := iface.Start(); err != nil {
 		t.Fatalf("udp start: %v", err)
 	}
-	defer iface.Stop()
+	defer func() { _ = iface.Stop() }()
 	if ni, ok := iface.(common.NetworkInterface); ok {
 		if err := tr.RegisterInterface(udpGo, ni); err != nil {
 			t.Fatalf("register: %v", err)
@@ -291,7 +291,7 @@ func TestInterop_Live_GoClientPythonHub(t *testing.T) {
 	if err := tr.Start(); err != nil {
 		t.Fatalf("transport: %v", err)
 	}
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 
 	id, err := identity.NewIdentity()
 	if err != nil {
@@ -307,7 +307,7 @@ func TestInterop_Live_GoClientPythonHub(t *testing.T) {
 	if err := iface.Start(); err != nil {
 		t.Fatalf("udp start: %v", err)
 	}
-	defer iface.Stop()
+	defer func() { _ = iface.Stop() }()
 	if ni, ok := iface.(common.NetworkInterface); ok {
 		if err := tr.RegisterInterface(udpGo, ni); err != nil {
 			t.Fatalf("register: %v", err)

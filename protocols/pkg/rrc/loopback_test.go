@@ -44,15 +44,15 @@ func TestHubClientLoopback(t *testing.T) {
 	if err := trH.Start(); err != nil {
 		t.Fatalf("trH: %v", err)
 	}
-	defer trH.Close()
+	defer func() { _ = trH.Close() }()
 	if err := trA.Start(); err != nil {
 		t.Fatalf("trA: %v", err)
 	}
-	defer trA.Close()
+	defer func() { _ = trA.Close() }()
 	if err := trB.Start(); err != nil {
 		t.Fatalf("trB: %v", err)
 	}
-	defer trB.Close()
+	defer func() { _ = trB.Close() }()
 
 	addrH := "127.0.0.1:42510"
 	addrA := "127.0.0.1:42511"
@@ -84,13 +84,13 @@ func TestHubClientLoopback(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ifaceH1: %v", err)
 	}
-	defer ifaceH1.Stop()
+	defer func() { _ = ifaceH1.Stop() }()
 
 	ifaceA, err := startUDP(rrcUDP2, addrA, addrH, trA)
 	if err != nil {
 		t.Fatalf("ifaceA: %v", err)
 	}
-	defer ifaceA.Stop()
+	defer func() { _ = ifaceA.Stop() }()
 
 	// Second hub interface toward B
 	var ifaceH2 interfaces.Interface
@@ -102,7 +102,7 @@ func TestHubClientLoopback(t *testing.T) {
 	if err := ifaceH2.Start(); err != nil {
 		t.Fatalf("ifaceH2 start: %v", err)
 	}
-	defer ifaceH2.Stop()
+	defer func() { _ = ifaceH2.Stop() }()
 	if ni, ok := ifaceH2.(common.NetworkInterface); ok {
 		if err := trH.RegisterInterface("RRC1b", ni); err != nil {
 			t.Fatalf("register H2: %v", err)
@@ -113,7 +113,7 @@ func TestHubClientLoopback(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ifaceB: %v", err)
 	}
-	defer ifaceB.Stop()
+	defer func() { _ = ifaceB.Stop() }()
 
 	idH, err := identity.NewIdentity()
 	if err != nil {
@@ -153,10 +153,7 @@ func TestHubClientLoopback(t *testing.T) {
 	identity.Remember(nil, idB.Hash(), idB.GetPublicKey(), nil)
 
 	deadline := time.Now().Add(rrcPathWait)
-	for {
-		if trA.HasPath(hubHash) && trB.HasPath(hubHash) {
-			break
-		}
+	for !trA.HasPath(hubHash) || !trB.HasPath(hubHash) {
 		if time.Now().After(deadline) {
 			t.Fatal("path timeout to hub")
 		}

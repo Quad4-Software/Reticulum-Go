@@ -32,7 +32,7 @@ func TestSerialRaceStopSend(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer b.Stop()
+	defer func() { _ = b.Stop() }()
 
 	var n atomic.Int32
 	b.SetPacketCallback(func([]byte, common.NetworkInterface) { n.Add(1) })

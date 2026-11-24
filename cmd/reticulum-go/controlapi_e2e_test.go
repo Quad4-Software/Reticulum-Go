@@ -24,7 +24,7 @@ func freeTCPPort(t *testing.T) int {
 	if err != nil {
 		t.Fatalf("find free port: %v", err)
 	}
-	defer ln.Close()
+	defer func() { _ = ln.Close() }()
 	return ln.Addr().(*net.TCPAddr).Port
 }
 
@@ -44,14 +44,14 @@ func TestControlAPIStartStop(t *testing.T) {
 	if err != nil {
 		t.Fatalf("node.New: %v", err)
 	}
-	defer n.Stop()
+	defer func() { _ = n.Stop() }()
 
 	r := &Reticulum{Node: n, config: cfg}
 	r.StartControlAPI()
 	if r.controlAPI == nil {
 		t.Fatal("StartControlAPI did not set r.controlAPI")
 	}
-	defer r.controlAPI.Close()
+	defer func() { _ = r.controlAPI.Close() }()
 
 	url := fmt.Sprintf("http://%s:%d/v1/health", cfg.ControlAPIHost, cfg.ControlAPIPort)
 	token := hex.EncodeToString(cfg.RPCKey)
@@ -72,7 +72,7 @@ func TestControlAPIStartStop(t *testing.T) {
 	if err != nil {
 		t.Fatalf("health request never succeeded: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("health status = %d, want %d", resp.StatusCode, http.StatusOK)
 	}
@@ -97,14 +97,14 @@ func TestControlAPISessionHTTPSmoke(t *testing.T) {
 	if err != nil {
 		t.Fatalf("node.New: %v", err)
 	}
-	defer n.Stop()
+	defer func() { _ = n.Stop() }()
 
 	r := &Reticulum{Node: n, config: cfg}
 	r.StartControlAPI()
 	if r.controlAPI == nil {
 		t.Fatal("StartControlAPI did not set r.controlAPI")
 	}
-	defer r.controlAPI.Close()
+	defer func() { _ = r.controlAPI.Close() }()
 
 	base := fmt.Sprintf("http://%s:%d", cfg.ControlAPIHost, cfg.ControlAPIPort)
 	token := hex.EncodeToString(cfg.RPCKey)
@@ -141,7 +141,7 @@ func TestControlAPISessionHTTPSmoke(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	delResp.Body.Close()
+	_ = delResp.Body.Close()
 	if delResp.StatusCode != http.StatusNoContent {
 		t.Fatalf("DELETE handler status = %d", delResp.StatusCode)
 	}
@@ -155,7 +155,7 @@ func TestControlAPISessionHTTPSmoke(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	delSessResp.Body.Close()
+	_ = delSessResp.Body.Close()
 	if delSessResp.StatusCode != http.StatusNoContent && delSessResp.StatusCode != http.StatusOK {
 		t.Fatalf("DELETE session status = %d", delSessResp.StatusCode)
 	}
@@ -173,7 +173,7 @@ func waitHealthy(t *testing.T, url, token string) {
 		var resp *http.Response
 		resp, err = http.DefaultClient.Do(req)
 		if err == nil {
-			resp.Body.Close()
+			_ = resp.Body.Close()
 			if resp.StatusCode == http.StatusOK {
 				return
 			}
@@ -218,7 +218,7 @@ func postJSONRaw(t *testing.T, url, token string, body map[string]any) (int, map
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	raw, err := io.ReadAll(resp.Body)
 	if err != nil {
 		t.Fatal(err)

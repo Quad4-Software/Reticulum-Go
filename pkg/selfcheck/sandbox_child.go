@@ -54,7 +54,7 @@ func runSandboxChild() int {
 		fmt.Fprintf(os.Stderr, "pre-apply udp: %v\n", err)
 		return 1
 	}
-	defer udp.Close()
+	defer func() { _ = udp.Close() }()
 
 	if err := sandbox.Apply(cfg); err != nil {
 		fmt.Fprintf(os.Stderr, "sandbox apply: %v\n", err)

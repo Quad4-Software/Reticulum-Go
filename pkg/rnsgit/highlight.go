@@ -127,7 +127,7 @@ func init() {
 
 func kwSet(words string) map[string]bool {
 	out := map[string]bool{}
-	for _, w := range strings.Fields(words) {
+	for w := range strings.FieldsSeq(words) {
 		out[w] = true
 	}
 	return out

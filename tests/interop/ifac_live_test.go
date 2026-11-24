@@ -58,7 +58,7 @@ func setupGoIFACPeer(t *testing.T, pyListen, pyForward int, netname, netkey stri
 	if err := tr.InitializePathRequestHandler(); err != nil {
 		t.Fatalf("path handler: %v", err)
 	}
-	cleanup := func() { tr.Close() }
+	cleanup := func() { _ = tr.Close() }
 	return tr, iface, cleanup
 }
 

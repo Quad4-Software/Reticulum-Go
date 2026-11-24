@@ -77,7 +77,7 @@ func ReadOrExecute(filePath string, data []byte, linkID []byte, remoteIdentity *
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	fi, err := f.Stat()
 	if err != nil {

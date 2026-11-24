@@ -135,7 +135,7 @@ func run(args []string) int {
 		return 1
 	}
 	if closer != nil {
-		defer closer.Close()
+		defer func() { _ = closer.Close() }()
 	}
 
 	svc := gorrcd.NewService(cfg, log)

@@ -25,7 +25,7 @@ func TestRunMutantKillsOnSamplePackage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer r.Close()
+	defer func() { _ = r.Close() }()
 
 	killed := 0
 	for _, m := range mutants {

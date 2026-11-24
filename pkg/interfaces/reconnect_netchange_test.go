@@ -23,7 +23,7 @@ func quarantinedTracker(t *testing.T, label string, base map[string]struct{}) (*
 	et.netProbe = func() (map[string]struct{}, error) {
 		return cur.Load().(map[string]struct{}), nil
 	}
-	for i := 0; i < EndpointQuarantineConsecutiveFails; i++ {
+	for range EndpointQuarantineConsecutiveFails {
 		et.RecordFailure(label)
 	}
 	if ok, _ := et.DialAllowed(label); ok {

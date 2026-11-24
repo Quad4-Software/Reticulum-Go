@@ -294,7 +294,7 @@ func (wc *WebTransportClientInterface) dialSession() (net.Conn, error) {
 		QUICConfig:           wtQUICConfig(),
 		ApplicationProtocols: []string{wtAppProtocol},
 	}
-	defer d.Close()
+	defer func() { _ = d.Close() }()
 
 	ctx, cancel := context.WithTimeout(context.Background(), wtDialTimeout)
 	defer cancel()
@@ -628,7 +628,7 @@ func (wc *WebTransportClientInterface) acceptStreamLoop(ctx context.Context) {
 }
 
 func (wc *WebTransportClientInterface) readHDLCStream(stream *webtransport.Stream) {
-	defer stream.Close()
+	defer func() { _ = stream.Close() }()
 	decoder := newHDLCToggleStreamDecoder(wc.MTU, func(payload []byte) {
 		if len(payload) == 0 {
 			return
@@ -947,7 +947,7 @@ func (ws *WebTransportServerInterface) acceptStreamLoop(sess *webtransport.Sessi
 }
 
 func (ws *WebTransportServerInterface) readHDLCStream(stream *webtransport.Stream) {
-	defer stream.Close()
+	defer func() { _ = stream.Close() }()
 	decoder := newHDLCToggleStreamDecoder(ws.MTU, func(payload []byte) {
 		if len(payload) == 0 {
 			return

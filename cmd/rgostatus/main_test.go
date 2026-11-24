@@ -22,7 +22,7 @@ func TestRgostatusAgainstRPC(t *testing.T) {
 	cfgDir := t.TempDir()
 	cfg := &common.ReticulumConfig{EnableTransport: false}
 	tr := transport.NewTransport(cfg)
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 
 	port := freePort(t)
 	cfg.InstanceControlPort = port
@@ -31,7 +31,7 @@ func TestRgostatusAgainstRPC(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer srv.Close()
+	defer func() { _ = srv.Close() }()
 
 	auth := tr.RPCAuthKey()
 	configBody := "[reticulum]\n" +
@@ -66,7 +66,7 @@ func freePort(t *testing.T) int {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer ln.Close()
+	defer func() { _ = ln.Close() }()
 	return ln.Addr().(*net.TCPAddr).Port
 }
 

@@ -117,7 +117,7 @@ func (c *RPCClient) Call(call map[string]any, dest any) error {
 	if err != nil {
 		return fmt.Errorf("dial shared instance rpc: %w", err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 	_ = conn.SetDeadline(time.Now().Add(c.timeout))
 
 	if err := sharedinstance.AuthenticateClient(conn, c.authkey); err != nil {

@@ -6,7 +6,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/term"
 )
@@ -49,8 +48,8 @@ func PrintStartupBanner(version, delivery, propagation, home, logFile string) {
 
 // PrintSelfCheckResults prints colored self-check output.
 func PrintSelfCheckResults(results []SelfCheckResult) {
-	fmt.Fprintln(colorOut())
-	fmt.Fprintf(colorOut(), "%s\n", statusBold("golxmd self-check"))
+	_, _ = fmt.Fprintln(colorOut())
+	_, _ = fmt.Fprintf(colorOut(), "%s\n", statusBold("golxmd self-check"))
 	passed := 0
 	for _, r := range results {
 		mark := statusFail("FAIL")
@@ -62,14 +61,14 @@ func PrintSelfCheckResults(results []SelfCheckResult) {
 		if r.Detail != "" {
 			line += ": " + r.Detail
 		}
-		fmt.Fprintln(colorOut(), line)
+		_, _ = fmt.Fprintln(colorOut(), line)
 	}
-	fmt.Fprintln(colorOut())
+	_, _ = fmt.Fprintln(colorOut())
 	summary := fmt.Sprintf("%d/%d checks passed", passed, len(results))
 	if passed == len(results) {
-		fmt.Fprintf(colorOut(), "%s\n\n", statusOK(summary))
+		_, _ = fmt.Fprintf(colorOut(), "%s\n\n", statusOK(summary))
 	} else {
-		fmt.Fprintf(colorOut(), "%s\n\n", statusFail(summary))
+		_, _ = fmt.Fprintf(colorOut(), "%s\n\n", statusFail(summary))
 	}
 }
 
@@ -86,8 +85,8 @@ func PrintFirstRunNotice(cfgPath, identPath, storageDir, rnsDir string) {
 }
 
 func printStatusHeader(destHash string, uptime float64) {
-	fmt.Fprintln(colorOut())
-	fmt.Fprintf(colorOut(), "%s %s, uptime %s\n",
+	_, _ = fmt.Fprintln(colorOut())
+	_, _ = fmt.Fprintf(colorOut(), "%s %s, uptime %s\n",
 		statusBold("LXMF Propagation Node"),
 		prettyHex(destHash),
 		statusLabel(prettyTime(uptime)),
@@ -95,15 +94,11 @@ func printStatusHeader(destHash string, uptime float64) {
 }
 
 func printKV(label, value string) {
-	fmt.Fprintf(colorOut(), "  %s %s\n", statusLabel(label+":"), value)
+	_, _ = fmt.Fprintf(colorOut(), "  %s %s\n", statusLabel(label+":"), value)
 }
 
 func printSection(title string) {
-	fmt.Fprintf(colorOut(), "\n%s\n", statusBold(title))
-}
-
-func indentPeerLine(s string) string {
-	return "  " + s
+	_, _ = fmt.Fprintf(colorOut(), "\n%s\n", statusBold(title))
 }
 
 func peerStatusLabel(available bool) string {
@@ -119,8 +114,4 @@ func truncateName(name string, max int) string {
 		return name
 	}
 	return name[:max] + "..."
-}
-
-func joinPathParts(parts ...string) string {
-	return strings.Join(parts, string(os.PathSeparator))
 }

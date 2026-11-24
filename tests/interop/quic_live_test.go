@@ -40,7 +40,7 @@ func TestLiveInteropQUICGoGoEcho(t *testing.T) {
 	if err := srv.Start(); err != nil {
 		t.Fatal(err)
 	}
-	defer srv.Stop()
+	defer func() { _ = srv.Stop() }()
 
 	cli, err := interfaces.NewQUICClientInterfaceWithRetries("live_quic_cli", "127.0.0.1", port, true, -1, interfaces.QUICClientOptions{
 		PeerKey: pin,
@@ -48,7 +48,7 @@ func TestLiveInteropQUICGoGoEcho(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer cli.Stop()
+	defer func() { _ = cli.Stop() }()
 
 	deadline := time.Now().Add(10 * time.Second)
 	for time.Now().Before(deadline) && !cli.IsOnline() {
@@ -88,13 +88,13 @@ func TestLiveInteropQUICBidirectional(t *testing.T) {
 	if err := srv.Start(); err != nil {
 		t.Fatal(err)
 	}
-	defer srv.Stop()
+	defer func() { _ = srv.Stop() }()
 
 	cli, err := interfaces.NewQUICClientInterfaceWithRetries("live_quic_bi_cli", "127.0.0.1", port, true, -1, interfaces.QUICClientOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer cli.Stop()
+	defer func() { _ = cli.Stop() }()
 
 	deadline := time.Now().Add(10 * time.Second)
 	for time.Now().Before(deadline) && !cli.IsOnline() {

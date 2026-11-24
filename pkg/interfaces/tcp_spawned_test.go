@@ -34,7 +34,7 @@ func TestTCPServerSpawnedClientsIndependentState(t *testing.T) {
 	if err := srv.Start(); err != nil {
 		t.Fatalf("Start: %v", err)
 	}
-	defer srv.Stop()
+	defer func() { _ = srv.Stop() }()
 
 	port := srv.listener.Addr().(*net.TCPAddr).Port
 	dial := func() net.Conn {
@@ -45,9 +45,9 @@ func TestTCPServerSpawnedClientsIndependentState(t *testing.T) {
 		return conn
 	}
 	c1 := dial()
-	defer c1.Close()
+	defer func() { _ = c1.Close() }()
 	c2 := dial()
-	defer c2.Close()
+	defer func() { _ = c2.Close() }()
 
 	deadline := time.Now().Add(3 * time.Second)
 	for time.Now().Before(deadline) {

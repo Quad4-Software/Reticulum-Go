@@ -93,7 +93,7 @@ func newStampTestTransport(t *testing.T, stampsCfg common.StampsConfig) (*Transp
 	h := &captureAnnounceHandler{wantPR: true}
 	tr.RegisterAnnounceHandler(h)
 	t.Cleanup(func() {
-		tr.Close()
+		_ = tr.Close()
 		iface.stop()
 	})
 	return tr, iface, h

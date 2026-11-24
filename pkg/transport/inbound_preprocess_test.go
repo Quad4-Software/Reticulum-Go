@@ -12,7 +12,7 @@ import (
 
 func TestPreprocessMinimalDataPacket(t *testing.T) {
 	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	raw := minimalDataPacket()
 	pkt := &packet.Packet{Raw: raw}
 	if err := pkt.Unpack(); err != nil {

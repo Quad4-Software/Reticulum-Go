@@ -54,7 +54,7 @@ func (s *wsEchoServer) serve() {
 }
 
 func (s *wsEchoServer) handle(conn net.Conn) {
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 	br := bufio.NewReader(conn)
 	req, err := http.ReadRequest(br)
 	if err != nil {
@@ -100,13 +100,14 @@ func wsReadFrame(br *bufio.Reader) ([]byte, byte, error) {
 	opcode := hdr[0] & 0x0f
 	masked := hdr[1]&0x80 != 0
 	plen := uint64(hdr[1] & 0x7f)
-	if plen == 126 {
+	switch plen {
+	case 126:
 		var b [2]byte
 		if _, err := readFullWS(br, b[:]); err != nil {
 			return nil, 0, err
 		}
 		plen = uint64(binary.BigEndian.Uint16(b[:]))
-	} else if plen == 127 {
+	case 127:
 		var b [8]byte
 		if _, err := readFullWS(br, b[:]); err != nil {
 			return nil, 0, err
@@ -172,14 +173,14 @@ func TestLiveInteropWebSocketGoEcho(t *testing.T) {
 	liveOrSkip(t)
 
 	srv := startWSEchoServer(t)
-	defer srv.ln.Close()
+	defer func() { _ = srv.ln.Close() }()
 	url := "ws://" + srv.ln.Addr().String() + "/rns"
 
 	cli, err := interfaces.NewWebSocketInterface("live_ws", url, true)
 	if err != nil {
 		t.Fatalf("NewWebSocketInterface: %v", err)
 	}
-	defer cli.Stop()
+	defer func() { _ = cli.Stop() }()
 	if err := cli.Start(); err != nil {
 		t.Fatalf("start ws client: %v", err)
 	}

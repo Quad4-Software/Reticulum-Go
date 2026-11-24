@@ -229,7 +229,7 @@ func WriteStatusHuman(w io.Writer, stats transport.InterfaceStatsResponse, linkC
 		if hideInterface(st.Name, opts.ShowAll) {
 			continue
 		}
-		if opts.BurstFilter && !(st.BurstActive || st.PRBurstActive) {
+		if opts.BurstFilter && !st.BurstActive && !st.PRBurstActive {
 			if filter == "" {
 				continue
 			}

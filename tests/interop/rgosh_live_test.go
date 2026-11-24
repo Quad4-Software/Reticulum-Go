@@ -62,7 +62,7 @@ func TestLiveGoToGoRgoshPipe(t *testing.T) {
 	if err := nA.Start(); err != nil {
 		t.Fatal(err)
 	}
-	defer nA.Stop()
+	defer func() { _ = nA.Stop() }()
 
 	idListen, err := identity.New()
 	if err != nil {
@@ -299,7 +299,7 @@ func TestLiveGoCompatToPythonRnsh(t *testing.T) {
 	}
 	// Keep draining the listener stdout so RNS logging or prints can never
 	// fill the pipe and block the Python session pump.
-	go io.Copy(io.Discard, stdout)
+	go func() { _, _ = io.Copy(io.Discard, stdout) }()
 
 	rgoshBin := ensureRgosh(t)
 	cmd := exec.CommandContext(ctx, rgoshBin, "-config", cfgDirB, "--compat", "-N", "-m", "-v", "-w", "20", destHex, "/bin/echo", "py-rnsh-ok")

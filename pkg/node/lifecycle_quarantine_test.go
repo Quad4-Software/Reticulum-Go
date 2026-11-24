@@ -25,7 +25,7 @@ func TestOnNetworkAvailableResetsEndpointQuarantines(t *testing.T) {
 	tr := interfaces.DefaultEndpointTracker
 	t.Cleanup(tr.ResetQuarantines)
 	ep := "lifecycle-quarantine:4242"
-	for i := 0; i < interfaces.EndpointQuarantineConsecutiveFails; i++ {
+	for range interfaces.EndpointQuarantineConsecutiveFails {
 		tr.RecordFailure(ep)
 	}
 	if ok, _ := tr.DialAllowed(ep); ok {

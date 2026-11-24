@@ -21,7 +21,7 @@ func TestDNSRendezvousRaceStopSend(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer peer.Close()
+	defer func() { _ = peer.Close() }()
 	peerPort := peer.LocalAddr().(*net.UDPAddr).Port
 	go func() {
 		buf := make([]byte, 2048)

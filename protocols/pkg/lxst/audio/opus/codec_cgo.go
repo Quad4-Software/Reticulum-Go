@@ -282,3 +282,19 @@ func (d *cgoDecoder) Close() error {
 	d.dec = nil
 	return nil
 }
+
+func mixdownInterleaved(pcm []int16, channels int) []int16 {
+	if channels <= 1 || len(pcm) < channels {
+		return pcm
+	}
+	n := len(pcm) / channels
+	for i := range n {
+		var acc int
+		base := i * channels
+		for ch := range channels {
+			acc += int(pcm[base+ch])
+		}
+		pcm[i] = int16(acc / channels) // #nosec G115 -- average of int16 samples
+	}
+	return pcm[:n]
+}

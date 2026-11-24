@@ -58,7 +58,7 @@ func (tw *transportWrapper) Send(data []byte) any {
 		Data:       data,
 		HeaderType: packet.HeaderType1,
 	}
-	if err := tw.Transport.SendPacket(p); err != nil {
+	if err := tw.SendPacket(p); err != nil {
 		return nil
 	}
 	return p
@@ -66,7 +66,7 @@ func (tw *transportWrapper) Send(data []byte) any {
 
 func (tw *transportWrapper) Resend(p any) error {
 	if pkt, ok := p.(*packet.Packet); ok {
-		return tw.Transport.SendPacket(pkt)
+		return tw.SendPacket(pkt)
 	}
 	return fmt.Errorf("invalid packet type")
 }

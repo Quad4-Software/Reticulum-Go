@@ -13,7 +13,7 @@ import (
 
 func TestRegisterInterfaceDefersInboundIFAC(t *testing.T) {
 	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	iface := newSimIface("defer-check")
 	if err := tr.RegisterInterface(iface.GetName(), iface); err != nil {
 		t.Fatalf("register: %v", err)

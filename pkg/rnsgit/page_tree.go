@@ -4,6 +4,7 @@
 package rnsgit
 
 import (
+	"maps"
 	"net/url"
 	"path"
 	"strings"
@@ -29,10 +30,7 @@ func (n *Node) serveTreePage(_ string, data []byte, _ []byte, _ []byte, remote *
 		dirPath = decoded
 	}
 	dirPath = strings.Trim(dirPath, "/")
-	page := varInt(vars, "page", 1)
-	if page < 1 {
-		page = 1
-	}
+	page := max(varInt(vars, "page", 1), 1)
 	icons := n.icons()
 
 	nav := n.repoNav(group, repo) + " / " + mLink("Files", pagePathTree,
@@ -63,18 +61,12 @@ func (n *Node) serveTreePage(_ string, data []byte, _ []byte, _ []byte, remote *
 			b.WriteString(mLink("..", pagePathTree, up) + "\n\n")
 		}
 		total := len(entries)
-		pages := (total + treeEntriesPerPage - 1) / treeEntriesPerPage
-		if pages < 1 {
-			pages = 1
-		}
+		pages := max((total+treeEntriesPerPage-1)/treeEntriesPerPage, 1)
 		if page > pages {
 			page = pages
 		}
 		start := (page - 1) * treeEntriesPerPage
-		end := start + treeEntriesPerPage
-		if end > total {
-			end = total
-		}
+		end := min(start+treeEntriesPerPage, total)
 		for _, e := range entries[start:end] {
 			entryPath := e.Name
 			if dirPath != "" {
@@ -123,9 +115,7 @@ func (n *Node) serveTreePage(_ string, data []byte, _ []byte, _ []byte, remote *
 // mergeFields copies a field map and sets one key.
 func mergeFields(base map[string]string, k, v string) map[string]string {
 	out := make(map[string]string, len(base)+1)
-	for key, val := range base {
-		out[key] = val
-	}
+	maps.Copy(out, base)
 	if v != "" {
 		out[k] = v
 	}

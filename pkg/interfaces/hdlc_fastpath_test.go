@@ -203,7 +203,7 @@ func TestTCPLoopbackBurstManyFrames(t *testing.T) {
 		if err != nil {
 			return
 		}
-		defer conn.Close()
+		defer func() { _ = conn.Close() }()
 		decoder := newTCPHDLCStreamDecoder(DefaultMTU, func(data []byte) {
 			got <- append([]byte(nil), data...)
 		})

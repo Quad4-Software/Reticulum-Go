@@ -35,10 +35,10 @@ func TestOpportunisticDataPacketDelivery(t *testing.T) {
 	if err := server.Start(); err != nil {
 		t.Fatalf("server start: %v", err)
 	}
-	defer server.Stop() // #nosec G104
+	defer func() { _ = server.Stop() }() // #nosec G104
 
 	srvTr := NewTransport(&common.ReticulumConfig{})
-	defer srvTr.Close()
+	defer func() { _ = srvTr.Close() }()
 	if err := srvTr.RegisterInterface(server.GetName(), server); err != nil {
 		t.Fatalf("register server iface: %v", err)
 	}
@@ -58,10 +58,10 @@ func TestOpportunisticDataPacketDelivery(t *testing.T) {
 	if err != nil {
 		t.Fatalf("client interface: %v", err)
 	}
-	defer client.Stop() // #nosec G104
+	defer func() { _ = client.Stop() }() // #nosec G104
 
 	cliTr := NewTransport(&common.ReticulumConfig{})
-	defer cliTr.Close()
+	defer func() { _ = cliTr.Close() }()
 	if err := cliTr.RegisterInterface(client.GetName(), client); err != nil {
 		t.Fatalf("register client iface: %v", err)
 	}

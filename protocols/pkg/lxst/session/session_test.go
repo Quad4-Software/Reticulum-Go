@@ -320,7 +320,8 @@ func TestAttachStream(t *testing.T) {
 	_ = c1.Close()
 	_ = c2.Close()
 	select {
-	case <-errCh:
+	case err := <-errCh:
+		_ = err
 	case <-time.After(time.Second):
 		t.Fatal("attach did not return")
 	}

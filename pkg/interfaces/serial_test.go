@@ -100,7 +100,7 @@ func TestSerialInterfaceRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer a.Stop()
+	defer func() { _ = a.Stop() }()
 
 	b, err := NewSerialInterface("b", true, SerialOptions{
 		Device:    "mem-b",
@@ -110,7 +110,7 @@ func TestSerialInterfaceRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer b.Stop()
+	defer func() { _ = b.Stop() }()
 
 	var got atomic.Pointer[[]byte]
 	b.SetPacketCallback(func(data []byte, _ common.NetworkInterface) {
@@ -151,7 +151,7 @@ func TestSerialInterfaceReceiveOnly(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer a.Stop()
+	defer func() { _ = a.Stop() }()
 	a.SetOutgoingAllowed(false)
 	if err := a.Send([]byte("x"), ""); err == nil {
 		t.Fatal("expected receive-only reject")
@@ -188,7 +188,7 @@ func TestSerialConcurrentSend(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer a.Stop()
+	defer func() { _ = a.Stop() }()
 	b, err := NewSerialInterface("b", true, SerialOptions{
 		Device: "b",
 		Open:   func(SerialOptions) (SerialPort, error) { return bPort, nil },
@@ -196,7 +196,7 @@ func TestSerialConcurrentSend(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer b.Stop()
+	defer func() { _ = b.Stop() }()
 
 	var n atomic.Int32
 	b.SetPacketCallback(func([]byte, common.NetworkInterface) { n.Add(1) })

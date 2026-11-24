@@ -151,18 +151,6 @@ func (b *ticketBook) inboundTickets(destHash []byte) [][]byte {
 	return out
 }
 
-// cleanAvailableTickets expires tickets, matching upstream
-// clean_available_tickets: outbound tickets expire at expiry, inbound
-// tickets at expiry plus the grace period.
-func (b *ticketBook) clean() {
-	if b == nil {
-		return
-	}
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	b.cleanLocked()
-}
-
 func (b *ticketBook) cleanLocked() {
 	now := float64(time.Now().Unix())
 	for key, entry := range b.outbound {
@@ -270,7 +258,7 @@ func (b *ticketBook) load() {
 
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	for i := 0; i < sections; i++ {
+	for range sections {
 		key, err := dec.DecodeString()
 		if err != nil {
 			return
@@ -296,7 +284,7 @@ func (b *ticketBook) loadOutboundTickets(dec *msgpack.Decoder) {
 	if err != nil {
 		return
 	}
-	for i := 0; i < n; i++ {
+	for range n {
 		dh, err := dec.DecodeBytes()
 		if err != nil {
 			return
@@ -322,7 +310,7 @@ func (b *ticketBook) loadInboundTickets(dec *msgpack.Decoder) {
 	if err != nil {
 		return
 	}
-	for i := 0; i < n; i++ {
+	for range n {
 		dh, err := dec.DecodeBytes()
 		if err != nil {
 			return
@@ -331,7 +319,7 @@ func (b *ticketBook) loadInboundTickets(dec *msgpack.Decoder) {
 		if err != nil {
 			return
 		}
-		for j := 0; j < tn; j++ {
+		for range tn {
 			ticket, err := dec.DecodeBytes()
 			if err != nil {
 				return
@@ -358,7 +346,7 @@ func (b *ticketBook) loadLastDeliveries(dec *msgpack.Decoder) {
 	if err != nil {
 		return
 	}
-	for i := 0; i < n; i++ {
+	for range n {
 		dh, err := dec.DecodeBytes()
 		if err != nil {
 			return
@@ -419,22 +407,6 @@ func (b *stampCostBook) get(destHash []byte) (int64, bool) {
 	return entry.cost, ok
 }
 
-// clean expires entries older than STAMP_COST_EXPIRY, matching upstream
-// clean_outbound_stamp_costs.
-func (b *stampCostBook) clean() {
-	if b == nil {
-		return
-	}
-	now := float64(time.Now().Unix())
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	for key, entry := range b.costs {
-		if now > entry.at+stampCostExpirySecs {
-			delete(b.costs, key)
-		}
-	}
-}
-
 func (b *stampCostBook) save() {
 	if b == nil {
 		return
@@ -484,7 +456,7 @@ func (b *stampCostBook) load() {
 
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	for i := 0; i < n; i++ {
+	for range n {
 		dh, err := dec.DecodeBytes()
 		if err != nil {
 			return

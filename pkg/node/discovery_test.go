@@ -54,7 +54,7 @@ func TestStartInterfaceDiscoveryFromDiscoverable(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer n.Stop()
+	defer func() { _ = n.Stop() }()
 	// Transport identity is created on Start. Seed one for announcer.
 	if err := n.Transport().InitializePathRequestHandler(); err != nil {
 		t.Fatal(err)
@@ -91,7 +91,7 @@ func TestDiscoverableDisabledWithoutStaticTransportIdentity(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer n.Stop()
+	defer func() { _ = n.Stop() }()
 	if cfg.StaticTransportIdentity {
 		t.Fatal("discoverable interface must not gain static transport identity")
 	}
@@ -119,7 +119,7 @@ func TestDiscoverableDisabledWithoutStaticTransportIdentity(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer n2.Stop()
+	defer func() { _ = n2.Stop() }()
 	if !fixed.Interfaces["pub"].Discoverable {
 		t.Fatal("static transport identity must keep the interface discoverable")
 	}

@@ -31,7 +31,7 @@ func resetKnownDestinations(t *testing.T) {
 	knownPersistGen.Store(0)
 	knownPersistLast.Store(0)
 	if old := knownStore.Swap(nil); old != nil {
-		old.Close()
+		_ = old.Close()
 	}
 	SetKnownDestinationsMaxEntries(0)
 }

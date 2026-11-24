@@ -46,11 +46,11 @@ func TestRNodeRoundTripViaSim(t *testing.T) {
 	if err := a.Start(); err != nil {
 		t.Fatal(err)
 	}
-	defer a.Stop()
+	defer func() { _ = a.Stop() }()
 	if err := b.Start(); err != nil {
 		t.Fatal(err)
 	}
-	defer b.Stop()
+	defer func() { _ = b.Stop() }()
 
 	want := []byte{0x01, KISSFend, KISSFesc, 0x04}
 	got := make(chan []byte, 1)
@@ -104,7 +104,7 @@ func TestRNodeFlowControlReady(t *testing.T) {
 	if err := r.Start(); err != nil {
 		t.Fatal(err)
 	}
-	defer r.Stop()
+	defer func() { _ = r.Stop() }()
 
 	var mu sync.Mutex
 	var packets [][]byte
@@ -148,7 +148,7 @@ func TestRNodeMultiSubinterfaceTXRX(t *testing.T) {
 	if err := m.Start(); err != nil {
 		t.Fatal(err)
 	}
-	defer m.Stop()
+	defer func() { _ = m.Stop() }()
 	sub := m.SubInterfaces()[1]
 	if sub == nil {
 		t.Fatal("vport 1 was not created")

@@ -156,7 +156,7 @@ func testHubManyClients(t *testing.T, backend Backend, n int) {
 				t.Errorf("dial %d: %v", id, err)
 				return
 			}
-			defer c.Close()
+			defer func() { _ = c.Close() }()
 			time.Sleep(10 * time.Millisecond)
 		}(i)
 	}
@@ -352,7 +352,7 @@ func TestRaceHubCloseWithActiveStreams(t *testing.T) {
 				if err != nil {
 					return
 				}
-				defer c.Close()
+				defer func() { _ = c.Close() }()
 				s, err := hub.RegisterStream(c, 4096, nil, nil)
 				if err != nil {
 					return
@@ -393,7 +393,7 @@ func TestRaceAcceptStorm(t *testing.T) {
 			if err != nil {
 				return
 			}
-			defer c.Close()
+			defer func() { _ = c.Close() }()
 		})
 	}
 	wg.Wait()
@@ -514,7 +514,7 @@ func runHubEchoBenchmark(b *testing.B, backend Backend) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	defer ln.Close()
+	defer func() { _ = ln.Close() }()
 
 	ready := make(chan struct{})
 	if err := hub.RegisterListener(ln, func(conn net.Conn) {
@@ -536,7 +536,7 @@ func runHubEchoBenchmark(b *testing.B, backend Backend) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	defer c.Close()
+	defer func() { _ = c.Close() }()
 
 	payload := bytes.Repeat([]byte{0x42}, 1024)
 	ack := make(chan struct{}, 1)

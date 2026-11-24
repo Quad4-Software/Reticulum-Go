@@ -47,7 +47,7 @@ func TestRegression_ParallelSimFastPathHookAccess(t *testing.T) {
 // relay loops after hot reload).
 func TestRegression_UnregisterInterfaceClearsPathsAndLinks(t *testing.T) {
 	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 
 	iface := mockIface("wan", true)
 	if err := tr.RegisterInterface("wan", iface); err != nil {
@@ -81,7 +81,7 @@ func TestRegression_UnregisterInterfaceClearsPathsAndLinks(t *testing.T) {
 // an interface is hot-swapped instead of unregistered outright.
 func TestRegression_ReplaceInterfaceScrubsOldPaths(t *testing.T) {
 	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 
 	old := mockIface("wan", true)
 	if err := tr.RegisterInterface("wan", old); err != nil {
@@ -106,7 +106,7 @@ func TestRegression_ConcurrentPathReadersDuringUnregister(t *testing.T) {
 		t.Skip()
 	}
 	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 
 	iface := mockIface("eth", true)
 	if err := tr.RegisterInterface("eth", iface); err != nil {
@@ -154,7 +154,7 @@ func TestRegression_ConcurrentPathReadersDuringUnregister(t *testing.T) {
 // dispatch path when a proof arrives for a link ID that is not registered.
 func TestRegression_HandleProofPacketDoesNotPanicOnUnknownLink(t *testing.T) {
 	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	iface := mockIface("wan", true)
 	if err := tr.RegisterInterface("wan", iface); err != nil {
 		t.Fatal(err)

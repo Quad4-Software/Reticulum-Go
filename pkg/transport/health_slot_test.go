@@ -15,7 +15,7 @@ import (
 // it. UnregisterInterface is the Go-side death point.
 func TestUnregisterInterfaceDropsHealthSlot(t *testing.T) {
 	tr := NewTransport(&common.ReticulumConfig{})
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	defer health.Default.Reset()
 	health.Default.Reset()
 

@@ -22,8 +22,8 @@ func TestTCPClientReconnectSynthesizesTunnel(t *testing.T) {
 		}
 	})
 	c1, c2 := net.Pipe()
-	defer c1.Close()
-	defer c2.Close()
+	defer func() { _ = c1.Close() }()
+	defer func() { _ = c2.Close() }()
 	tc.onConnected(c1)
 	if !called {
 		t.Fatal("expected tunnel synthesis on connect")
@@ -42,8 +42,8 @@ func TestTCPClientSkipsTunnelWhenKISS(t *testing.T) {
 		t.Fatal("kiss framing should disable tunnel by default")
 	}
 	c1, c2 := net.Pipe()
-	defer c1.Close()
-	defer c2.Close()
+	defer func() { _ = c1.Close() }()
+	defer func() { _ = c2.Close() }()
 	tc.onConnected(c1)
 	if called {
 		t.Fatal("did not expect tunnel synthesis with kiss framing")

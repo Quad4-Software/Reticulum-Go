@@ -100,7 +100,7 @@ func TestPRStampValidationAndEnforcedDrop(t *testing.T) {
 
 func TestPRStampCache(t *testing.T) {
 	c := &prStampCache{}
-	for i := 0; i < prStampCacheMax+10; i++ {
+	for i := range prStampCacheMax + 10 {
 		m := []byte{byte(i), byte(i >> 8)}
 		c.put(m, []byte{0xAA})
 	}
@@ -126,7 +126,7 @@ func TestStampedPREmission(t *testing.T) {
 	if err := tr.RegisterInterface(out.GetName(), out); err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { tr.Close() })
+	t.Cleanup(func() { _ = tr.Close() })
 
 	destHash := bytes.Repeat([]byte{0x44}, 16)
 	if err := tr.RequestPath(destHash, out.GetName(), nil, false); err != nil {

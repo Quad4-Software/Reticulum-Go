@@ -239,10 +239,7 @@ func (t *Transport) startInboundDrainer() {
 // CPU-bound part of the steady-state path, so lanes track available
 // parallelism but stay bounded to keep goroutine count sane on big hosts.
 func linkDataLaneCount() int {
-	n := runtime.GOMAXPROCS(0)
-	if n < 2 {
-		n = 2
-	}
+	n := max(runtime.GOMAXPROCS(0), 2)
 	if n > 8 {
 		n = 8
 	}
@@ -273,10 +270,7 @@ func (t *Transport) linkDataLaneWorker(lane <-chan packetJob) {
 // without parking dozens of goroutines on one mutex during an announce
 // flood. Announce jobs that overflow shed like any other handler overflow.
 func announceLaneCount() int {
-	n := runtime.GOMAXPROCS(0)
-	if n < 2 {
-		n = 2
-	}
+	n := max(runtime.GOMAXPROCS(0), 2)
 	if n > 4 {
 		n = 4
 	}

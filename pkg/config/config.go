@@ -46,7 +46,7 @@ func LoadConfig(path string) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	cfg := &Config{}
 	scanner := bufio.NewScanner(file)
@@ -153,30 +153,30 @@ func SaveConfig(cfg *Config, path string) error {
 
 	// Write Identity section
 	builder.WriteString("[identity]\n")
-	builder.WriteString(fmt.Sprintf("name = %s\n", cfg.Identity.Name))
-	builder.WriteString(fmt.Sprintf("storage_path = %s\n\n", cfg.Identity.StoragePath))
+	_, _ = fmt.Fprintf(&builder, "name = %s\n", cfg.Identity.Name)
+	_, _ = fmt.Fprintf(&builder, "storage_path = %s\n\n", cfg.Identity.StoragePath)
 
 	// Write Transport section
 	builder.WriteString("[transport]\n")
-	builder.WriteString(fmt.Sprintf("announce_interval = %d\n", cfg.Transport.AnnounceInterval))
-	builder.WriteString(fmt.Sprintf("path_request_timeout = %d\n", cfg.Transport.PathRequestTimeout))
-	builder.WriteString(fmt.Sprintf("max_hops = %d\n", cfg.Transport.MaxHops))
-	builder.WriteString(fmt.Sprintf("bitrate_limit = %d\n\n", cfg.Transport.BitrateLimit))
+	_, _ = fmt.Fprintf(&builder, "announce_interval = %d\n", cfg.Transport.AnnounceInterval)
+	_, _ = fmt.Fprintf(&builder, "path_request_timeout = %d\n", cfg.Transport.PathRequestTimeout)
+	_, _ = fmt.Fprintf(&builder, "max_hops = %d\n", cfg.Transport.MaxHops)
+	_, _ = fmt.Fprintf(&builder, "bitrate_limit = %d\n\n", cfg.Transport.BitrateLimit)
 
 	// Write Logging section
 	builder.WriteString("[logging]\n")
-	builder.WriteString(fmt.Sprintf("level = %s\n", cfg.Logging.Level))
-	builder.WriteString(fmt.Sprintf("file = %s\n\n", cfg.Logging.File))
+	_, _ = fmt.Fprintf(&builder, "level = %s\n", cfg.Logging.Level)
+	_, _ = fmt.Fprintf(&builder, "file = %s\n\n", cfg.Logging.File)
 
 	// Write Interface sections
 	for _, iface := range cfg.Interfaces {
-		builder.WriteString(fmt.Sprintf("[interface %s]\n", iface.Name))
-		builder.WriteString(fmt.Sprintf("type = %s\n", iface.Type))
-		builder.WriteString(fmt.Sprintf("enabled = %v\n", iface.Enabled))
-		builder.WriteString(fmt.Sprintf("listen_port = %d\n", iface.ListenPort))
-		builder.WriteString(fmt.Sprintf("listen_ip = %s\n", iface.ListenIP))
-		builder.WriteString(fmt.Sprintf("kiss_framing = %v\n", iface.KissFraming))
-		builder.WriteString(fmt.Sprintf("i2p_tunneled = %v\n\n", iface.I2PTunneled))
+		_, _ = fmt.Fprintf(&builder, "[interface %s]\n", iface.Name)
+		_, _ = fmt.Fprintf(&builder, "type = %s\n", iface.Type)
+		_, _ = fmt.Fprintf(&builder, "enabled = %v\n", iface.Enabled)
+		_, _ = fmt.Fprintf(&builder, "listen_port = %d\n", iface.ListenPort)
+		_, _ = fmt.Fprintf(&builder, "listen_ip = %s\n", iface.ListenIP)
+		_, _ = fmt.Fprintf(&builder, "kiss_framing = %v\n", iface.KissFraming)
+		_, _ = fmt.Fprintf(&builder, "i2p_tunneled = %v\n\n", iface.I2PTunneled)
 	}
 
 	return os.WriteFile(path, []byte(builder.String()), 0600) // #nosec G306

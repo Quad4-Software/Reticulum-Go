@@ -37,7 +37,7 @@ func TestBughuntHTTPBodyTooLargeRejectsOversizedJSON(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusRequestEntityTooLarge {
 		body, _ := io.ReadAll(resp.Body)
 		t.Fatalf("status=%d body=%s want 413", resp.StatusCode, body)

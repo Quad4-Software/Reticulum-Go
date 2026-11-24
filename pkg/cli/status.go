@@ -120,7 +120,7 @@ func RunStatus(args []string, opt ...Options) int {
 				NameFilter: filter,
 			})
 			if err != nil {
-				fmt.Fprintf(stderr, "discovered interfaces: %v\n", err)
+				_, _ = fmt.Fprintf(stderr, "discovered interfaces: %v\n", err)
 				return 1
 			}
 			list = rnsutil.FilterDiscovered(list, *showStale, *showUnknown)
@@ -158,10 +158,10 @@ func RunStatus(args []string, opt ...Options) int {
 
 		client, err := rnsutil.DialRPC(cfg, nil)
 		if err != nil {
-			fmt.Fprintf(stderr, "%s: %v\n", errMsg(stderr, "rpc"), err)
+			_, _ = fmt.Fprintf(stderr, "%s: %v\n", errMsg(stderr, "rpc"), err)
 			if !*quiet {
-				fmt.Fprintln(stderr, warnMsg(stderr, "hint: point -config at the daemon config dir (e.g. ~/.reticulum for rnsd)"))
-				fmt.Fprintln(stderr, warnMsg(stderr, "hint: align shared_instance_type (unix on Linux by default, or tcp) and instance_name / ports"))
+				_, _ = fmt.Fprintln(stderr, warnMsg(stderr, "hint: point -config at the daemon config dir (e.g. ~/.reticulum for rnsd)"))
+				_, _ = fmt.Fprintln(stderr, warnMsg(stderr, "hint: align shared_instance_type (unix on Linux by default, or tcp) and instance_name / ports"))
 			}
 			return 1
 		}
@@ -169,10 +169,10 @@ func RunStatus(args []string, opt ...Options) int {
 
 		stats, err := client.GetInterfaceStats()
 		if err != nil {
-			fmt.Fprintf(stderr, "%s (%s): %v\n", errMsg(stderr, "interface stats"), client.Addr(), err)
+			_, _ = fmt.Fprintf(stderr, "%s (%s): %v\n", errMsg(stderr, "interface stats"), client.Addr(), err)
 			if !*quiet {
-				fmt.Fprintln(stderr, warnMsg(stderr, "hint: start rnsd or reticulum-go first, then retry"))
-				fmt.Fprintln(stderr, warnMsg(stderr, "hint: for Python rnsd use: rgostatus -config ~/.reticulum"))
+				_, _ = fmt.Fprintln(stderr, warnMsg(stderr, "hint: start rnsd or reticulum-go first, then retry"))
+				_, _ = fmt.Fprintln(stderr, warnMsg(stderr, "hint: for Python rnsd use: rgostatus -config ~/.reticulum"))
 			}
 			return 1
 		}
@@ -206,19 +206,19 @@ func RunStatus(args []string, opt ...Options) int {
 		if *profiling {
 			prof, err := client.GetProfilingResults()
 			if err != nil {
-				fmt.Fprintln(out, "\n Profiling    : not available from this instance")
+				_, _ = fmt.Fprintln(out, "\n Profiling    : not available from this instance")
 			} else if prof != "" {
-				fmt.Fprintf(out, "\n Profiling    :\n%s\n", prof)
+				_, _ = fmt.Fprintf(out, "\n Profiling    :\n%s\n", prof)
 			} else {
-				fmt.Fprintln(out, "\n Profiling    : no results")
+				_, _ = fmt.Fprintln(out, "\n Profiling    : no results")
 			}
 		}
 		if *memory {
 			ms, err := client.GetMemoryStats()
 			if err != nil || len(ms) == 0 {
-				fmt.Fprintln(out, "\n Memory       : not available from this instance")
+				_, _ = fmt.Fprintln(out, "\n Memory       : not available from this instance")
 			} else {
-				fmt.Fprintf(out, "\n Memory       :\n%s", formatMemoryStats(ms))
+				_, _ = fmt.Fprintf(out, "\n Memory       :\n%s", formatMemoryStats(ms))
 			}
 		}
 		return 0
@@ -240,13 +240,13 @@ func RunStatus(args []string, opt ...Options) int {
 		if code != 0 && buf.Len() == 0 {
 			return code
 		}
-		fmt.Fprint(stdout, "\033[H\033[2J")
+		_, _ = fmt.Fprint(stdout, "\033[H\033[2J")
 		_, _ = io.Copy(stdout, &buf)
 		elapsed := time.Since(start)
 		sleepFor := max(interval-elapsed, 200*time.Millisecond)
 		select {
 		case <-sigCh:
-			fmt.Fprintln(stdout)
+			_, _ = fmt.Fprintln(stdout)
 			return 0
 		case <-time.After(sleepFor):
 		}
@@ -258,7 +258,7 @@ func RunStatus(args []string, opt ...Options) int {
 func runInterfaceManage(cfg *common.ReticulumConfig, attach, detach, reload string, timeout time.Duration, stdout, stderr io.Writer) int {
 	client, err := rnsutil.DialRPC(cfg, nil)
 	if err != nil {
-		fmt.Fprintf(stderr, "%s: %v\n", errMsg(stderr, "rpc"), err)
+		_, _ = fmt.Fprintf(stderr, "%s: %v\n", errMsg(stderr, "rpc"), err)
 		return 1
 	}
 	client.SetTimeout(timeout)
@@ -275,7 +275,7 @@ func runInterfaceManage(cfg *common.ReticulumConfig, attach, detach, reload stri
 	}
 	result, err := client.ManageInterface(action, name)
 	if err != nil {
-		fmt.Fprintf(stderr, "%s: %v\n", errMsg(stderr, "rpc"), err)
+		_, _ = fmt.Fprintf(stderr, "%s: %v\n", errMsg(stderr, "rpc"), err)
 		return 1
 	}
 	past := map[string]string{
@@ -286,16 +286,16 @@ func runInterfaceManage(cfg *common.ReticulumConfig, attach, detach, reload stri
 	switch v := result.(type) {
 	case bool:
 		if v {
-			fmt.Fprintf(stdout, "Interface %s was %s\n", name, past)
+			_, _ = fmt.Fprintf(stdout, "Interface %s was %s\n", name, past)
 			return 0
 		}
-		fmt.Fprintf(stdout, "Could not %s interface %s\n", strings.TrimSuffix(past, "ed"), name)
+		_, _ = fmt.Fprintf(stdout, "Could not %s interface %s\n", strings.TrimSuffix(past, "ed"), name)
 		return 1
 	case nil:
-		fmt.Fprintf(stdout, "The interface %s does not exist\n", name)
+		_, _ = fmt.Fprintf(stdout, "The interface %s does not exist\n", name)
 		return 1
 	default:
-		fmt.Fprintf(stdout, "Unknown error while %sing interface %s\n", strings.TrimSuffix(past, "ed"), name)
+		_, _ = fmt.Fprintf(stdout, "Unknown error while %sing interface %s\n", strings.TrimSuffix(past, "ed"), name)
 		return 1
 	}
 }
@@ -305,18 +305,18 @@ func runInterfaceManage(cfg *common.ReticulumConfig, attach, detach, reload stri
 func runTopology(cfg *common.ReticulumConfig, nameFilter string, timeout time.Duration, stdout, stderr io.Writer) int {
 	client, err := rnsutil.DialRPC(cfg, nil)
 	if err != nil {
-		fmt.Fprintf(stderr, "%s: %v\n", errMsg(stderr, "rpc"), err)
+		_, _ = fmt.Fprintf(stderr, "%s: %v\n", errMsg(stderr, "rpc"), err)
 		return 1
 	}
 	client.SetTimeout(timeout)
 	stats, err := client.GetInterfaceStats()
 	if err != nil {
-		fmt.Fprintf(stderr, "%s: %v\n", errMsg(stderr, "rpc"), err)
+		_, _ = fmt.Fprintf(stderr, "%s: %v\n", errMsg(stderr, "rpc"), err)
 		return 1
 	}
 	paths, err := client.GetPathTable(nil)
 	if err != nil {
-		fmt.Fprintf(stderr, "%s: %v\n", errMsg(stderr, "rpc"), err)
+		_, _ = fmt.Fprintf(stderr, "%s: %v\n", errMsg(stderr, "rpc"), err)
 		return 1
 	}
 	if nameFilter != "" {
@@ -351,12 +351,12 @@ func runStatusRemote(cfg *common.ReticulumConfig, opts statusRemoteOpts) int {
 	stdout, stderr := opts.stdout, opts.stderr
 	tid, err := rnsutil.ParseDestHash(opts.remoteHex)
 	if err != nil {
-		fmt.Fprintf(stderr, "%v\n", err)
+		_, _ = fmt.Fprintf(stderr, "%v\n", err)
 		return 20
 	}
 	auth, err := rnsutil.LoadManagementIdentity(opts.identPath)
 	if err != nil {
-		fmt.Fprintf(stderr, "%v\n", err)
+		_, _ = fmt.Fprintf(stderr, "%v\n", err)
 		return 20
 	}
 
@@ -369,29 +369,29 @@ func runStatusRemote(cfg *common.ReticulumConfig, opts statusRemoteOpts) int {
 		diagErr(stderr, "start", err)
 		return 1
 	}
-	defer n.Stop()
+	defer func() { _ = n.Stop() }()
 
 	timeout := time.Duration(opts.timeoutSec * float64(time.Second))
 	ctx, cancel := rnsutil.CLIWaitContext(timeout)
 	defer cancel()
 
-	fmt.Fprintln(stdout, infoMsg(stdout, "Establishing link with remote transport instance..."))
+	_, _ = fmt.Fprintln(stdout, infoMsg(stdout, "Establishing link with remote transport instance..."))
 	l, err := rnsutil.EstablishRemoteManagementLink(ctx, n.Transport(), tid, auth)
 	if err != nil {
-		fmt.Fprintln(stdout, errMsg(stdout, err.Error()))
+		_, _ = fmt.Fprintln(stdout, errMsg(stdout, err.Error()))
 		return 12
 	}
 	defer l.Teardown()
 
-	fmt.Fprintln(stdout, infoMsg(stdout, "Sending request..."))
+	_, _ = fmt.Fprintln(stdout, infoMsg(stdout, "Sending request..."))
 	raw, err := rnsutil.RemoteStatusRequest(ctx, l, opts.links, opts.profiling)
 	if err != nil {
-		fmt.Fprintln(stdout, errMsg(stdout, "The remote status request failed. Likely authentication failure."))
+		_, _ = fmt.Fprintln(stdout, errMsg(stdout, "The remote status request failed. Likely authentication failure."))
 		return 10
 	}
 	stats, linkCount, profilingText, err := rnsutil.InterfaceStatsFromRemoteStatus(raw, opts.links, opts.profiling)
 	if err != nil {
-		fmt.Fprintf(stderr, "%v\n", err)
+		_, _ = fmt.Fprintf(stderr, "%v\n", err)
 		return 1
 	}
 	rnsutil.SortInterfaceStats(&stats, opts.statusOpts.SortBy, opts.statusOpts.SortAsc)
@@ -408,9 +408,9 @@ func runStatusRemote(cfg *common.ReticulumConfig, opts statusRemoteOpts) int {
 	}
 	if opts.profiling {
 		if profilingText != "" {
-			fmt.Fprintf(stdout, "\n Profiling    :\n%s\n", profilingText)
+			_, _ = fmt.Fprintf(stdout, "\n Profiling    :\n%s\n", profilingText)
 		} else {
-			fmt.Fprintln(stdout, "\n Profiling    : not available from this instance")
+			_, _ = fmt.Fprintln(stdout, "\n Profiling    : not available from this instance")
 		}
 	}
 	return 0

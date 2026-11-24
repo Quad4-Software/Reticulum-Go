@@ -53,7 +53,7 @@ func setupGoUDPRelay(
 		t.Fatalf("path handler: %v", err)
 	}
 
-	cleanup := func() { tr.Close() }
+	cleanup := func() { _ = tr.Close() }
 	return tr, cleanup
 }
 
@@ -180,7 +180,7 @@ func TestLiveInteropGoRelayDisabledByConfig(t *testing.T) {
 	pyBForward := freeUDPPort(t)
 
 	tr := transport.NewTransport(interopPeerConfig())
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 
 	mk := func(name string, listen, forward int) {
 		addr := "127.0.0.1:" + strconv.Itoa(listen)

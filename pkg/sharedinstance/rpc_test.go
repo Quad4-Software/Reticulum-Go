@@ -17,7 +17,7 @@ import (
 func TestRPCServerLinkCountAfterAuth(t *testing.T) {
 	cfg := &common.ReticulumConfig{EnableTransport: false}
 	tr := transport.NewTransport(cfg)
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 
 	port := freeTCPPort(t)
 	cfg.InstanceControlPort = port
@@ -27,13 +27,13 @@ func TestRPCServerLinkCountAfterAuth(t *testing.T) {
 	if err != nil {
 		t.Fatalf("StartRPCServer: %v", err)
 	}
-	defer srv.Close()
+	defer func() { _ = srv.Close() }()
 
 	conn, err := net.Dial("tcp", net.JoinHostPort("127.0.0.1", strconv.Itoa(port)))
 	if err != nil {
 		t.Fatalf("dial: %v", err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	authkey := tr.RPCAuthKey()
 	if len(authkey) == 0 {
@@ -69,7 +69,7 @@ func TestRPCHandlerProfilingResults(t *testing.T) {
 
 	cfg := &common.ReticulumConfig{EnableTransport: false, InMemoryStorage: true}
 	tr := transport.NewTransport(cfg)
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	h := &RPCHandler{Transport: tr}
 
 	if got := h.Handle(map[string]any{"get": "profiling_results"}); got != nil {
@@ -90,7 +90,7 @@ func freeTCPPort(t *testing.T) int {
 	if err != nil {
 		t.Fatalf("listen: %v", err)
 	}
-	defer ln.Close()
+	defer func() { _ = ln.Close() }()
 	return ln.Addr().(*net.TCPAddr).Port
 }
 
@@ -101,7 +101,7 @@ func freeTCPPort(t *testing.T) int {
 func TestRPCHandlerManage(t *testing.T) {
 	cfg := &common.ReticulumConfig{EnableTransport: false, InMemoryStorage: true}
 	tr := transport.NewTransport(cfg)
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	h := &RPCHandler{Transport: tr}
 
 	for _, action := range []string{"attach_interface", "detach_interface", "reload_interface"} {
@@ -149,7 +149,7 @@ func TestRPCHandlerManage(t *testing.T) {
 func TestRPCHandlerTimeoutKeys(t *testing.T) {
 	cfg := &common.ReticulumConfig{EnableTransport: false, InMemoryStorage: true}
 	tr := transport.NewTransport(cfg)
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	h := &RPCHandler{Transport: tr}
 
 	if got := h.Handle(map[string]any{"get": "lowest_interface_bitrate"}); got != int64(0) {
@@ -163,7 +163,7 @@ func TestRPCHandlerTimeoutKeys(t *testing.T) {
 func TestRPCHandlerKnownDestinations(t *testing.T) {
 	cfg := &common.ReticulumConfig{EnableTransport: false, InMemoryStorage: true}
 	tr := transport.NewTransport(cfg)
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	h := &RPCHandler{Transport: tr}
 
 	got := h.Handle(map[string]any{"get": "known_destinations"})

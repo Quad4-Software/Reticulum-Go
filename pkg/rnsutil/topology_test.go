@@ -44,8 +44,8 @@ func TestWriteTopologyHumanGrouping(t *testing.T) {
 		t.Fatalf("bad summary: %s", out)
 	}
 	// udp0 sorts first (2 paths) and shows both rows sorted by hops.
-	udpIdx := strings.Index(out, "udp0 (online) - 2 paths, hops 1-3")
-	if udpIdx < 0 {
+	found := strings.Contains(out, "udp0 (online) - 2 paths, hops 1-3")
+	if !found {
 		t.Fatalf("missing udp0 header: %s", out)
 	}
 	if !strings.Contains(out, "tcp0 (offline) - 1 path") {

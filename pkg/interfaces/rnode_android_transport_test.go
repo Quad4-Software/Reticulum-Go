@@ -15,7 +15,7 @@ import (
 
 func TestRNodeHostPipeRoundTrip(t *testing.T) {
 	pipe := NewRNodeHostPipe()
-	defer pipe.Close()
+	defer func() { _ = pipe.Close() }()
 
 	go func() {
 		time.Sleep(5 * time.Millisecond)
@@ -97,7 +97,7 @@ func TestServeRNodeHostPipeTCP(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	want := []byte{0xC0, 0x00, 0x01, 0xC0}
 	if _, err := conn.Write(want); err != nil {

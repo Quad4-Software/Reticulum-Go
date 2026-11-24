@@ -132,7 +132,7 @@ func selfRegions(t *testing.T) []memRegion {
 		t.Fatal(err)
 	}
 	var regions []memRegion
-	for _, line := range strings.Split(string(b), "\n") {
+	for line := range strings.SplitSeq(string(b), "\n") {
 		f := strings.Fields(line)
 		if len(f) < 2 {
 			continue
@@ -167,7 +167,7 @@ func TestMarkerGoneAfterClose(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer ref.Close()
+	defer func() { _ = ref.Close() }()
 	if err := ref.CopyFrom(marker); err != nil {
 		t.Fatal(err)
 	}
@@ -188,7 +188,7 @@ func TestMarkerGoneAfterClose(t *testing.T) {
 	if err != nil {
 		t.Skipf("cannot open /proc/self/mem: %v", err)
 	}
-	defer fd.Close()
+	defer func() { _ = fd.Close() }()
 
 	hay := make([]byte, 4<<20)
 	needleAddr := uintptr(unsafe.Pointer(&ref.usable[0]))
@@ -213,14 +213,11 @@ func TestMarkerGoneAfterClose(t *testing.T) {
 			}
 			size := r.end - r.start
 			for off := uintptr(0); off < size; off += uintptr(len(hay)) {
-				chunk := size - off
-				if chunk > uintptr(len(hay)) {
-					chunk = uintptr(len(hay))
-				}
+				chunk := min(size-off, uintptr(len(hay)))
 				if _, err := fd.ReadAt(hay[:chunk], int64(r.start+off)); err != nil {
 					break
 				}
-				if bytes.Index(hay[:chunk], needle) >= 0 {
+				if bytes.Contains(hay[:chunk], needle) {
 					found = true
 					return
 				}
@@ -244,7 +241,7 @@ func TestMadviseFlagsApplied(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer b.Close()
+	defer func() { _ = b.Close() }()
 	addr := uintptr(unsafe.Pointer(&b.cell.ar.data[0]))
 	smaps, err := os.ReadFile("/proc/self/smaps")
 	if err != nil {
@@ -252,7 +249,7 @@ func TestMadviseFlagsApplied(t *testing.T) {
 	}
 	var inRegion bool
 	var flags string
-	for _, line := range strings.Split(string(smaps), "\n") {
+	for line := range strings.SplitSeq(string(smaps), "\n") {
 		f := strings.Fields(line)
 		if len(f) >= 2 && strings.Contains(f[0], "-") {
 			se := strings.SplitN(f[0], "-", 2)
@@ -293,7 +290,7 @@ func TestFinalizerWipesSecret(t *testing.T) {
 		off := b.cell.idx * b.cell.ar.stride
 		cellData = b.cell.ar.data[off : off+b.cell.ar.stride]
 	}()
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		runtime.GC()
 	}
 	if !bytes.Equal(cellData, make([]byte, len(cellData))) {

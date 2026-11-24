@@ -26,22 +26,20 @@ func TestTeardownStorm(t *testing.T) {
 	respLink.SetLinkClosedCallback(func(*Link) { closedCalls.Add(1) })
 
 	var wg sync.WaitGroup
-	for i := 0; i < 8; i++ {
+	for i := range 8 {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			for j := 0; j < 20; j++ {
+			for j := range 20 {
 				_ = initLink.SendPacket([]byte(fmt.Sprintf("storm-%d-%d", i, j)))
 			}
 		}(i)
 	}
 	// Race teardowns against the sends.
-	for i := 0; i < 4; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range 4 {
+		wg.Go(func() {
 			initLink.Teardown()
-		}()
+		})
 	}
 	wg.Wait()
 
@@ -121,7 +119,7 @@ func TestLinkStartStopCycleLeak(t *testing.T) {
 	time.Sleep(50 * time.Millisecond)
 	base := runtime.NumGoroutine()
 
-	for i := 0; i < 12; i++ {
+	for i := range 12 {
 		mesh := newChaosMesh(t)
 		init, resp, ok := mesh.establish(t, 10*time.Second)
 		if !ok {

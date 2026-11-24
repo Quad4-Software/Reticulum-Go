@@ -136,7 +136,7 @@ func TestSlowestOnlineBitrateSkipsReceiveOnly(t *testing.T) {
 
 func TestMediumPathTimeoutNoInterfaceIsZero(t *testing.T) {
 	tr := NewTransport(common.DefaultConfig())
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	if got := tr.MediumPathTimeout(); got != 0 {
 		t.Fatalf("medium path timeout = %v, want 0", got)
 	}
@@ -144,7 +144,7 @@ func TestMediumPathTimeoutNoInterfaceIsZero(t *testing.T) {
 
 func TestMediumPathTimeoutMatchesPython(t *testing.T) {
 	tr := NewTransport(common.DefaultConfig())
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	slow := &bitrateIface{}
 	slow.BaseInterface = interfaces.NewBaseInterface("lora", common.IFTypeUDP, true)
 	slow.Online = true
@@ -168,7 +168,7 @@ func TestMediumPathTimeoutMatchesPython(t *testing.T) {
 
 func TestMediumPathTimeoutFloorsAtMinimumBitrate(t *testing.T) {
 	tr := NewTransport(common.DefaultConfig())
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	drip := &bitrateIface{}
 	drip.BaseInterface = interfaces.NewBaseInterface("drip", common.IFTypeUDP, true)
 	drip.Online = true
@@ -291,7 +291,7 @@ func TestAwaitPathReturnsWhenPathLearned(t *testing.T) {
 
 func TestAwaitPathRetryUsesPathRequestMI(t *testing.T) {
 	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	tr.SetIdentity(mustIdentity(t))
 
 	out := newRelayIface("out")

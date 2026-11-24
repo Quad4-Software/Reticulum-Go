@@ -34,7 +34,7 @@ func announcePkt(dest []byte, seed byte) *packet.Packet {
 
 func TestCacheAnnouncePacket_NilAndEmptySafe(t *testing.T) {
 	tr := NewTransport(unstampedTestConfig(true))
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 
 	dest := randomDestHash(101)
 	pkt := announcePkt(dest, 0x11)
@@ -55,7 +55,7 @@ func TestCacheAnnouncePacket_NilAndEmptySafe(t *testing.T) {
 
 func TestCacheAnnouncePacket_StoresIndependentCopy(t *testing.T) {
 	tr := NewTransport(unstampedTestConfig(true))
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 
 	dest := randomDestHash(102)
 	pkt := announcePkt(dest, 0x22)
@@ -81,7 +81,7 @@ func TestCacheAnnouncePacket_StoresIndependentCopy(t *testing.T) {
 
 func TestQueuePathResponseAnnounce_LocalEmitsImmediately(t *testing.T) {
 	tr := NewTransport(unstampedTestConfig(true))
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	tr.SetIdentity(mustIdentity(t))
 
 	local := newLocalClientRelayIface("local")
@@ -136,7 +136,7 @@ func TestQueuePathResponseAnnounce_LocalEmitsImmediately(t *testing.T) {
 
 func TestQueuePathResponseAnnounce_RemoteUsesGrace(t *testing.T) {
 	tr := NewTransport(unstampedTestConfig(true))
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	tr.SetIdentity(mustIdentity(t))
 
 	wan := newRelayIface("wan")
@@ -181,7 +181,7 @@ func TestQueuePathResponseAnnounce_RemoteUsesGrace(t *testing.T) {
 
 func TestQueuePathResponseAnnounce_RemoteRetryDoesNotResetGrace(t *testing.T) {
 	tr := NewTransport(unstampedTestConfig(true))
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	tr.SetIdentity(mustIdentity(t))
 
 	wan := newRelayIface("wan")
@@ -232,7 +232,7 @@ func TestQueuePathResponseAnnounce_RemoteRetryDoesNotResetGrace(t *testing.T) {
 
 func TestQueuePathResponseAnnounce_NoCacheReturnsFalse(t *testing.T) {
 	tr := NewTransport(unstampedTestConfig(true))
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	tr.SetIdentity(mustIdentity(t))
 
 	wan := newRelayIface("wan")
@@ -252,7 +252,7 @@ func TestQueuePathResponseAnnounce_NoCacheReturnsFalse(t *testing.T) {
 
 func TestQueuePathResponseAnnounce_HoldsInFlightEntry(t *testing.T) {
 	tr := NewTransport(unstampedTestConfig(true))
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	tr.SetIdentity(mustIdentity(t))
 
 	wan := newRelayIface("wan")
@@ -292,7 +292,7 @@ func TestQueuePathResponseAnnounce_HoldsInFlightEntry(t *testing.T) {
 
 func TestNoteAndAnswerPendingLocalPathRequest(t *testing.T) {
 	tr := NewTransport(unstampedTestConfig(true))
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	tr.SetIdentity(mustIdentity(t))
 
 	local := newLocalClientRelayIface("pending-local")
@@ -330,7 +330,7 @@ func TestNoteAndAnswerPendingLocalPathRequest(t *testing.T) {
 
 func TestProcessAnnounceTable_CleansNilAndExhaustedRetries(t *testing.T) {
 	tr := NewTransport(unstampedTestConfig(true))
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	tr.SetIdentity(mustIdentity(t))
 
 	wan := newRelayIface("wan")
@@ -380,7 +380,7 @@ func TestProcessAnnounceTable_CleansNilAndExhaustedRetries(t *testing.T) {
 
 func TestEmitAnnounceTableEntry_DisabledInterfaceDropsEntry(t *testing.T) {
 	tr := NewTransport(unstampedTestConfig(true))
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	tr.SetIdentity(mustIdentity(t))
 
 	wan := newRelayIface("disabled-wan")
@@ -410,7 +410,7 @@ func TestEmitAnnounceTableEntry_DisabledInterfaceDropsEntry(t *testing.T) {
 
 func TestEmitAnnounceTableEntry_ReinsertsHeldAnnounce(t *testing.T) {
 	tr := NewTransport(unstampedTestConfig(true))
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	tr.SetIdentity(mustIdentity(t))
 
 	wan := newRelayIface("wan-held")
@@ -451,7 +451,7 @@ func TestEmitAnnounceTableEntry_ReinsertsHeldAnnounce(t *testing.T) {
 
 func TestBuildPathResponseWire_Errors(t *testing.T) {
 	tr := NewTransport(unstampedTestConfig(true))
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	tr.mutex.Lock()
 	tr.transportIdentity = nil
 	tr.mutex.Unlock()
@@ -486,7 +486,7 @@ func TestBuildPathResponseWire_Errors(t *testing.T) {
 
 func TestBuildPathResponseWire_NonBlockedUsesContextNone(t *testing.T) {
 	tr := NewTransport(unstampedTestConfig(true))
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	tr.SetIdentity(mustIdentity(t))
 
 	dest := randomDestHash(114)
@@ -509,7 +509,7 @@ func TestBuildPathResponseWire_NonBlockedUsesContextNone(t *testing.T) {
 
 func TestBuildPathResponseWire_MTUExceeded(t *testing.T) {
 	tr := NewTransport(unstampedTestConfig(true))
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	tr.SetIdentity(mustIdentity(t))
 
 	dest := randomDestHash(115)
@@ -528,7 +528,7 @@ func TestBuildPathResponseWire_MTUExceeded(t *testing.T) {
 
 func TestCacheAnnouncePacket_RejectsNonTruncatedHash(t *testing.T) {
 	tr := NewTransport(unstampedTestConfig(true))
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 
 	short := []byte{0x01, 0x02}
 	long := bytes.Repeat([]byte{0x03}, 32)
@@ -545,7 +545,7 @@ func TestCacheAnnouncePacket_RejectsNonTruncatedHash(t *testing.T) {
 
 func TestQueuePathResponseAnnounce_UsesAnnounceTableWhenCacheEmpty(t *testing.T) {
 	tr := NewTransport(unstampedTestConfig(true))
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	tr.SetIdentity(mustIdentity(t))
 
 	local := newLocalClientRelayIface("table-src")
@@ -572,7 +572,7 @@ func TestQueuePathResponseAnnounce_UsesAnnounceTableWhenCacheEmpty(t *testing.T)
 
 func TestAnswerPendingLocalPathRequest_PrefersAnnounceHops(t *testing.T) {
 	tr := NewTransport(unstampedTestConfig(true))
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	tr.SetIdentity(mustIdentity(t))
 
 	local := newLocalClientRelayIface("hops-local")
@@ -598,7 +598,7 @@ func TestAnswerPendingLocalPathRequest_PrefersAnnounceHops(t *testing.T) {
 
 func TestQueuePathResponseAnnounce_FillsMissingDestHash(t *testing.T) {
 	tr := NewTransport(unstampedTestConfig(true))
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	tr.SetIdentity(mustIdentity(t))
 
 	local := newLocalClientRelayIface("fill-dest")
@@ -626,7 +626,7 @@ func TestQueuePathResponseAnnounce_FillsMissingDestHash(t *testing.T) {
 
 func TestQueuePathResponseAnnounce_RawFallbackWhenUnpackFails(t *testing.T) {
 	tr := NewTransport(unstampedTestConfig(true))
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	tr.SetIdentity(mustIdentity(t))
 
 	local := newLocalClientRelayIface("raw-fallback")
@@ -654,7 +654,7 @@ func TestQueuePathResponseAnnounce_RawFallbackWhenUnpackFails(t *testing.T) {
 
 func TestProcessAnnounceTable_SkipsFutureTimeout(t *testing.T) {
 	tr := NewTransport(unstampedTestConfig(true))
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	tr.SetIdentity(mustIdentity(t))
 
 	wan := newRelayIface("future-wan")
@@ -686,7 +686,7 @@ func TestProcessAnnounceTable_SkipsFutureTimeout(t *testing.T) {
 
 func TestNotePendingLocalPathRequest_RejectsBadInputs(t *testing.T) {
 	tr := NewTransport(unstampedTestConfig(true))
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	local := newLocalClientRelayIface("bad-pending")
 	dest := randomDestHash(121)
 
@@ -707,7 +707,7 @@ func TestNotePendingLocalPathRequest_RejectsBadInputs(t *testing.T) {
 // Regression: shared-instance known-path answer must deliver PATH_RESPONSE.
 func TestRegression_KnownPathCachedAnnounceAnswersLocalClient(t *testing.T) {
 	tr := NewTransport(unstampedTestConfig(true))
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	tr.SetIdentity(mustIdentity(t))
 
 	local := newLocalClientRelayIface("lc")
@@ -744,7 +744,7 @@ func TestRegression_KnownPathCachedAnnounceAnswersLocalClient(t *testing.T) {
 // Regression: known path without cache must fall through to local-client forward.
 func TestRegression_KnownPathWithoutCacheForwardsLocalClientPR(t *testing.T) {
 	tr := NewTransport(unstampedTestConfig(true))
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	tr.SetIdentity(mustIdentity(t))
 
 	local := newLocalClientRelayIface("lc2")
@@ -781,7 +781,7 @@ func TestRegression_KnownPathWithoutCacheForwardsLocalClientPR(t *testing.T) {
 // Regression: unregistering a local client must drop its pending path requests.
 func TestRegression_UnregisterClearsPendingLocalPathRequests(t *testing.T) {
 	tr := NewTransport(unstampedTestConfig(true))
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 
 	local := newLocalClientRelayIface("lc3")
 	if err := tr.RegisterInterface(local.GetName(), local); err != nil {
@@ -801,7 +801,7 @@ func TestRegression_UnregisterClearsPendingLocalPathRequests(t *testing.T) {
 
 func TestAnnounceTable_ConcurrentCacheQueueProcess(t *testing.T) {
 	tr := NewTransport(unstampedTestConfig(true))
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	tr.SetIdentity(mustIdentity(t))
 
 	local := newLocalClientRelayIface("race-local")
@@ -853,7 +853,7 @@ func TestAnnouncePacketCache_CapEviction(t *testing.T) {
 		InMemoryStorage:  true,
 		MaxInMemoryPaths: 3,
 	})
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 
 	var keys []hash16
 	for i := range 5 {
@@ -881,7 +881,7 @@ func TestAnnouncePacketCache_CapEviction(t *testing.T) {
 
 func TestAnnouncePacketCache_PathExpiryCleanup(t *testing.T) {
 	tr := NewTransport(unstampedTestConfig(true))
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 
 	dest := randomDestHash(310)
 	tr.cacheAnnouncePacket(dest, announcePkt(dest, 0x51))
@@ -911,7 +911,7 @@ func TestAnnouncePacketCache_PathExpiryCleanup(t *testing.T) {
 
 func TestAnnouncePacketCache_CleanupOrphans(t *testing.T) {
 	tr := NewTransport(unstampedTestConfig(true))
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 
 	dest := randomDestHash(311)
 	tr.cacheAnnouncePacket(dest, announcePkt(dest, 0x52))
@@ -927,7 +927,7 @@ func TestAnnouncePacketCache_CleanupOrphans(t *testing.T) {
 
 func TestMemoryStats_ReflectsAnnounceCache(t *testing.T) {
 	tr := NewTransport(unstampedTestConfig(true))
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 
 	dest := randomDestHash(320)
 	tr.cacheAnnouncePacket(dest, announcePkt(dest, 0x60))

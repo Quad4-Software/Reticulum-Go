@@ -32,10 +32,7 @@ func (n *Node) serveCommitsPage(_ string, data []byte, _ []byte, _ []byte, remot
 	if decoded, err := url.QueryUnescape(filterPath); err == nil {
 		filterPath = decoded
 	}
-	page := varInt(vars, "page", 0)
-	if page < 0 {
-		page = 0
-	}
+	page := max(varInt(vars, "page", 0), 0)
 	icons := n.icons()
 
 	nav := n.repoNav(group, repo) + " / " + mLink("Commits", pagePathCommits,
@@ -295,7 +292,7 @@ func sshSigRSGData(sigData []byte) ([]byte, error) {
 	}
 	offset += 4
 	var err error
-	for i := 0; i < 4; i++ { // public_key, namespace, reserved, hash_algorithm
+	for range 4 { // public_key, namespace, reserved, hash_algorithm
 		_, offset, err = readSSHString(sigData, offset)
 		if err != nil {
 			return nil, err
@@ -394,10 +391,7 @@ func (n *Node) commitSignature(repoPath, sha string) commitSigResult {
 // formatRelativeTime renders a timestamp as a relative phrase, matching the
 // reference format_relative_time output.
 func formatRelativeTime(ts int64) string {
-	diff := time.Now().Unix() - ts
-	if diff < 0 {
-		diff = 0
-	}
+	diff := max(time.Now().Unix()-ts, 0)
 	plural := func(n int64, unit string) string {
 		if n == 1 {
 			return fmt.Sprintf("%d %s ago", n, unit)

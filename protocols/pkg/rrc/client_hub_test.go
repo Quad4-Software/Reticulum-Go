@@ -78,8 +78,11 @@ func TestHubRateLimit(t *testing.T) {
 		cfg: HubConfig{Limits: HubLimits{RateLimitMsgsPerMinute: 2}},
 	}
 	p := &hubPeer{}
-	if !h.allowRate(p) || !h.allowRate(p) {
-		t.Fatal("first two should pass")
+	if !h.allowRate(p) {
+		t.Fatal("first rate check should pass")
+	}
+	if !h.allowRate(p) {
+		t.Fatal("second rate check should pass")
 	}
 	if h.allowRate(p) {
 		t.Fatal("third should fail")

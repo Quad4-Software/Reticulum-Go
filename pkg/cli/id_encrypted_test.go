@@ -57,7 +57,7 @@ func TestIDEncryptDecryptRekeyFlow(t *testing.T) {
 	if code := RunID([]string{"-i", path, "-rekey"}, opts); code != 0 {
 		t.Fatalf("rekey exit %d: %s", code, errOut.String())
 	}
-	os.Unsetenv(store.NewPassphraseEnv)
+	_ = os.Unsetenv(store.NewPassphraseEnv)
 
 	// Old pass no longer opens the file.
 	t.Setenv(store.PassphraseEnv, "cli-passphrase-1")

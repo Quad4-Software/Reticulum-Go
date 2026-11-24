@@ -49,12 +49,12 @@ func TestMessenger_TwoWayCommunication(t *testing.T) {
 	if err := tr1.Start(); err != nil {
 		t.Fatalf("Failed to start transport 1: %v", err)
 	}
-	defer tr1.Close()
+	defer func() { _ = tr1.Close() }()
 
 	if err := tr2.Start(); err != nil {
 		t.Fatalf("Failed to start transport 2: %v", err)
 	}
-	defer tr2.Close()
+	defer func() { _ = tr2.Close() }()
 
 	addr1 := "127.0.0.1:42420"
 	addr2 := "127.0.0.1:42421"
@@ -70,7 +70,7 @@ func TestMessenger_TwoWayCommunication(t *testing.T) {
 	if err := iface1.Start(); err != nil {
 		t.Fatalf("Failed to start interface 1: %v", err)
 	}
-	defer iface1.Stop()
+	defer func() { _ = iface1.Stop() }()
 
 	if netIface1, ok := iface1.(common.NetworkInterface); ok {
 		if err := tr1.RegisterInterface(testInterface1, netIface1); err != nil {
@@ -91,7 +91,7 @@ func TestMessenger_TwoWayCommunication(t *testing.T) {
 	if err := iface2.Start(); err != nil {
 		t.Fatalf("Failed to start interface 2: %v", err)
 	}
-	defer iface2.Stop()
+	defer func() { _ = iface2.Stop() }()
 
 	if netIface2, ok := iface2.(common.NetworkInterface); ok {
 		if err := tr2.RegisterInterface(testInterface2, netIface2); err != nil {

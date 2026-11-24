@@ -76,7 +76,7 @@ func hasHexPrefix(token string) (prefix []byte, ok bool) {
 		return nil, false
 	}
 	for _, c := range s {
-		if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f')) {
+		if (c < '0' || c > '9') && (c < 'a' || c > 'f') {
 			return nil, false
 		}
 	}

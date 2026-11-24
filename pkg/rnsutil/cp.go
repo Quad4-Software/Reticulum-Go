@@ -111,7 +111,7 @@ func readAllowedFile(path string) ([][]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	var out [][]byte
 	sc := bufio.NewScanner(f)
 	for sc.Scan() {
@@ -256,7 +256,7 @@ func SendFileOverLink(l *link.Link, filePath string, autoCompress bool, progress
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	res, err := resource.New(f, autoCompress)
 	if err != nil {
 		return err
@@ -368,7 +368,7 @@ func (p *ProgressPrinter) Update(label string, pct float64, got, total int64, bp
 	clearSeq := term.ProgressClear(p.out)
 	line := fmt.Sprintf("%s%s %.1f%% - %s of %s - %s/s",
 		clearSeq, term.Cyan(p.out, label), pct*100, SizeString(float64(got), "B"), SizeString(float64(total), "B"), SizeString(bps, "b"))
-	fmt.Fprint(p.out, line)
+	_, _ = fmt.Fprint(p.out, line)
 	p.last = line
 }
 
@@ -379,8 +379,8 @@ func (p *ProgressPrinter) Done(msg string) {
 	}
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	fmt.Fprint(p.out, term.ProgressClear(p.out))
+	_, _ = fmt.Fprint(p.out, term.ProgressClear(p.out))
 	if msg != "" {
-		fmt.Fprintln(p.out, msg)
+		_, _ = fmt.Fprintln(p.out, msg)
 	}
 }

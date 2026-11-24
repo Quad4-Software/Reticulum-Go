@@ -73,7 +73,7 @@ func TestLinkScaleManyConcurrent(t *testing.T) {
 	// goroutine baseline is sampled.
 	baseG := runtime.NumGoroutine()
 	links := make([]*Link, 0, n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		estB := make(chan struct{}, 1)
 		l := NewLink(destA, trB, pb, func(*Link) {
 			select {
@@ -132,8 +132,8 @@ func TestLinkScaleManyConcurrent(t *testing.T) {
 	for _, l := range links {
 		l.Teardown()
 	}
-	trA.Close()
-	trB.Close()
+	_ = trA.Close()
+	_ = trB.Close()
 	converge := time.Now().Add(15 * time.Second)
 	for time.Now().Before(converge) {
 		if runtime.NumGoroutine() <= baseG+6 {

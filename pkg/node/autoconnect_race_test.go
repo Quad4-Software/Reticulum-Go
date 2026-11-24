@@ -20,7 +20,7 @@ func TestRaceAutoconnectConcurrentSameEndpoint(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer n.Stop()
+	defer func() { _ = n.Stop() }()
 
 	info := &discovery.ReceivedAnnounceInfo{
 		Info: discovery.Info{
@@ -56,7 +56,7 @@ func TestRaceAutoconnectMonitorAndConnect(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer n.Stop()
+	defer func() { _ = n.Stop() }()
 
 	var seq atomic.Int32
 	var wg sync.WaitGroup
@@ -100,7 +100,7 @@ func TestRaceAutoconnectExistsConcurrent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer n.Stop()
+	defer func() { _ = n.Stop() }()
 
 	info := &discovery.ReceivedAnnounceInfo{
 		Info: discovery.Info{Type: "BackboneInterface", ReachableOn: "192.0.2.77", Port: 4242, HasPort: true},

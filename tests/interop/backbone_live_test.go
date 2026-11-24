@@ -29,7 +29,7 @@ func freeTCPPort(t *testing.T) int {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer ln.Close()
+	defer func() { _ = ln.Close() }()
 	return ln.Addr().(*net.TCPAddr).Port
 }
 
@@ -90,7 +90,7 @@ func TestLiveInteropBackboneHDLCEchoPython(t *testing.T) {
 	if err := client.Start(); err != nil {
 		t.Fatal(err)
 	}
-	defer client.Stop()
+	defer func() { _ = client.Stop() }()
 
 	onlineDeadline := time.Now().Add(5 * time.Second)
 	for time.Now().Before(onlineDeadline) {
@@ -147,7 +147,7 @@ func TestLiveInteropBackboneGoServerPythonHDLC(t *testing.T) {
 	if err := server.Start(); err != nil {
 		t.Fatal(err)
 	}
-	defer server.Stop()
+	defer func() { _ = server.Stop() }()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -249,7 +249,7 @@ func TestLiveInteropBackboneRNSAnnounce(t *testing.T) {
 	if err := iface.Start(); err != nil {
 		t.Fatal(err)
 	}
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 
 	if err := tr.InitializePathRequestHandler(); err != nil {
 		t.Fatal(err)

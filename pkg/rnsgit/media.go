@@ -229,7 +229,7 @@ func validWebP(path string) bool {
 	if err != nil {
 		return false
 	}
-	defer fh.Close()
+	defer func() { _ = fh.Close() }()
 	buf := make([]byte, 30)
 	n, err := fh.Read(buf)
 	if err != nil && n == 0 {
@@ -258,7 +258,7 @@ func ConvertToWebP(inputArgv []string, outputPath, cwd string, timeout time.Dura
 	if err != nil {
 		return false
 	}
-	defer out.Close()
+	defer func() { _ = out.Close() }()
 
 	inputProc := exec.CommandContext(ctx, inputArgv[0], inputArgv[1:]...) // #nosec G204 -- fixed argv from caller
 	inputProc.Dir = cwd
@@ -269,7 +269,7 @@ func ConvertToWebP(inputArgv []string, outputPath, cwd string, timeout time.Dura
 	if err := inputProc.Start(); err != nil {
 		return false
 	}
-	defer inputProc.Wait() // #nosec G104 -- best effort reap
+	defer func() { _ = inputProc.Wait() }() // #nosec G104 -- best effort reap
 
 	// Sniff the leading bytes and reject anything that is not a supported
 	// image before the encoder process is ever spawned.
@@ -363,7 +363,7 @@ func ConvertFileToWebP(sourcePath string, quality, maxDimension int, timeout tim
 	if err != nil {
 		return "", false
 	}
-	defer in.Close()
+	defer func() { _ = in.Close() }()
 
 	prefix := make([]byte, sniffBytes)
 	n, _ := io.ReadFull(in, prefix)
@@ -400,7 +400,7 @@ func (n *Node) spoolWebP(repoPath, ref, filePath string) ([]byte, string, bool) 
 	if err != nil {
 		return nil, "", false
 	}
-	defer os.RemoveAll(tmpdir)
+	defer func() { _ = os.RemoveAll(tmpdir) }()
 	stem := fileStem(filepath.Base(filePath))
 	spoolPath := filepath.Join(tmpdir, stem+".webp")
 	if !ConvertToWebP([]string{"git", "show", ref + ":" + filePath}, spoolPath, repoPath, 0, 0, 0) {

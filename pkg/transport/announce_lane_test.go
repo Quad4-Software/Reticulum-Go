@@ -25,7 +25,7 @@ func TestAnnounceLanesBypassBlockedWorkerPool(t *testing.T) {
 		EnableTransport:   true,
 		MaxPacketHandlers: 4,
 	})
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 
 	iface := &mockInterface{}
 	iface.Name = "ann-lane"

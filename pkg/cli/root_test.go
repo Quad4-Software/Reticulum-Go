@@ -94,8 +94,8 @@ func TestGitHelpUsesColorWhenEnabled(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.Remove(f.Name())
-	defer f.Close()
+	defer func() { _ = os.Remove(f.Name()) }()
+	defer func() { _ = f.Close() }()
 	code := Main([]string{"git", "-h"}, Options{Stdout: f, Stderr: io.Discard, VersionLine: "test"})
 	if code != 0 {
 		t.Fatalf("code=%d", code)

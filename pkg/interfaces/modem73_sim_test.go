@@ -101,7 +101,7 @@ func TestModem73SimulatorControlAndKISS(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer ctrlConn.Close()
+	defer func() { _ = ctrlConn.Close() }()
 	if err := writeModem73Control(ctrlConn, map[string]any{"cmd": "get_config"}); err != nil {
 		t.Fatal(err)
 	}
@@ -130,14 +130,14 @@ func TestModem73SimulatorControlAndKISS(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer bKiss.Close()
+	defer func() { _ = bKiss.Close() }()
 
 	payload := []byte("sim-phy-packet")
 	aCtrl, err := net.DialTimeout("tcp", ctrlA, time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer aCtrl.Close()
+	defer func() { _ = aCtrl.Close() }()
 	if err := writeModem73Control(aCtrl, map[string]any{
 		"cmd":  "tx",
 		"data": base64.StdEncoding.EncodeToString(payload),
@@ -243,7 +243,7 @@ func TestModem73SimulatorWithInterface(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer ctrl.Close()
+	defer func() { _ = ctrl.Close() }()
 	if err := writeModem73Control(ctrl, map[string]any{
 		"cmd":  "tx",
 		"data": base64.StdEncoding.EncodeToString(payload),

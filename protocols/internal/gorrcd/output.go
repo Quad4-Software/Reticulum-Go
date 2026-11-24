@@ -18,10 +18,6 @@ func statusOK(msg string) string {
 	return term.GreenW(colorOut(), msg)
 }
 
-func statusFail(msg string) string {
-	return term.RedW(colorOut(), msg)
-}
-
 func statusWarn(msg string) string {
 	return term.YellowW(colorOut(), msg)
 }
@@ -48,10 +44,6 @@ func printKV(label, value string) {
 
 func printSection(title string) {
 	opConsole.printf("\n%s\n", statusBold(title))
-}
-
-func liveStatusEnabled() bool {
-	return opConsole.isLive()
 }
 
 func writeLiveStatusLine(line string) {

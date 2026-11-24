@@ -12,7 +12,7 @@ func BenchmarkBufBytes(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	defer buf.Close()
+	defer func() { _ = buf.Close() }()
 	_ = buf.CopyFrom(make([]byte, 32))
 	b.ReportAllocs()
 	b.ResetTimer()
@@ -26,7 +26,7 @@ func BenchmarkBufCopyOut(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	defer buf.Close()
+	defer func() { _ = buf.Close() }()
 	_ = buf.CopyFrom(make([]byte, 32))
 	b.ReportAllocs()
 	b.ResetTimer()
@@ -55,7 +55,7 @@ func TestBufBytesAllocBudget(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer buf.Close()
+	defer func() { _ = buf.Close() }()
 	_ = buf.CopyFrom(make([]byte, 32))
 	allocs := testing.AllocsPerRun(1000, func() {
 		_ = buf.Bytes()
@@ -70,7 +70,7 @@ func TestBufCopyOutAllocBudget(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer buf.Close()
+	defer func() { _ = buf.Close() }()
 	_ = buf.CopyFrom(make([]byte, 32))
 	allocs := testing.AllocsPerRun(1000, func() {
 		out := buf.CopyOut()

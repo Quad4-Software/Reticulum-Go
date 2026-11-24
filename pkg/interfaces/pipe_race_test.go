@@ -24,7 +24,7 @@ func TestPipeInterfaceConcurrentSendRace(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer pi.Stop()
+	defer func() { _ = pi.Stop() }()
 
 	var wg sync.WaitGroup
 	const workers = 16

@@ -69,7 +69,7 @@ func TestLiveRgostatusTopology(t *testing.T) {
 	if err := n.Start(); err != nil {
 		t.Fatalf("node start: %v", err)
 	}
-	defer n.Stop()
+	defer func() { _ = n.Stop() }()
 
 	// Python announces toward the Go UDP listen port.
 	cmd := exec.CommandContext(ctx, pythonExe(), pyScript(t, "announce_peer.py"))

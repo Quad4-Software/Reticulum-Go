@@ -111,6 +111,7 @@ func loadOpenCL() (*openclAPI, error) {
 	return api, nil
 }
 
+// #nosec G103 -- OpenCL info query passes a caller byte buffer
 func (a *openclAPI) infoString(get func(uint32, uintptr, unsafe.Pointer, *uintptr) int32, param uint32) (string, error) {
 	var n uintptr
 	if st := get(param, 0, nil, &n); st != clSuccess {

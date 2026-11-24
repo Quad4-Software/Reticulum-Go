@@ -79,7 +79,7 @@ func TestPrepareOutboundFileSplitsDistinctSegments(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	res, err := New(f, false)
 	if err != nil {
 		t.Fatal(err)

@@ -38,17 +38,17 @@ func setupVethPair(t *testing.T) (veth0, veth1 string, cleanup func()) {
 		t.Skipf("failed to create veth pair: %v\n%s", err, out)
 	}
 
-	exec.Command("ip", "link", "set", veth0, "up").Run()
-	exec.Command("ip", "link", "set", veth1, "up").Run()
+	_ = exec.Command("ip", "link", "set", veth0, "up").Run()
+	_ = exec.Command("ip", "link", "set", veth1, "up").Run()
 
-	exec.Command("ip", "-6", "addr", "add", "fe80::1/64", "dev", veth0, "nodad").Run()
-	exec.Command("ip", "-6", "addr", "add", "fe80::2/64", "dev", veth1, "nodad").Run()
+	_ = exec.Command("ip", "-6", "addr", "add", "fe80::1/64", "dev", veth0, "nodad").Run()
+	_ = exec.Command("ip", "-6", "addr", "add", "fe80::2/64", "dev", veth1, "nodad").Run()
 
 	// Wait for addresses to settle
 	time.Sleep(100 * time.Millisecond)
 
 	cleanup = func() {
-		exec.Command("ip", "link", "del", veth0).Run()
+		_ = exec.Command("ip", "link", "del", veth0).Run()
 	}
 	return veth0, veth1, cleanup
 }
@@ -86,11 +86,11 @@ func TestLiveInteropAutoGoToGoDiscovery(t *testing.T) {
 	if err := ai0.Start(); err != nil {
 		t.Fatalf("Start 0: %v", err)
 	}
-	defer ai0.Stop()
+	defer func() { _ = ai0.Stop() }()
 	if err := ai1.Start(); err != nil {
 		t.Fatalf("Start 1: %v", err)
 	}
-	defer ai1.Stop()
+	defer func() { _ = ai1.Stop() }()
 
 	deadline := time.Now().Add(30 * time.Second)
 	for time.Now().Before(deadline) {
@@ -125,7 +125,7 @@ func TestLiveInteropAutoInterfaceDiscovery(t *testing.T) {
 	if err := ai.Start(); err != nil {
 		t.Fatalf("Start AutoInterface failed: %v", err)
 	}
-	defer ai.Stop()
+	defer func() { _ = ai.Stop() }()
 
 	// Give Go a moment to start listening
 	time.Sleep(200 * time.Millisecond)
@@ -183,7 +183,7 @@ func TestLiveInteropAutoInterfaceGoSeesPythonAnnounce(t *testing.T) {
 
 	// Set up Go transport with AutoInterface on veth0
 	tr := transport.NewTransport(interopPeerConfig())
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 
 	cfg := &common.InterfaceConfig{
 		Enabled: true,
@@ -196,7 +196,7 @@ func TestLiveInteropAutoInterfaceGoSeesPythonAnnounce(t *testing.T) {
 	if err := ai.Start(); err != nil {
 		t.Fatalf("Start AutoInterface failed: %v", err)
 	}
-	defer ai.Stop()
+	defer func() { _ = ai.Stop() }()
 
 	if err := tr.RegisterInterface("test_auto", ai); err != nil {
 		t.Fatalf("register: %v", err)
@@ -259,7 +259,7 @@ func TestLiveInteropAutoInterfacePythonSeesGoAnnounce(t *testing.T) {
 	defer cleanupVeth()
 
 	tr := transport.NewTransport(interopPeerConfig())
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 
 	cfg := &common.InterfaceConfig{
 		Enabled: true,
@@ -272,7 +272,7 @@ func TestLiveInteropAutoInterfacePythonSeesGoAnnounce(t *testing.T) {
 	if err := ai.Start(); err != nil {
 		t.Fatalf("Start AutoInterface failed: %v", err)
 	}
-	defer ai.Stop()
+	defer func() { _ = ai.Stop() }()
 	if err := tr.RegisterInterface("test_auto", ai); err != nil {
 		t.Fatalf("register: %v", err)
 	}

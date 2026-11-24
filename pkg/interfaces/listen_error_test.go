@@ -17,7 +17,7 @@ func TestUDPStartPortConflict(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListenUDP: %v", err)
 	}
-	defer holder.Close()
+	defer func() { _ = holder.Close() }()
 
 	addr := holder.LocalAddr().String()
 	ui, err := NewUDPInterface("udp-conflict", addr, "", true)
@@ -35,7 +35,7 @@ func TestTCPServerStartPortConflict(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Listen: %v", err)
 	}
-	defer holder.Close()
+	defer func() { _ = holder.Close() }()
 
 	_, portStr, err := net.SplitHostPort(holder.Addr().String())
 	if err != nil {

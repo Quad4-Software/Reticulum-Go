@@ -89,7 +89,7 @@ func loadReticulumFile(path string, lenient bool) (*common.ReticulumConfig, erro
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	if st, err := f.Stat(); err == nil && st.Size() > maxConfigBytes {
 		return nil, fmt.Errorf("%s: config larger than 1MB", path)
 	}

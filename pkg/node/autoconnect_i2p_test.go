@@ -21,7 +21,7 @@ func TestAutoconnectI2PCreatesPeer(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer n.Stop()
+	defer func() { _ = n.Stop() }()
 
 	dest := "peer.b32.i2p"
 	info := &discovery.ReceivedAnnounceInfo{

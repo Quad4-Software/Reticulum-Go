@@ -23,10 +23,16 @@ func main() {
 	cost := 12
 	rounds := 3
 	if len(os.Args) > 1 {
-		fmt.Sscanf(os.Args[1], "%d", &cost)
+		if _, err := fmt.Sscanf(os.Args[1], "%d", &cost); err != nil {
+			fmt.Fprintf(os.Stderr, "invalid cost %q: %v\n", os.Args[1], err)
+			os.Exit(2)
+		}
 	}
 	if len(os.Args) > 2 {
-		fmt.Sscanf(os.Args[2], "%d", &rounds)
+		if _, err := fmt.Sscanf(os.Args[2], "%d", &rounds); err != nil {
+			fmt.Fprintf(os.Stderr, "invalid rounds %q: %v\n", os.Args[2], err)
+			os.Exit(2)
+		}
 	}
 	const iters = 5
 	msg := bytes.Repeat([]byte{0x5A}, 16)

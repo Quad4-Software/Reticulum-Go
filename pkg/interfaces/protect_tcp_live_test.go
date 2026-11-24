@@ -42,7 +42,7 @@ func TestLiveTCPConnCapPrevent(t *testing.T) {
 	if err := srv.Start(); err != nil {
 		t.Fatal(err)
 	}
-	defer srv.Stop()
+	defer func() { _ = srv.Stop() }()
 
 	var held []net.Conn
 	defer func() {
@@ -109,7 +109,7 @@ func TestLiveTCPDetectConnStormAllowsAccepts(t *testing.T) {
 	if err := srv.Start(); err != nil {
 		t.Fatal(err)
 	}
-	defer srv.Stop()
+	defer func() { _ = srv.Stop() }()
 
 	addr := net.JoinHostPort("127.0.0.1", strconv.Itoa(port))
 	var held []net.Conn

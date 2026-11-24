@@ -116,8 +116,8 @@ func TestWaitReadyWakesOnDelivered(t *testing.T) {
 	go func() { done <- c.WaitReady(context.Background()) }()
 
 	select {
-	case <-done:
-		t.Fatal("WaitReady returned while window full")
+	case err := <-done:
+		t.Fatalf("WaitReady returned while window full: %v", err)
 	case <-time.After(30 * time.Millisecond):
 	}
 

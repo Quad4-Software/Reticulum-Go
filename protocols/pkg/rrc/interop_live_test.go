@@ -6,7 +6,6 @@ import (
 	"github.com/Quad4-Software/reticulum-go-protocols/internal/testconfig"
 	"strconv"
 	"testing"
-	"time"
 
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/common"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/destination"
@@ -75,18 +74,6 @@ func startInteropGoHub(t *testing.T, goPort, pyPort int, tag string, cfg HubConf
 
 func addr(port int) string {
 	return "127.0.0.1:" + strconv.Itoa(port)
-}
-
-func waitHubPath(t *testing.T, tr *transport.Transport, hubHash []byte, dest *destination.Destination) {
-	t.Helper()
-	deadline := time.Now().Add(20 * time.Second)
-	for !tr.HasPath(hubHash) {
-		if time.Now().After(deadline) {
-			t.Fatal("path timeout to hub")
-		}
-		_ = dest.Announce(false, nil, nil)
-		time.Sleep(80 * time.Millisecond)
-	}
 }
 
 func hubHashHex(h *interopGoHub) string {

@@ -77,10 +77,7 @@ func WriteTopologyHuman(w io.Writer, stats transport.InterfaceStatsResponse, pat
 			return rows[i].Timestamp > rows[j].Timestamp
 		})
 		for _, p := range rows {
-			heard := now.Sub(time.Unix(int64(p.Timestamp), 0))
-			if heard < 0 {
-				heard = 0
-			}
+			heard := max(now.Sub(time.Unix(int64(p.Timestamp), 0)), 0)
 			line := fmt.Sprintf("  %s  hops=%d", PrettyHex(p.Hash), p.Hops)
 			if len(p.Via) > 0 {
 				line += fmt.Sprintf("  via %s", PrettyHex(p.Via))

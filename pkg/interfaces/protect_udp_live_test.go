@@ -22,7 +22,7 @@ func freeUDPPortLocal(t *testing.T) int {
 	if err != nil {
 		t.Fatalf("listen: %v", err)
 	}
-	defer c.Close()
+	defer func() { _ = c.Close() }()
 	return c.LocalAddr().(*net.UDPAddr).Port
 }
 
@@ -200,11 +200,11 @@ func TestLiveUDPOnRealNICQuietNoFalsePositive(t *testing.T) {
 	if err := a.Start(); err != nil {
 		t.Skipf("cannot bind %s: %v", ip, err)
 	}
-	defer a.Stop()
+	defer func() { _ = a.Stop() }()
 	if err := b.Start(); err != nil {
 		t.Skipf("cannot bind peer on %s: %v", ip, err)
 	}
-	defer b.Stop()
+	defer func() { _ = b.Stop() }()
 
 	var got atomic.Int64
 	b.SetPacketCallback(func(data []byte, _ common.NetworkInterface) {
@@ -235,7 +235,7 @@ func freeUDPPortOn(t *testing.T, ip string) int {
 	if err != nil {
 		t.Skipf("listen on %s: %v", ip, err)
 	}
-	defer c.Close()
+	defer func() { _ = c.Close() }()
 	return c.LocalAddr().(*net.UDPAddr).Port
 }
 

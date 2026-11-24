@@ -82,7 +82,7 @@ func TestLiveInteropPythonTCPClientGoTCPServer(t *testing.T) {
 	defer cancel()
 
 	tr := transport.NewTransport(interopPeerConfig())
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 
 	port := freeTCPPort(t)
 	srv, err := interfaces.NewTCPServerInterface("go_tcp_srv", "127.0.0.1", port, false, false, false)

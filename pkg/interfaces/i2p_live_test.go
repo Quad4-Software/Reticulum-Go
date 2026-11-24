@@ -48,7 +48,7 @@ func TestLiveI2PInterfaceConnectable(t *testing.T) {
 	if err := iface.Start(); err != nil {
 		t.Fatal(err)
 	}
-	defer iface.Stop()
+	defer func() { _ = iface.Stop() }()
 
 	deadline := time.Now().Add(2 * time.Minute)
 	for iface.Base32() == "" && time.Now().Before(deadline) {

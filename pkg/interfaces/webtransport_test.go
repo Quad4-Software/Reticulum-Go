@@ -21,7 +21,7 @@ func freeWTPort(t *testing.T) int {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer c.Close()
+	defer func() { _ = c.Close() }()
 	return c.LocalAddr().(*net.UDPAddr).Port
 }
 
@@ -68,7 +68,7 @@ func TestWebTransportDatagramEcho(t *testing.T) {
 	if err := srv.Start(); err != nil {
 		t.Fatal(err)
 	}
-	defer srv.Stop()
+	defer func() { _ = srv.Stop() }()
 	port = listenWTPort(t, srv)
 
 	cli, err := NewWebTransportClientInterfaceWithRetries("wt_dg_cli", "127.0.0.1", port, "/rns", true, 20, WebTransportClientOptions{
@@ -77,7 +77,7 @@ func TestWebTransportDatagramEcho(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer cli.Stop()
+	defer func() { _ = cli.Stop() }()
 	waitOnline(t, cli, 5*time.Second)
 	waitWTSessions(t, srv, 1, 5*time.Second)
 
@@ -113,14 +113,14 @@ func TestWebTransportServerToClientDatagram(t *testing.T) {
 	if err := srv.Start(); err != nil {
 		t.Fatal(err)
 	}
-	defer srv.Stop()
+	defer func() { _ = srv.Stop() }()
 	port = listenWTPort(t, srv)
 
 	cli, err := NewWebTransportClientInterfaceWithRetries("wt_dg_cli2", "127.0.0.1", port, "", true, 20, WebTransportClientOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer cli.Stop()
+	defer func() { _ = cli.Stop() }()
 	waitOnline(t, cli, 5*time.Second)
 	waitWTSessions(t, srv, 1, 5*time.Second)
 
@@ -170,7 +170,7 @@ func TestWebTransportStreamEcho(t *testing.T) {
 	if err := srv.Start(); err != nil {
 		t.Fatal(err)
 	}
-	defer srv.Stop()
+	defer func() { _ = srv.Stop() }()
 	port = listenWTPort(t, srv)
 
 	cli, err := NewWebTransportClientInterfaceWithRetries("wt_st_cli", "127.0.0.1", port, "/rns", true, 20, WebTransportClientOptions{
@@ -179,7 +179,7 @@ func TestWebTransportStreamEcho(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer cli.Stop()
+	defer func() { _ = cli.Stop() }()
 	waitOnline(t, cli, 5*time.Second)
 	waitWTSessions(t, srv, 1, 5*time.Second)
 
@@ -224,7 +224,7 @@ func TestWebTransportDualMode(t *testing.T) {
 	if err := srv.Start(); err != nil {
 		t.Fatal(err)
 	}
-	defer srv.Stop()
+	defer func() { _ = srv.Stop() }()
 	port = listenWTPort(t, srv)
 
 	cli, err := NewWebTransportClientInterfaceWithRetries("wt_dual_cli", "127.0.0.1", port, "/rns", true, 20, WebTransportClientOptions{
@@ -233,7 +233,7 @@ func TestWebTransportDualMode(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer cli.Stop()
+	defer func() { _ = cli.Stop() }()
 	waitOnline(t, cli, 5*time.Second)
 	waitWTSessions(t, srv, 1, 5*time.Second)
 
@@ -277,7 +277,7 @@ func TestWebTransportIFACRoundTrip(t *testing.T) {
 	if err := srv.Start(); err != nil {
 		t.Fatal(err)
 	}
-	defer srv.Stop()
+	defer func() { _ = srv.Stop() }()
 	port = listenWTPort(t, srv)
 
 	cliCfg := &common.InterfaceConfig{
@@ -297,7 +297,7 @@ func TestWebTransportIFACRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 	cli := cliIface.(*WebTransportClientInterface)
-	defer cli.Stop()
+	defer func() { _ = cli.Stop() }()
 	waitOnline(t, cli, 5*time.Second)
 	waitWTSessions(t, srv, 1, 5*time.Second)
 
@@ -349,14 +349,14 @@ func TestWebTransportConcurrentSend(t *testing.T) {
 	if err := srv.Start(); err != nil {
 		t.Fatal(err)
 	}
-	defer srv.Stop()
+	defer func() { _ = srv.Stop() }()
 	port = listenWTPort(t, srv)
 
 	cli, err := NewWebTransportClientInterfaceWithRetries("wt_conc_cli", "127.0.0.1", port, "/rns", true, 20, WebTransportClientOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer cli.Stop()
+	defer func() { _ = cli.Stop() }()
 	waitOnline(t, cli, 5*time.Second)
 	waitWTSessions(t, srv, 1, 5*time.Second)
 
@@ -396,7 +396,7 @@ func TestWebTransportPeerKeyPin(t *testing.T) {
 	if err := srv.Start(); err != nil {
 		t.Fatal(err)
 	}
-	defer srv.Stop()
+	defer func() { _ = srv.Stop() }()
 	port = listenWTPort(t, srv)
 
 	cli, err := NewWebTransportClientInterfaceWithRetries("wt_pin_cli", "127.0.0.1", port, "/rns", true, 10, WebTransportClientOptions{
@@ -405,7 +405,7 @@ func TestWebTransportPeerKeyPin(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer cli.Stop()
+	defer func() { _ = cli.Stop() }()
 	waitOnline(t, cli, 5*time.Second)
 }
 

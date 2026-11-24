@@ -2,7 +2,6 @@
 package golxmd
 
 import (
-	"fmt"
 	"io"
 	"log/slog"
 	"os"
@@ -152,16 +151,4 @@ func FirstRun(home, configPath, identityPath, storageDir, messagesDir, rnsDir st
 		return false, err
 	}
 	return created, nil
-}
-
-func newIdentityFile(path string) (string, error) {
-	id, err := identity.NewIdentity()
-	if err != nil {
-		return "", err
-	}
-	if err := id.ToFile(path); err != nil {
-		return "", err
-	}
-	_ = os.Chmod(path, 0o600)
-	return fmt.Sprintf("%x", id.Hash()), nil
 }

@@ -106,15 +106,3 @@ func (t *pathRequestTracker) requestPath(destHash []byte, recursive bool) bool {
 	}
 	return true
 }
-
-// pathRequestPending mirrors upstream LXMRouter.path_request_pending.
-func (t *pathRequestTracker) pathRequestPending(destHash []byte) bool {
-	if t == nil {
-		return false
-	}
-	window := t.pathRequestWait()
-	t.mu.Lock()
-	last, ok := t.times[peerKey(destHash)]
-	t.mu.Unlock()
-	return ok && time.Since(last) < window
-}

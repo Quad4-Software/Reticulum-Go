@@ -144,7 +144,7 @@ func TestRegression_RequestReplayProtectionDoesNotBreakInterop(t *testing.T) {
 	initLink, respLink, cleanup := establishInteropLink(t)
 	defer cleanup()
 
-	respLink.destination.RegisterRequestHandler("echo", func(_ string, data []byte, _ []byte, _ []byte, _ *identity.Identity, _ int64) []byte {
+	_ = respLink.destination.RegisterRequestHandler("echo", func(_ string, data []byte, _ []byte, _ []byte, _ *identity.Identity, _ int64) []byte {
 		return append([]byte("echo:"), data...)
 	}, destination.AllowAll, nil)
 

@@ -17,13 +17,13 @@ func TestResponderCallbackTiming(t *testing.T) {
 	// Create Node A (Server/Responder)
 	cfgA := unstampedLinkConfig()
 	trA := transport.NewTransport(cfgA)
-	defer trA.Close()
+	defer func() { _ = trA.Close() }()
 	idA, _ := identity.New()
 
 	// Create Node B (Client/Initiator)
 	cfgB := unstampedLinkConfig()
 	trB := transport.NewTransport(cfgB)
-	defer trB.Close()
+	defer func() { _ = trB.Close() }()
 	idB, _ := identity.New()
 	_ = idB
 

@@ -121,8 +121,7 @@ func TestForwardLinkDataHT2(t *testing.T) {
 // Regression: forged link requests must not grow the relay table forever.
 func TestLinkRelayTableCap(t *testing.T) {
 	lt := newLinkRelayTable()
-	e := &LinkRelayEntry{Timestamp: time.Now()}
-	for i := 0; i < maxLinkRelayEntries+64; i++ {
+	for i := range maxLinkRelayEntries + 64 {
 		var id [16]byte
 		id[0] = byte(i >> 8)
 		id[1] = byte(i)
@@ -134,15 +133,12 @@ func TestLinkRelayTableCap(t *testing.T) {
 	if n > maxLinkRelayEntries {
 		t.Fatalf("link relay table %d exceeds cap %d", n, maxLinkRelayEntries)
 	}
-	if e == nil {
-		t.Fatal("unreachable")
-	}
 }
 
 // Regression: the reverse table is bounded too. Oldest entries evict first.
 func TestReverseTableCap(t *testing.T) {
 	rt := &reverseTable{entries: make(map[hash16]*ReverseEntry)}
-	for i := 0; i < maxReverseEntries+64; i++ {
+	for i := range maxReverseEntries + 64 {
 		var id [16]byte
 		id[0] = byte(i >> 8)
 		id[1] = byte(i)

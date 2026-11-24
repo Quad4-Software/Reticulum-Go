@@ -14,7 +14,7 @@ import (
 
 func TestPrepareFreshPathRequest_ReusesValidPath(t *testing.T) {
 	tr := NewTransport(unstampedTestConfig(true))
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	tr.SetIdentity(mustIdentity(t))
 	out := newRelayIface("out")
 	_ = tr.RegisterInterface("out", out)
@@ -32,7 +32,7 @@ func TestPrepareFreshPathRequest_ReusesValidPath(t *testing.T) {
 
 func TestPrepareFreshPathRequest_NewDestinationEmitsPacket(t *testing.T) {
 	tr := NewTransport(unstampedTestConfig(true))
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	tr.SetIdentity(mustIdentity(t))
 	out := newRelayIface("out")
 	_ = tr.RegisterInterface("out", out)
@@ -48,7 +48,7 @@ func TestPrepareFreshPathRequest_NewDestinationEmitsPacket(t *testing.T) {
 
 func TestPrepareFreshPathRequest_ExpiredTTLDropsAndRefreshes(t *testing.T) {
 	tr := NewTransport(unstampedTestConfig(true))
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	tr.SetIdentity(mustIdentity(t))
 	out := newRelayIface("out")
 	if err := tr.RegisterInterface("out", out); err != nil {
@@ -78,7 +78,7 @@ func TestPrepareFreshPathRequest_ExpiredTTLDropsAndRefreshes(t *testing.T) {
 
 func TestPrepareFreshPathRequest_UnresponsiveDropsAndRefreshes(t *testing.T) {
 	tr := NewTransport(unstampedTestConfig(true))
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	tr.SetIdentity(mustIdentity(t))
 	out := newRelayIface("out")
 	_ = tr.RegisterInterface("out", out)
@@ -98,7 +98,7 @@ func TestPrepareFreshPathRequest_UnresponsiveDropsAndRefreshes(t *testing.T) {
 
 func TestNudgePathRequestHonoursThrottle(t *testing.T) {
 	tr := NewTransport(unstampedTestConfig(true))
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	tr.SetIdentity(mustIdentity(t))
 	out := newRelayIface("out")
 	_ = tr.RegisterInterface("out", out)

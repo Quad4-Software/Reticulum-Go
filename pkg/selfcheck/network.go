@@ -24,7 +24,7 @@ func checkUDP() Result {
 	if err != nil {
 		return loopbackResult("network/udp", err)
 	}
-	defer a.Close()
+	defer func() { _ = a.Close() }()
 	b, err := net.ListenPacket("udp4", "127.0.0.1:0")
 	if err != nil {
 		b, err = net.ListenPacket("udp", "127.0.0.1:0")
@@ -32,7 +32,7 @@ func checkUDP() Result {
 	if err != nil {
 		return loopbackResult("network/udp", err)
 	}
-	defer b.Close()
+	defer func() { _ = b.Close() }()
 
 	payload := []byte("rns-selfcheck-udp")
 	if _, err := a.WriteTo(payload, b.LocalAddr()); err != nil {
@@ -55,7 +55,7 @@ func checkUDP() Result {
 	if err := ui.Start(); err != nil {
 		return result("network/udp", SeverityFail, "start: "+err.Error())
 	}
-	defer ui.Stop()
+	defer func() { _ = ui.Stop() }()
 	if !ui.IsOnline() {
 		return result("network/udp", SeverityFail, "not online after start")
 	}
@@ -80,7 +80,7 @@ func checkTCP() Result {
 	if err := srv.Start(); err != nil {
 		return result("network/tcp", SeverityFail, "start: "+err.Error())
 	}
-	defer srv.Stop()
+	defer func() { _ = srv.Stop() }()
 	return result("network/tcp", SeverityPass, fmt.Sprintf("bound 127.0.0.1:%d", port))
 }
 
@@ -102,7 +102,7 @@ func checkLocalInterface() Result {
 	if err := srv.Start(); err != nil {
 		return result("network/local", SeverityFail, "start: "+err.Error())
 	}
-	defer srv.Stop()
+	defer func() { _ = srv.Stop() }()
 	return result("network/local", SeverityPass, fmt.Sprintf("port %d", port))
 }
 
@@ -132,7 +132,7 @@ func checkQUIC() Result {
 	if err := srv.Start(); err != nil {
 		return result("network/quic", SeverityFail, "start: "+err.Error())
 	}
-	defer srv.Stop()
+	defer func() { _ = srv.Stop() }()
 	return result("network/quic", SeverityPass, fmt.Sprintf("bound 127.0.0.1:%d", port))
 }
 
@@ -157,7 +157,7 @@ func checkHTTPS() Result {
 	if err := srv.Start(); err != nil {
 		return result("network/https", SeverityFail, "start: "+err.Error())
 	}
-	defer srv.Stop()
+	defer func() { _ = srv.Stop() }()
 	return result("network/https", SeverityPass, fmt.Sprintf("bound 127.0.0.1:%d", port))
 }
 
@@ -190,7 +190,7 @@ func checkPipe() Result {
 	if err := pi.Start(); err != nil {
 		return result("network/pipe", SeverityFail, "start: "+err.Error())
 	}
-	defer pi.Stop()
+	defer func() { _ = pi.Stop() }()
 	return result("network/pipe", SeverityPass, "cat HDLC pipe")
 }
 

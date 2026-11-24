@@ -131,7 +131,7 @@ func TestWrapListenErrorRealPortConflict(t *testing.T) {
 	if err != nil {
 		t.Fatalf("listen: %v", err)
 	}
-	defer ln.Close()
+	defer func() { _ = ln.Close() }()
 
 	_, err = net.Listen("tcp", ln.Addr().String())
 	if err == nil {

@@ -249,10 +249,7 @@ func NewRawChannelWriterWithOptions(streamID int, ch *channel.Channel, opts Writ
 // the live channel MDU like Python RawChannelWriter._mdu
 // (channel.mdu - StreamDataMessage.HEADER_LEN).
 func (w *RawChannelWriter) streamMDU() int {
-	mdu := w.channel.MDU() - StreamHeaderSize
-	if mdu < 1 {
-		mdu = 1
-	}
+	mdu := max(w.channel.MDU()-StreamHeaderSize, 1)
 	return mdu
 }
 
@@ -323,7 +320,7 @@ func (b *Buffer) Read(p []byte) (n int, err error) {
 }
 
 func (b *Buffer) Close() error {
-	return b.ReadWriter.Writer.Flush()
+	return b.ReadWriter.Flush()
 }
 
 func CreateReader(streamID int, ch *channel.Channel, readyCallback func(int)) *bufio.Reader {

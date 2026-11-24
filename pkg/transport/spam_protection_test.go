@@ -78,7 +78,7 @@ func TestIngressControlHoldsAnnounceFlood(t *testing.T) {
 		ICHeldReleaseInterval: 1,
 	}
 	tr, _, out := transportWithIfaceConfig(t, inCfg, nil)
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 
 	in, _ := tr.GetInterface("in")
 	if in == nil {
@@ -113,7 +113,7 @@ func TestIngressControlOffByConfig(t *testing.T) {
 		IngressControl:    false,
 	}
 	tr, _, _ := transportWithIfaceConfig(t, inCfg, nil)
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 
 	st := tr.ifaceStates.get("in")
 	if st == nil || st.ingress == nil {
@@ -131,7 +131,7 @@ func TestEgressAnnounceRateControlSuppressesRebroadcast(t *testing.T) {
 		AnnounceRatePenalty: 0,
 	}
 	tr, _, out := transportWithIfaceConfig(t, nil, outCfg)
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 
 	in, _ := tr.GetInterface("in")
 	if in == nil {
@@ -166,7 +166,7 @@ func TestRegisterInterfaceMatchesConfigByName(t *testing.T) {
 		},
 	}
 	tr := NewTransport(cfg)
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 
 	iface := newTrackingIface("wire-name")
 	if err := tr.RegisterInterface("wire-name", iface); err != nil {
@@ -180,7 +180,7 @@ func TestRegisterInterfaceMatchesConfigByName(t *testing.T) {
 
 func TestReleaseHeldAnnouncesIsNoOpWhenEmpty(t *testing.T) {
 	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 
 	iface := newTrackingIface("a")
 	if err := tr.RegisterInterface("a", iface); err != nil {
@@ -248,7 +248,7 @@ func TestHeldAnnounceForwardsOnRelease(t *testing.T) {
 		ICHeldReleaseInterval: 1,
 	}
 	tr, in, out := transportWithIfaceConfig(t, inCfg, nil)
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 
 	// Push enough announces to engage the hold, ending with one announce
 	// for a destination the node has never seen before.

@@ -274,7 +274,7 @@ func TestAnnounceFilter(t *testing.T) {
 	_, sess := doJSON(t, http.MethodPost, ts.URL+"/v1/sessions", authKey, map[string]any{})
 	sessionID, _ := sess["session_id"].(string)
 	ws := dialControlAPIWS(t, ts.URL, fmt.Sprintf("/v1/sessions/%s/events", sessionID), authKey)
-	defer ws.conn.Close()
+	defer func() { _ = ws.conn.Close() }()
 
 	match := hex.EncodeToString(bytesRepeat(0x11, 16))
 	other := hex.EncodeToString(bytesRepeat(0x22, 16))
@@ -323,7 +323,7 @@ func TestDeregisterRequestHandler(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	delResp.Body.Close()
+	_ = delResp.Body.Close()
 	if delResp.StatusCode != http.StatusNoContent {
 		t.Fatalf("DELETE status = %d", delResp.StatusCode)
 	}
@@ -334,7 +334,7 @@ func TestDeregisterRequestHandler(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	delResp.Body.Close()
+	_ = delResp.Body.Close()
 	if delResp.StatusCode != http.StatusNotFound {
 		t.Fatalf("second DELETE status = %d, want 404", delResp.StatusCode)
 	}
@@ -355,7 +355,7 @@ func TestCommandErrorUnknownAndMalformed(t *testing.T) {
 	_, sess := doJSON(t, http.MethodPost, ts.URL+"/v1/sessions", authKey, map[string]any{})
 	sessionID, _ := sess["session_id"].(string)
 	ws := dialControlAPIWS(t, ts.URL, fmt.Sprintf("/v1/sessions/%s/events", sessionID), authKey)
-	defer ws.conn.Close()
+	defer func() { _ = ws.conn.Close() }()
 
 	ws.sendText(t, []byte(`{not-json`))
 	errEvt := waitEventType(t, ws, "command.error", 2*time.Second)

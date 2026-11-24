@@ -190,10 +190,7 @@ func TestLiveNomadNetCrawlFetchMU(t *testing.T) {
 	// Collect a wider candidate pool than the fetch target: public nodes
 	// announce freely but many never answer page requests or even link, so
 	// the crawl needs spare candidates before it gives up on an uplink.
-	poolTarget := nodeTarget * 4
-	if poolTarget < 12 {
-		poolTarget = 12
-	}
+	poolTarget := max(nodeTarget*4, 12)
 	pagePaths := envPagePaths()
 	saveDir := strings.TrimSpace(os.Getenv("INTEROP_NOMADNET_SAVE_DIR"))
 
@@ -219,15 +216,15 @@ func TestLiveNomadNetCrawlFetchMU(t *testing.T) {
 		iface, err := interfaces.NewTCPClientInterface(peer.Name, peer.Host, peer.Port, false, false, true)
 		if err != nil {
 			t.Logf("uplink %s connect failed: %v", peer.Name, err)
-			tr2.Close()
+			_ = tr2.Close()
 			continue
 		}
 		if err := tr2.RegisterInterface(peer.Name, iface); err != nil {
-			tr2.Close()
+			_ = tr2.Close()
 			t.Fatalf("register tcp interface: %v", err)
 		}
 		if err := tr2.InitializePathRequestHandler(); err != nil {
-			tr2.Close()
+			_ = tr2.Close()
 			t.Fatalf("path handler: %v", err)
 		}
 		col := newNomadnetAnnounceCollector()
@@ -246,20 +243,20 @@ func TestLiveNomadNetCrawlFetchMU(t *testing.T) {
 		got := col.snapshot()
 		if len(got) == 0 {
 			t.Logf("uplink %s delivered no announces in %s", peer.Name, announceWait)
-			tr2.Close()
+			_ = tr2.Close()
 			continue
 		}
 		t.Logf("uplink %s delivered %d announce(s)", peer.Name, len(got))
 		if len(got) > len(nodes) {
 			if tr != nil {
-				tr.Close()
+				_ = tr.Close()
 			}
 			tr = tr2
 			collector = col
 			nodes = got
 			usedPeer = peer
 		} else {
-			tr2.Close()
+			_ = tr2.Close()
 		}
 		if len(nodes) >= nodeTarget {
 			break
@@ -268,7 +265,7 @@ func TestLiveNomadNetCrawlFetchMU(t *testing.T) {
 	if tr == nil {
 		t.Fatalf("no nomadnet announces observed via any of %d uplink(s), %s each", len(peers), announceWait)
 	}
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	defer tr.UnregisterAnnounceHandler(collector)
 
 	if len(nodes) > poolTarget {

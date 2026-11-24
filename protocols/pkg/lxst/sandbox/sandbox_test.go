@@ -98,29 +98,32 @@ func TestSandboxSourceHasNoDisableSwitch(t *testing.T) {
 
 func TestSandboxPackageASTHasNoEnvOrFlag(t *testing.T) {
 	fset := token.NewFileSet()
-	pkgs, err := parser.ParseDir(fset, ".", nil, 0)
+	entries, err := os.ReadDir(".")
 	if err != nil {
 		t.Fatal(err)
 	}
-	for name, pkg := range pkgs {
-		if strings.HasSuffix(name, "_test") {
+	for _, entry := range entries {
+		name := entry.Name()
+		if entry.IsDir() || !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
 			continue
 		}
-		for path := range pkg.Files {
-			if strings.HasSuffix(path, "_test.go") {
-				continue
-			}
-			src, err := os.ReadFile(path)
-			if err != nil {
-				t.Fatal(err)
-			}
-			text := string(src)
-			if strings.Contains(text, "os.Getenv") || strings.Contains(text, "os.LookupEnv") {
-				t.Errorf("%s reads environment", path)
-			}
-			if strings.Contains(text, "flag.") {
-				t.Errorf("%s uses flags", path)
-			}
+		file, err := parser.ParseFile(fset, name, nil, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if strings.HasSuffix(file.Name.Name, "_test") {
+			continue
+		}
+		src, err := os.ReadFile(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		text := string(src)
+		if strings.Contains(text, "os.Getenv") || strings.Contains(text, "os.LookupEnv") {
+			t.Errorf("%s reads environment", name)
+		}
+		if strings.Contains(text, "flag.") {
+			t.Errorf("%s uses flags", name)
 		}
 	}
 }

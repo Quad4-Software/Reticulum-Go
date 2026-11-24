@@ -429,7 +429,7 @@ func TestLiveInteropRemoteMgmtStatusRequest(t *testing.T) {
 	if err := iface.Start(); err != nil {
 		t.Fatalf("start iface: %v", err)
 	}
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 
 	if err := tr.InitializeRemoteManagement(); err != nil {
 		t.Fatalf("init remote mgmt: %v", err)
@@ -567,7 +567,7 @@ func TestLiveInteropPythonTCPClientKISSGoTCPServer(t *testing.T) {
 	defer cancel()
 
 	tr := transport.NewTransport(interopPeerConfig())
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 
 	port := freeTCPPort(t)
 	srv, err := interfaces.NewTCPServerInterface("go_tcp_kiss", "127.0.0.1", port, true, false, false)

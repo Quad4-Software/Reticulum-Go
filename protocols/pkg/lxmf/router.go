@@ -67,13 +67,12 @@ type Router struct {
 	unpeeredPropagationIncoming int64
 	unpeeredPropagationRxBytes  int64
 
-	propMu               sync.Mutex
-	validatedPeerLinks   map[string]bool
-	acceptedOfferLinks   map[string]byte
-	validatingFrom       map[string]float64
-	throttledPeers       map[string]float64
-	peerDistributionQ    []peerDistEntry
-	propagationResources int
+	propMu             sync.Mutex
+	validatedPeerLinks map[string]bool
+	acceptedOfferLinks map[string]byte
+	validatingFrom     map[string]float64
+	throttledPeers     map[string]float64
+	peerDistributionQ  []peerDistEntry
 
 	linksMu      sync.Mutex
 	directLinks  map[string]*link.Link

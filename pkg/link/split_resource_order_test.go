@@ -179,7 +179,7 @@ func TestSplitResourcePerLinkAssemblyCap(t *testing.T) {
 	t.Cleanup(resetSplitResourceMemoryForTest)
 
 	l := splitTestLink()
-	for i := 0; i < maxSplitAssembliesPerLink; i++ {
+	for i := range maxSplitAssembliesPerLink {
 		hash := make([]byte, 32)
 		hash[0] = byte(0x10 + i)
 		if err := l.handleSplitSegmentComplete([]byte("x"), splitAdv(hash, 1, 2, 0), nil); err != nil {

@@ -66,7 +66,7 @@ func buildLinkDataHT1(linkID []byte, seq uint64) []byte {
 // same-link packets FIFO while letting different links proceed in parallel.
 func TestLinkDataLanesPreservePerLinkOrder(t *testing.T) {
 	tr := NewTransport(&common.ReticulumConfig{})
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 
 	const links = 6
 	const perLink = 200
@@ -90,7 +90,7 @@ func TestLinkDataLanesPreservePerLinkOrder(t *testing.T) {
 	var wg sync.WaitGroup
 	for i := range links {
 		wg.Go(func() {
-			for seq := uint64(0); seq < perLink; seq++ {
+			for seq := range uint64(perLink) {
 				tr.HandlePacket(buildLinkDataHT1(linkIDs[i], seq), iface)
 			}
 		})

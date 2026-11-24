@@ -90,7 +90,7 @@ func TestLiveGoToGoRNXCommand(t *testing.T) {
 	if err := nA.Start(); err != nil {
 		t.Fatal(err)
 	}
-	defer nA.Stop()
+	defer func() { _ = nA.Stop() }()
 
 	idListen, err := identity.New()
 	if err != nil {
@@ -126,7 +126,7 @@ func TestLiveGoToGoRNXCommand(t *testing.T) {
 	if err := nB.Start(); err != nil {
 		t.Fatal(err)
 	}
-	defer nB.Stop()
+	defer func() { _ = nB.Stop() }()
 
 	destHash := dest.GetHash()
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -185,7 +185,7 @@ func TestLiveRgoxCLIAgainstGoListenerUDP(t *testing.T) {
 	if err := nA.Start(); err != nil {
 		t.Fatal(err)
 	}
-	defer nA.Stop()
+	defer func() { _ = nA.Stop() }()
 
 	idListen, err := identity.New()
 	if err != nil {
@@ -269,7 +269,7 @@ func TestLiveGoRNXListenerPythonRNXClient(t *testing.T) {
 	if err := nA.Start(); err != nil {
 		t.Fatal(err)
 	}
-	defer nA.Stop()
+	defer func() { _ = nA.Stop() }()
 
 	idListen, err := identity.New()
 	if err != nil {
@@ -379,7 +379,7 @@ func TestLiveRNXAllowListRejects(t *testing.T) {
 	if err := nA.Start(); err != nil {
 		t.Fatal(err)
 	}
-	defer nA.Stop()
+	defer func() { _ = nA.Stop() }()
 
 	idListen, err := identity.New()
 	if err != nil {
@@ -427,7 +427,7 @@ func TestLiveRNXAllowListRejects(t *testing.T) {
 	if err := nB.Start(); err != nil {
 		t.Fatal(err)
 	}
-	defer nB.Stop()
+	defer func() { _ = nB.Stop() }()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
@@ -471,7 +471,7 @@ func TestLiveRNXLargeOutput(t *testing.T) {
 	if err := nA.Start(); err != nil {
 		t.Fatal(err)
 	}
-	defer nA.Stop()
+	defer func() { _ = nA.Stop() }()
 
 	idListen, err := identity.New()
 	if err != nil {
@@ -502,7 +502,7 @@ func TestLiveRNXLargeOutput(t *testing.T) {
 	if err := nB.Start(); err != nil {
 		t.Fatal(err)
 	}
-	defer nB.Stop()
+	defer func() { _ = nB.Stop() }()
 
 	idClient, err := identity.New()
 	if err != nil {

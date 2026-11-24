@@ -15,7 +15,7 @@ import (
 func FuzzLinkHandleData(f *testing.F) {
 	cfg := unstampedLinkConfig()
 	tr := transport.NewTransport(cfg)
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	id, err := identity.New()
 	if err != nil {
 		f.Fatal(err)
@@ -67,7 +67,7 @@ func FuzzLinkHandleData(f *testing.F) {
 func FuzzLinkHandleInbound(f *testing.F) {
 	cfg := unstampedLinkConfig()
 	tr := transport.NewTransport(cfg)
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	id, err := identity.New()
 	if err != nil {
 		f.Fatal(err)

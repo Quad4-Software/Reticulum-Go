@@ -119,10 +119,7 @@ func newDaemonMesh(t *testing.T, basePort int, cfg Config) *daemonMesh {
 	identity.Remember(nil, idB.Hash(), idB.GetPublicKey(), nil)
 
 	deadline := time.Now().Add(daemonPathWait)
-	for {
-		if trA.HasPath(hubHash) && trB.HasPath(hubHash) {
-			break
-		}
+	for !trA.HasPath(hubHash) || !trB.HasPath(hubHash) {
 		if time.Now().After(deadline) {
 			t.Fatal("path timeout")
 		}

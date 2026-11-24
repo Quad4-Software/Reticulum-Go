@@ -125,7 +125,7 @@ func runGoRngitHelper(t *testing.T, clientRngitDir, rnsDir, destHex, repo, workD
 	if err := n.Start(); err != nil {
 		t.Fatal(err)
 	}
-	defer n.Stop()
+	defer func() { _ = n.Stop() }()
 
 	client, err := rnsgit.NewClient(rnsgit.ClientOptions{
 		ConfigDir:    clientRngitDir,

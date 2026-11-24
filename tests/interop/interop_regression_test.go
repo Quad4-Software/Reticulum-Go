@@ -211,7 +211,7 @@ func TestWaitStdoutTokenSkipsNoise(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer r.Close()
+	defer func() { _ = r.Close() }()
 	_, _ = w.WriteString("[Error] SAM API went offline\n")
 	_, _ = w.WriteString("ONLINE\n")
 	_ = w.Close()
@@ -229,7 +229,7 @@ func TestWaitStdoutTokenPrefix(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer r.Close()
+	defer func() { _ = r.Close() }()
 	_, _ = w.WriteString("noise\n")
 	_, _ = w.WriteString("B32=abcdefghijklmnopqrstuvwxyz234567abcdefghijklmnopqrst\n")
 	_ = w.Close()

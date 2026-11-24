@@ -16,6 +16,7 @@ import (
 
 const cpuCancelCheckMask = 0x3fff // every 16384 attempts
 
+// #nosec G115 -- worker count is bounded by GOMAXPROCS and counter truncation is intentional nonce mixing
 func generateStampCPU(ctx context.Context, workblock []byte, stampCost int) ([]byte, int, error) {
 	target := stampTarget(stampCost)
 	ms, err := midstateOfPrefix(workblock)
@@ -100,6 +101,7 @@ func generateStampCPU(ctx context.Context, workblock []byte, stampCost int) ([]b
 	}
 }
 
+// #nosec G115 -- worker count is bounded by GOMAXPROCS and counter truncation is intentional nonce mixing
 func generateStampCPUFallback(ctx context.Context, workblock []byte, stampCost int) ([]byte, int, error) {
 	target := stampTarget(stampCost)
 	workers := max(runtime.GOMAXPROCS(0), 1)

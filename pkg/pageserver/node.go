@@ -300,7 +300,7 @@ func (tw *transportWrapper) Send(data []byte) any {
 		HeaderType: packet.HeaderType1,
 	}
 
-	err := tw.Transport.SendPacket(p)
+	err := tw.SendPacket(p)
 	if err != nil {
 		return nil
 	}
@@ -309,7 +309,7 @@ func (tw *transportWrapper) Send(data []byte) any {
 
 func (tw *transportWrapper) Resend(p any) error {
 	if pkt, ok := p.(*packet.Packet); ok {
-		return tw.Transport.SendPacket(pkt)
+		return tw.SendPacket(pkt)
 	}
 	return fmt.Errorf("invalid packet type")
 }
@@ -948,7 +948,7 @@ func (r *Reticulum) serveFile(path string, data []byte, requestID []byte, linkID
 		debug.Log(debug.DebugError, "Failed to open file", "path", filePath, "error", err)
 		return []byte(">File Not Found\n\nThe requested file could not be found.")
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	content, err := io.ReadAll(file)
 	if err != nil {

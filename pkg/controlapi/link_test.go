@@ -41,7 +41,7 @@ func TestRequestResponseBridgeDirect(t *testing.T) {
 	}
 
 	ws := dialControlAPIWS(t, ts.URL, fmt.Sprintf("/v1/sessions/%s/events", sessionID), authKey)
-	defer ws.conn.Close()
+	defer func() { _ = ws.conn.Close() }()
 
 	sess, ok := srv.session(sessionID)
 	if !ok {
@@ -132,7 +132,7 @@ func TestLinkOpenValidation(t *testing.T) {
 	sessionID, _ := session["session_id"].(string)
 
 	ws := dialControlAPIWS(t, ts.URL, fmt.Sprintf("/v1/sessions/%s/events", sessionID), authKey)
-	defer ws.conn.Close()
+	defer func() { _ = ws.conn.Close() }()
 
 	ws.sendText(t, []byte(`{"type":"link.open","destination_hash":"not-hex"}`))
 	raw := ws.recvText(t, 2*time.Second)
@@ -209,15 +209,13 @@ const pipeTestBitrate = 1_000_000
 
 func newPipeInterface(name string) *pipeInterface {
 	return &pipeInterface{
-		BaseInterface: common.BaseInterface{
-			Name:    name,
-			Type:    common.IFTypeUDP,
-			Mode:    common.IFModeFull,
-			Enabled: true,
-			Online:  true,
-			MTU:     common.DefaultMTU,
-			Bitrate: pipeTestBitrate,
-		},
+		Name:    name,
+		Type:    common.IFTypeUDP,
+		Mode:    common.IFModeFull,
+		Enabled: true,
+		Online:  true,
+		MTU:     common.DefaultMTU,
+		Bitrate: pipeTestBitrate,
 	}
 }
 
@@ -320,7 +318,7 @@ func TestLinkAndRequestLifecycle(t *testing.T) {
 	}
 
 	wsA := dialControlAPIWS(t, tsA.URL, fmt.Sprintf("/v1/sessions/%s/events", sessionIDA), authA)
-	defer wsA.conn.Close()
+	defer func() { _ = wsA.conn.Close() }()
 
 	resp, _ = doJSON(t, http.MethodPost, fmt.Sprintf("%s/v1/sessions/%s/destinations/%s/announce", tsA.URL, sessionIDA, destHashA), authA, nil)
 	if resp.StatusCode != http.StatusNoContent {
@@ -340,7 +338,7 @@ func TestLinkAndRequestLifecycle(t *testing.T) {
 	}
 
 	wsB := dialControlAPIWS(t, tsB.URL, fmt.Sprintf("/v1/sessions/%s/events", sessionIDB), authB)
-	defer wsB.conn.Close()
+	defer func() { _ = wsB.conn.Close() }()
 
 	wsB.sendText(t, fmt.Appendf(nil, `{"type":"link.open","destination_hash":%q}`, destHashA))
 

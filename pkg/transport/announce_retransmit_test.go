@@ -34,7 +34,7 @@ func getJob(t *testing.T, tr *Transport, idx int) *delayedAnnounceJob {
 // timeout, retries until retries > PATHFINDER_R, then completes.
 func TestDelayedAnnounceJob_RetransmitSequence(t *testing.T) {
 	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 
 	in := newRelayIface("rtx-in")
 	out := newRelayIface("rtx-out")
@@ -92,7 +92,7 @@ func TestDelayedAnnounceJob_RetransmitSequence(t *testing.T) {
 // (retries starts at PATHFINDER_R).
 func TestDelayedAnnounceJob_LocalClientEmitsOnce(t *testing.T) {
 	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 
 	in := newRelayIface("lc-in")
 	out := newRelayIface("lc-out")
@@ -144,7 +144,7 @@ func TestHeardAnnounceRebroadcast(t *testing.T) {
 
 	t.Run("counts same-emission rebroadcasts and completes at max", func(t *testing.T) {
 		tr, dst := newJob(1, 3)
-		defer tr.Close()
+		defer func() { _ = tr.Close() }()
 
 		tr.heardAnnounceRebroadcast(destKey(dst[:]), 3)
 		if n := pendingJobCount(tr); n != 1 {
@@ -162,7 +162,7 @@ func TestHeardAnnounceRebroadcast(t *testing.T) {
 
 	t.Run("cancels when our rebroadcast is passed on", func(t *testing.T) {
 		tr, dst := newJob(1, 3)
-		defer tr.Close()
+		defer func() { _ = tr.Close() }()
 
 		tr.heardAnnounceRebroadcast(destKey(dst[:]), 4)
 		if n := pendingJobCount(tr); n != 0 {
@@ -172,7 +172,7 @@ func TestHeardAnnounceRebroadcast(t *testing.T) {
 
 	t.Run("no cancellation before first emit", func(t *testing.T) {
 		tr, dst := newJob(0, 3)
-		defer tr.Close()
+		defer func() { _ = tr.Close() }()
 
 		tr.heardAnnounceRebroadcast(destKey(dst[:]), 4)
 		if n := pendingJobCount(tr); n != 1 {
@@ -186,7 +186,7 @@ func TestHeardAnnounceRebroadcast(t *testing.T) {
 func TestAnnouncePathDecision_InsertionOnly(t *testing.T) {
 	mkBlob := func(emitted uint32) []byte {
 		b := make([]byte, 10)
-		for i := 0; i < 5; i++ {
+		for i := range 5 {
 			b[5+i] = byte(emitted >> (8 * (4 - i)))
 		}
 		return b
@@ -236,7 +236,7 @@ func TestAnnouncePathDecision_InsertionOnly(t *testing.T) {
 // hop patterns must pass the pre-verify dedup bypass too.
 func TestAnnounceHeardMatch_AnnounceTableEntry(t *testing.T) {
 	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 
 	var dst [16]byte
 	dst[0] = 0xC4

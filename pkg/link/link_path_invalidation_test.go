@@ -54,7 +54,7 @@ func TestInvalidateTransportPathAfterInitiatorFailure_skipsWhenEstablished(t *te
 
 	cfg := &common.ReticulumConfig{EnableTransport: true}
 	tr := transport.NewTransport(cfg)
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	tr.SetIdentity(cliIdent)
 
 	iface := newNoopIface("wan")
@@ -91,7 +91,7 @@ func TestInvalidateTransportPathAfterInitiatorFailure_clearsPathWhenNeverEstabli
 
 	cfg := &common.ReticulumConfig{EnableTransport: true}
 	tr := transport.NewTransport(cfg)
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	tr.SetIdentity(cliIdent)
 
 	iface := newNoopIface("wan")
@@ -127,7 +127,7 @@ func TestInitiatorBadLinkProofIgnored(t *testing.T) {
 
 	cfg := &common.ReticulumConfig{EnableTransport: true}
 	tr := transport.NewTransport(cfg)
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	tr.SetIdentity(cliIdent)
 
 	iface := newNoopIface("wan")
@@ -187,7 +187,7 @@ func TestEstablish_sendLinkRequestFailureClearsPath(t *testing.T) {
 
 	cfg := &common.ReticulumConfig{EnableTransport: true}
 	tr := transport.NewTransport(cfg)
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	tr.SetIdentity(cliIdent)
 
 	iface := newErrSendIface("wan")

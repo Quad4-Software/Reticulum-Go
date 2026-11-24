@@ -21,7 +21,7 @@ func TestProfilingResultsMsgpackRoundTrip(t *testing.T) {
 
 	cfg := &common.ReticulumConfig{EnableTransport: false, InMemoryStorage: true}
 	tr := transport.NewTransport(cfg)
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	h := &RPCHandler{Transport: tr}
 	raw := h.Handle(map[string]any{"get": "profiling_results"})
 	packed, err := msgpack.Marshal(raw)
@@ -59,7 +59,7 @@ func TestRPCHandlerProfilingRace(t *testing.T) {
 	defer profiler.Reset()
 	cfg := &common.ReticulumConfig{EnableTransport: false, InMemoryStorage: true}
 	tr := transport.NewTransport(cfg)
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	h := &RPCHandler{Transport: tr}
 
 	var wg sync.WaitGroup

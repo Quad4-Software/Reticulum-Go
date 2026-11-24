@@ -83,7 +83,7 @@ func checkNetwork(t *testing.T) {
 	if err != nil {
 		t.Skip("Skipping network test: socket.quad4.io unreachable")
 	}
-	conn.Close()
+	_ = conn.Close()
 }
 
 func TestWebSocketConnection(t *testing.T) {
@@ -158,7 +158,7 @@ func TestWebSocketReconnection(t *testing.T) {
 		t.Error("GetConn() should return a connection")
 	}
 
-	conn.Close()
+	_ = conn.Close()
 
 	time.Sleep(3 * time.Second)
 

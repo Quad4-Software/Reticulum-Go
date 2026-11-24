@@ -75,7 +75,7 @@ func TestLiveRgospeedUDPPair(t *testing.T) {
 	}
 	hashRe := regexp.MustCompile(`(?m)([0-9a-f]{32})`)
 	var destHash string
-	for _, line := range strings.Split(string(probeOut), "\n") {
+	for line := range strings.SplitSeq(string(probeOut), "\n") {
 		if m := hashRe.FindStringSubmatch(line); m != nil {
 			destHash = m[1]
 		}
@@ -155,7 +155,7 @@ func TestLiveRgosnapGoDaemon(t *testing.T) {
 	if err := n.Start(); err != nil {
 		t.Fatal(err)
 	}
-	defer n.Stop()
+	defer func() { _ = n.Stop() }()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()

@@ -164,7 +164,7 @@ func checkUDPTransport(listen, forward string) SelfCheckResult {
 		return SelfCheckResult{Name: "UDP transport", OK: false, Detail: err.Error()}
 	}
 	if closer != nil {
-		defer closer.Close()
+		defer func() { _ = closer.Close() }()
 	}
 	tr, ifaces, err := startTransport(TransportConfig{
 		RNSConfigDir: ResolveRNSConfigDir(""),

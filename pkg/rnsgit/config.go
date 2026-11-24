@@ -271,7 +271,7 @@ func (c *ServerConfig) resolveIdentityAliasLocked(value string) string {
 // splitListValue splits a ConfigObj-style list value on commas.
 func splitListValue(v string) []string {
 	var out []string
-	for _, part := range strings.Split(v, ",") {
+	for part := range strings.SplitSeq(v, ",") {
 		part = strings.TrimSpace(part)
 		if part != "" {
 			out = append(out, part)
@@ -315,7 +315,7 @@ func parseINI(path string) (map[string]map[string]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	sections := map[string]map[string]string{"": {}}
 	current := ""

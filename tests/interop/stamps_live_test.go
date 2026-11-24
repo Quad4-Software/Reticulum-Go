@@ -46,7 +46,7 @@ func setupGoStampPeer(t *testing.T, stampsCfg common.StampsConfig, pyListen, pyF
 	if err := tr.InitializePathRequestHandler(); err != nil {
 		t.Fatalf("path handler: %v", err)
 	}
-	return tr, iface, func() { tr.Close() }
+	return tr, iface, func() { _ = tr.Close() }
 }
 
 // pyStampPeer starts stamp_peer.py, reads "DEST <hex>" then "READY", and
@@ -366,7 +366,7 @@ func waitPyLine(t *testing.T, lines <-chan string, prefix string, d time.Duratio
 			if strings.HasPrefix(l, prefix) {
 				return l
 			}
-		case <-time.After(deadline.Sub(time.Now())):
+		case <-time.After(time.Until(deadline)):
 			return ""
 		}
 	}
@@ -426,7 +426,7 @@ func TestLiveInteropEnforcedPythonAnnounceFilter(t *testing.T) {
 			}
 			// Re-announce a few times for robustness.
 			go func() {
-				for i := 0; i < 4; i++ {
+				for range 4 {
 					time.Sleep(3 * time.Second)
 					_ = destGo.Announce(false, nil, nil)
 				}

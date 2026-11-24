@@ -40,7 +40,7 @@ func TestNewResourceFromFile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	r, err := New(f, false)
 	if err != nil {
@@ -197,7 +197,7 @@ func TestNewAllowsBodiesLargerThanMaxPartsEstimate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	size := int64(MaxSegments)*int64(DefaultSegmentSize) + 4096
 	if err := f.Truncate(size); err != nil {
 		t.Fatal(err)

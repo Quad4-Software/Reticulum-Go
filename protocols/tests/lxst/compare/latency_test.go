@@ -142,7 +142,7 @@ func detectCGOOpus() int {
 	if err != nil {
 		return 0
 	}
-	defer enc.Close()
+	defer func() { _ = enc.Close() }()
 	pcm := make([]int16, 1440)
 	b, err := enc.Encode(pcm)
 	if err != nil || len(b) >= 2 && b[0] == 'S' && b[1] == 'T' {
@@ -234,7 +234,7 @@ func runGoCPU(t *testing.T, n, warmup, opusN int) (map[string]stats, string) {
 		out["opus_decode_ns"] = stats{}
 		return out, kind
 	}
-	defer enc.Close()
+	defer func() { _ = enc.Close() }()
 	pcm := make([]int16, 1440)
 	for i := range pcm {
 		pcm[i] = int16(1000 * math.Sin(2*math.Pi*440*float64(i)/24000))
@@ -261,7 +261,7 @@ func runGoCPU(t *testing.T, n, warmup, opusN int) (map[string]stats, string) {
 		out["opus_decode_ns"] = stats{}
 		return out, kind
 	}
-	defer dec.Close()
+	defer func() { _ = dec.Close() }()
 	out["opus_encode_ns"] = benchNS(opusN, opusN/10, func() { _, _ = enc.Encode(pcm) })
 	out["opus_decode_ns"] = benchNS(opusN, opusN/10, func() { _, _ = dec.Decode(encoded) })
 	return out, kind
@@ -1034,6 +1034,6 @@ func freeUDP(t *testing.T) int {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer c.Close()
+	defer func() { _ = c.Close() }()
 	return c.LocalAddr().(*net.UDPAddr).Port
 }

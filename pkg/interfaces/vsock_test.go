@@ -60,7 +60,7 @@ func TestVSOCKClientServerEcho(t *testing.T) {
 	if err := srv.Start(); err != nil {
 		t.Skipf("vsock listen failed: %v", err)
 	}
-	defer srv.Stop()
+	defer func() { _ = srv.Stop() }()
 
 	port := srv.Port()
 	if port == 0 {
@@ -71,7 +71,7 @@ func TestVSOCKClientServerEcho(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer cli.Stop()
+	defer func() { _ = cli.Stop() }()
 	waitOnline(t, cli, 5*time.Second)
 
 	payload := []byte{0x01, 0x02, 0x03, 0xaa, 0xbb}
@@ -116,13 +116,13 @@ func TestVSOCKServerToClientEcho(t *testing.T) {
 	if err := srv.Start(); err != nil {
 		t.Skipf("vsock listen failed: %v", err)
 	}
-	defer srv.Stop()
+	defer func() { _ = srv.Stop() }()
 
 	cli, err := NewVSOCKClientInterfaceWithRetries("vsock_cli2", vsock.Local, srv.Port(), true, 20)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer cli.Stop()
+	defer func() { _ = cli.Stop() }()
 	waitOnline(t, cli, 5*time.Second)
 	waitVSOCKSessions(t, srv, 1, 5*time.Second)
 
@@ -159,7 +159,7 @@ func TestVSOCKInterfaceTypeAndMTU(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer cli.Stop()
+	defer func() { _ = cli.Stop() }()
 	if cli.GetType() != common.IFTypeVSOCK {
 		t.Fatalf("type = %v, want IFTypeVSOCK", cli.GetType())
 	}

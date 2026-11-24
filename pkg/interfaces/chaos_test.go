@@ -67,7 +67,7 @@ func TestIfaceChaosTCPCorruptHDLC(t *testing.T) {
 	}
 
 	go func() {
-		defer client.Close()
+		defer func() { _ = client.Close() }()
 		for i, payload := range good {
 			if rng.Float64() < 0.4 {
 				// Truncated / junk before a good frame.
@@ -153,7 +153,7 @@ func TestIfaceChaosTCPReorderBurst(t *testing.T) {
 	}
 
 	go func() {
-		defer client.Close()
+		defer func() { _ = client.Close() }()
 		frames := make([][]byte, len(payloads))
 		for i, payload := range payloads {
 			frames[i] = appendFrameHDLC(nil, payload)
@@ -208,7 +208,7 @@ func TestIfaceChaosPipeFlapRespawn(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewPipeInterface: %v", err)
 	}
-	defer pi.Stop()
+	defer func() { _ = pi.Stop() }()
 
 	var received atomic.Int32
 	var last []byte

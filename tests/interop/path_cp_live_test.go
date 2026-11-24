@@ -63,7 +63,7 @@ func TestLiveRgopathRPCAgainstGoDaemon(t *testing.T) {
 	if err := n.Start(); err != nil {
 		t.Fatal(err)
 	}
-	defer n.Stop()
+	defer func() { _ = n.Stop() }()
 
 	cfg, err := rnsutil.LoadConfigDir(cfgDir)
 	if err != nil {
@@ -179,7 +179,6 @@ func TestLiveRgopathAgainstPythonRNSD(t *testing.T) {
 		if err != nil {
 			// Some Python builds answer interface_stats but stall on path_table
 			// during early startup. Retry a few times, then accept RPC as up.
-			lastErr = err
 			time.Sleep(500 * time.Millisecond)
 			paths, err = client.GetPathTable(nil)
 			if err != nil {
@@ -326,7 +325,7 @@ func TestLiveRgocpCLIAgainstGoListenerUDP(t *testing.T) {
 	if err := nA.Start(); err != nil {
 		t.Fatal(err)
 	}
-	defer nA.Stop()
+	defer func() { _ = nA.Stop() }()
 
 	idListen, err := identity.New()
 	if err != nil {

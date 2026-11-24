@@ -52,13 +52,13 @@ func TestLiveInteropVSOCKGoGoEcho(t *testing.T) {
 	if err := srv.Start(); err != nil {
 		t.Skipf("vsock listen failed: %v", err)
 	}
-	defer srv.Stop()
+	defer func() { _ = srv.Stop() }()
 
 	cli, err := interfaces.NewVSOCKClientInterfaceWithRetries("live_vsock_cli", vsock.Local, srv.Port(), true, -1)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer cli.Stop()
+	defer func() { _ = cli.Stop() }()
 
 	deadline := time.Now().Add(10 * time.Second)
 	for time.Now().Before(deadline) && !cli.IsOnline() {
@@ -98,13 +98,13 @@ func TestLiveInteropVSOCKBidirectional(t *testing.T) {
 	if err := srv.Start(); err != nil {
 		t.Skipf("vsock listen failed: %v", err)
 	}
-	defer srv.Stop()
+	defer func() { _ = srv.Stop() }()
 
 	cli, err := interfaces.NewVSOCKClientInterfaceWithRetries("live_vsock_bi_cli", vsock.Local, srv.Port(), true, -1)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer cli.Stop()
+	defer func() { _ = cli.Stop() }()
 
 	deadline := time.Now().Add(10 * time.Second)
 	for time.Now().Before(deadline) && !cli.IsOnline() {

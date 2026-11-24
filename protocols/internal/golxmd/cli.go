@@ -321,7 +321,7 @@ func filepathJoin(a, b string) string {
 
 func PrintStatus(stats map[string]any, showStatus, showPeers bool) {
 	if stats == nil {
-		fmt.Fprintln(colorOut(), statusFail("Empty response received"))
+		_, _ = fmt.Fprintln(colorOut(), statusFail("Empty response received"))
 		return
 	}
 	destHash := asString(stats["destination_hash"])
@@ -333,7 +333,7 @@ func PrintStatus(stats map[string]any, showStatus, showPeers bool) {
 	}
 	if showPeers {
 		if !showStatus {
-			fmt.Fprintln(colorOut())
+			_, _ = fmt.Fprintln(colorOut())
 		}
 		printPeerDetails(stats)
 	}
@@ -407,7 +407,7 @@ func printStatusDetails(s map[string]any) {
 	printKV("Client RX", fmt.Sprintf("%.0f propagation messages", cprr))
 	printKV("Client TX", fmt.Sprintf("%.0f propagation messages", cprs))
 	printKV("Distribution", fmt.Sprintf("%.2f", df))
-	fmt.Fprintln(colorOut())
+	_, _ = fmt.Fprintln(colorOut())
 }
 
 func printPeerDetails(s map[string]any) {
@@ -457,17 +457,17 @@ func printPeerDetails(s map[string]any) {
 			lsa := asFloat(p["last_sync_attempt"])
 			ls = fmt.Sprintf("last synced %s ago", prettyTime(math.Max(float64(time.Now().Unix()-int64(lsa)), 0)))
 		}
-		fmt.Fprintf(colorOut(), "%s%s%s\n", ind, t, prettyHex(peerID))
+		_, _ = fmt.Fprintf(colorOut(), "%s%s%s\n", ind, t, prettyHex(peerID))
 		name := asString(p["name"])
 		if name != "" {
 			printKV("Name", truncateName(name, 45))
 		}
-		fmt.Fprintf(colorOut(), "%s%s %s, %s, last heard %s ago\n",
+		_, _ = fmt.Fprintf(colorOut(), "%s%s %s, %s, last heard %s ago\n",
 			ind+ind, statusLabel("Status:"), status, hs, prettyTime(float64(heardAgo)))
-		fmt.Fprintf(colorOut(), "%s%s Propagation %v (flex %v), peering %v\n",
+		_, _ = fmt.Fprintf(colorOut(), "%s%s Propagation %v (flex %v), peering %v\n",
 			ind+ind, statusLabel("Costs:"), psc, psf, pc)
-		fmt.Fprintf(colorOut(), "%s%s %s\n", ind+ind, statusLabel("Sync key:"), pkStr)
-		fmt.Fprintf(colorOut(), "%s%s %s STR, %s LER\n",
+		_, _ = fmt.Fprintf(colorOut(), "%s%s %s\n", ind+ind, statusLabel("Sync key:"), pkStr)
+		_, _ = fmt.Fprintf(colorOut(), "%s%s %s STR, %s LER\n",
 			ind+ind, statusLabel("Speeds:"), prettySpeed(asFloat(p["str"])), prettySpeed(asFloat(p["ler"])))
 		tl := p["transfer_limit"]
 		sl := p["sync_limit"]
@@ -480,18 +480,18 @@ func printPeerDetails(s map[string]any) {
 			slStr = prettySize(asFloat(sl) * 1000)
 		}
 		ar := math.Round(asFloat(p["acceptance_rate"])*10000) / 100
-		fmt.Fprintf(colorOut(), "%s%s %s message limit, %s sync limit\n", ind+ind, statusLabel("Limits:"), tlStr, slStr)
-		fmt.Fprintf(colorOut(), "%s%s %.0f offered, %.0f outgoing, %.0f incoming, %.2f%% acceptance\n",
+		_, _ = fmt.Fprintf(colorOut(), "%s%s %s message limit, %s sync limit\n", ind+ind, statusLabel("Limits:"), tlStr, slStr)
+		_, _ = fmt.Fprintf(colorOut(), "%s%s %.0f offered, %.0f outgoing, %.0f incoming, %.2f%% acceptance\n",
 			ind+ind, statusLabel("Messages:"), asFloat(pm["offered"]), asFloat(pm["outgoing"]), asFloat(pm["incoming"]), ar)
-		fmt.Fprintf(colorOut(), "%s%s %s received, %s sent\n",
+		_, _ = fmt.Fprintf(colorOut(), "%s%s %s received, %s sent\n",
 			ind+ind, statusLabel("Traffic:"), prettySize(asFloat(p["rx_bytes"])), prettySize(asFloat(p["tx_bytes"])))
 		uh := asFloat(pm["unhandled"])
 		ms := ""
 		if uh != 1 {
 			ms = "s"
 		}
-		fmt.Fprintf(colorOut(), "%s%s %.0f unhandled message%s, %s\n", ind+ind, statusLabel("Sync:"), uh, ms, ls)
-		fmt.Fprintln(colorOut())
+		_, _ = fmt.Fprintf(colorOut(), "%s%s %.0f unhandled message%s, %s\n", ind+ind, statusLabel("Sync:"), uh, ms, ls)
+		_, _ = fmt.Fprintln(colorOut())
 	}
 }
 

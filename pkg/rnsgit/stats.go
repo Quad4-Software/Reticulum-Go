@@ -230,9 +230,7 @@ func (s *statsStore) persistLocked() {
 
 // run persists every statsPersistInterval until closed.
 func (s *statsStore) run() {
-	s.stopped.Add(1)
-	go func() {
-		defer s.stopped.Done()
+	s.stopped.Go(func() {
 		t := time.NewTicker(statsPersistInterval)
 		defer t.Stop()
 		for {
@@ -244,7 +242,7 @@ func (s *statsStore) run() {
 				s.persist()
 			}
 		}
-	}()
+	})
 }
 
 func (s *statsStore) close() {

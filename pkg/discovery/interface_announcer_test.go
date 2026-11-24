@@ -37,7 +37,7 @@ func TestHasDiscoverableInterfaces(t *testing.T) {
 
 func TestInterfaceAnnouncerBuildAnnounceData(t *testing.T) {
 	tr := transport.NewTransport(&common.ReticulumConfig{EnableTransport: true})
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	id, err := identity.New()
 	if err != nil {
 		t.Fatal(err)
@@ -90,19 +90,17 @@ func TestInterfaceAnnouncerAnnounceDue(t *testing.T) {
 		// under RNS 1.6.1 defaults. Disable for the synchronous check.
 		Stamps: common.StampsConfig{StampDestinationsSet: true},
 	})
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	id, err := identity.New()
 	if err != nil {
 		t.Fatal(err)
 	}
 	tr.SetIdentity(id)
 	sink := &announceSinkInterface{
-		BaseInterface: common.BaseInterface{
-			Name:    "sink",
-			Type:    common.IFTypeUDP,
-			Enabled: true,
-			Online:  true,
-		},
+		Name:    "sink",
+		Type:    common.IFTypeUDP,
+		Enabled: true,
+		Online:  true,
 	}
 	if err := tr.RegisterInterface("sink", sink); err != nil {
 		t.Fatal(err)

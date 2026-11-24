@@ -124,7 +124,7 @@ func TestMessageGetTransferLimit(t *testing.T) {
 	if err := tr.Start(); err != nil {
 		t.Fatal(err)
 	}
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 
 	id := mustNewIdentity(t)
 	home := t.TempDir()

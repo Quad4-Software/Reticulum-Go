@@ -66,7 +66,7 @@ func TestRegression_LinkLifecycleCompletesWithinDeadline(t *testing.T) {
 	}
 
 	wsA := dialControlAPIWS(t, tsA.URL, fmt.Sprintf("/v1/sessions/%s/events", sessionIDA), authA)
-	defer wsA.conn.Close()
+	defer func() { _ = wsA.conn.Close() }()
 
 	resp, _ = doJSON(t, http.MethodPost, fmt.Sprintf("%s/v1/sessions/%s/destinations/%s/announce", tsA.URL, sessionIDA, destHashA), authA, nil)
 	if resp.StatusCode != http.StatusNoContent {
@@ -86,7 +86,7 @@ func TestRegression_LinkLifecycleCompletesWithinDeadline(t *testing.T) {
 	}
 
 	wsB := dialControlAPIWS(t, tsB.URL, fmt.Sprintf("/v1/sessions/%s/events", sessionIDB), authB)
-	defer wsB.conn.Close()
+	defer func() { _ = wsB.conn.Close() }()
 
 	wsB.sendText(t, fmt.Appendf(nil, `{"type":"link.open","destination_hash":%q}`, destHashA))
 
@@ -157,7 +157,7 @@ func TestRegression_AuthRejectsWrongLengthToken(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusUnauthorized {
 		t.Fatalf("status = %d, want %d", resp.StatusCode, http.StatusUnauthorized)
 	}

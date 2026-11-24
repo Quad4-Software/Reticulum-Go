@@ -22,7 +22,7 @@ func TestEndpointTrackerAllowsInitially(t *testing.T) {
 func TestEndpointTrackerQuarantinesAfterFails(t *testing.T) {
 	et := NewEndpointTracker()
 	ep := "h:2"
-	for i := 0; i < EndpointQuarantineConsecutiveFails-1; i++ {
+	for i := range EndpointQuarantineConsecutiveFails - 1 {
 		et.RecordFailure(ep)
 		if ok, _ := et.DialAllowed(ep); !ok {
 			t.Fatalf("quarantined early at %d fails", i+1)
@@ -45,7 +45,7 @@ func TestEndpointTrackerEscalates(t *testing.T) {
 	ep := "h:3"
 
 	quarantine := func() time.Duration {
-		for i := 0; i < EndpointQuarantineConsecutiveFails; i++ {
+		for range EndpointQuarantineConsecutiveFails {
 			et.RecordFailure(ep)
 		}
 		ok, wait := et.DialAllowed(ep)
@@ -70,7 +70,7 @@ func TestEndpointTrackerSuccessRecovers(t *testing.T) {
 	et.now = func() time.Time { return now }
 	ep := "h:4"
 
-	for i := 0; i < EndpointQuarantineConsecutiveFails; i++ {
+	for range EndpointQuarantineConsecutiveFails {
 		et.RecordFailure(ep)
 	}
 	if ok, _ := et.DialAllowed(ep); ok {
@@ -93,7 +93,7 @@ func TestEndpointTrackerFlapBurstQuarantines(t *testing.T) {
 	now := time.Now()
 	et.now = func() time.Time { return now }
 	ep := "h:5"
-	for i := 0; i < EndpointFlapBurst; i++ {
+	for range EndpointFlapBurst {
 		et.RecordFlap(ep)
 	}
 	ok, _ := et.DialAllowed(ep)
@@ -107,7 +107,7 @@ func TestEndpointTrackerFlapWindowAges(t *testing.T) {
 	now := time.Now()
 	et.now = func() time.Time { return now }
 	ep := "h:6"
-	for i := 0; i < EndpointFlapBurst-1; i++ {
+	for range EndpointFlapBurst - 1 {
 		et.RecordFlap(ep)
 		now = now.Add(EndpointFlapWindow + time.Second)
 	}
@@ -141,7 +141,7 @@ func TestReconnectDriverQuarantineDelay(t *testing.T) {
 	}, func(net.Conn) {})
 	rd.tracker = et
 
-	for i := 0; i < EndpointQuarantineConsecutiveFails; i++ {
+	for range EndpointQuarantineConsecutiveFails {
 		if _, err := rd.dialTracked(); err == nil {
 			t.Fatal("expected dial error")
 		}
@@ -163,8 +163,8 @@ func TestReconnectDriverQuarantineDelay(t *testing.T) {
 		waitDone <- err
 	}()
 	select {
-	case <-waitDone:
-		t.Fatal("dialTracked returned while quarantined")
+	case err := <-waitDone:
+		t.Fatalf("dialTracked returned while quarantined: %v", err)
 	case <-time.After(200 * time.Millisecond):
 	}
 	if dials.Load() != before {
@@ -250,7 +250,7 @@ func (f *fakeConn) Close() error { return nil }
 // quarantineNow drives ep into quarantine at the tracker's current clock.
 func quarantineNow(t *testing.T, et *EndpointTracker, ep string) time.Duration {
 	t.Helper()
-	for i := 0; i < EndpointQuarantineConsecutiveFails; i++ {
+	for range EndpointQuarantineConsecutiveFails {
 		et.RecordFailure(ep)
 	}
 	ok, wait := et.DialAllowed(ep)
@@ -403,7 +403,7 @@ func TestEndpointTrackerNetworkChangedConcurrent(t *testing.T) {
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		for i := 0; i < 200; i++ {
+		for range 200 {
 			set(map[string]struct{}{"eth0|192.168.1.2": {}}, nil)
 			set(map[string]struct{}{
 				"eth0|192.168.1.2": {},
@@ -411,7 +411,7 @@ func TestEndpointTrackerNetworkChangedConcurrent(t *testing.T) {
 			}, nil)
 		}
 	}()
-	for i := 0; i < 200; i++ {
+	for range 200 {
 		et.NetworkChanged()
 		et.RecordFailure(ep)
 		et.DialAllowed(ep)

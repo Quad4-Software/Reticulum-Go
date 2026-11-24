@@ -17,7 +17,7 @@ import (
 // the requester (the failure mode described for stale path_table + path request).
 func TestProcessPathRequest_doesNotAnswerWhenNextHopEqualsRequestorTransportID(t *testing.T) {
 	tr := NewTransport(unstampedTestConfig(true))
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 
 	wan := mockIface("wan", true)
 	if err := tr.RegisterInterface("wan", wan); err != nil {
@@ -62,7 +62,7 @@ func TestProcessPathRequest_doesNotAnswerWhenNextHopEqualsRequestorTransportID(t
 // announce queue entry from the cached announce payload.
 func TestProcessPathRequest_rewritesAnnounceWhenNextHopIsNotRequestor(t *testing.T) {
 	tr := NewTransport(unstampedTestConfig(true))
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 
 	wan := mockIface("wan", true)
 	if err := tr.RegisterInterface("wan", wan); err != nil {
@@ -122,7 +122,7 @@ func TestProcessPathRequest_rewritesAnnounceWhenNextHopIsNotRequestor(t *testing
 // (no synthetic answer and no discoveryPathRequests row).
 func TestProcessPathRequest_knownPathWithoutAnnounceDoesNotStartDiscovery(t *testing.T) {
 	tr := NewTransport(unstampedTestConfig(true))
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 
 	wan := mockIface("wan", true)
 	if err := tr.RegisterInterface("wan", wan); err != nil {
@@ -156,7 +156,7 @@ func TestProcessPathRequest_knownPathWithoutAnnounceDoesNotStartDiscovery(t *tes
 // packet arrived on (prevents trivial bounce / asymmetry at this hop).
 func TestForwardTransportPacket_dropsWhenEgressInterfaceEqualsIngress(t *testing.T) {
 	tr := NewTransport(unstampedTestConfig(true))
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	id := mustIdentity(t)
 	tr.SetIdentity(id)
 
@@ -183,7 +183,7 @@ func TestForwardTransportPacket_dropsWhenEgressInterfaceEqualsIngress(t *testing
 // request falls through to discovery.
 func TestProcessPathRequest_expiredPathStartsDiscovery(t *testing.T) {
 	tr := NewTransport(unstampedTestConfig(true))
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	tr.SetIdentity(mustIdentity(t))
 
 	wan := mockIface("wan", true)
@@ -220,7 +220,7 @@ func TestProcessPathRequest_expiredPathStartsDiscovery(t *testing.T) {
 // PathRequestTTL but within PATHFINDER_E remain answerable (Python has_path).
 func TestProcessPathRequest_pathRequestTTLStillAnswers(t *testing.T) {
 	tr := NewTransport(unstampedTestConfig(true))
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	tr.SetIdentity(mustIdentity(t))
 
 	wan := mockIface("wan", true)
@@ -269,7 +269,7 @@ func TestProcessPathRequest_pathRequestTTLStillAnswers(t *testing.T) {
 // Python RNS Transport.path_request "elif is_from_local_client" branch.
 func TestProcessPathRequest_fromLocalClientForwardsOnAllInterfaces(t *testing.T) {
 	tr := NewTransport(unstampedTestConfig(true))
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	tr.SetIdentity(mustIdentity(t))
 
 	// localClient simulates a spawned LocalClientInterface on the shared-instance
@@ -307,7 +307,7 @@ func TestProcessPathRequest_fromLocalClientForwardsOnAllInterfaces(t *testing.T)
 // "(transport_enabled() or is_from_local_client) and has_path" condition).
 func TestProcessPathRequest_fromLocalClientKnownPathBypassesTransportDisabled(t *testing.T) {
 	tr := NewTransport(unstampedTestConfig(false))
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	tr.SetIdentity(mustIdentity(t))
 
 	localClient := newRelayIface("local-client")
@@ -351,7 +351,7 @@ func TestProcessPathRequest_fromLocalClientKnownPathBypassesTransportDisabled(t 
 // regular relayed PRs).
 func TestProcessPathRequest_nonLocalClientDropsUnknownPathWithFullMode(t *testing.T) {
 	tr := NewTransport(unstampedTestConfig(true))
-	defer tr.Close()
+	defer func() { _ = tr.Close() }()
 	tr.SetIdentity(mustIdentity(t))
 
 	fullIface := newRelayIface("full")

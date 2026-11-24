@@ -42,8 +42,8 @@ func TestLandlockFunctional(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() {
-		os.RemoveAll(allowedDir)
-		os.RemoveAll(blockedDir)
+		_ = os.RemoveAll(allowedDir)
+		_ = os.RemoveAll(blockedDir)
 	}()
 
 	allowedFile := filepath.Join(allowedDir, "allowed.txt")
@@ -129,7 +129,7 @@ func TestLandlockExtraPathFunctional(t *testing.T) {
 	if err := os.MkdirAll(extraDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(extraDir)
+	defer func() { _ = os.RemoveAll(extraDir) }()
 	extraFile := filepath.Join(extraDir, "extra.txt")
 	if err := os.WriteFile(extraFile, []byte("extra"), 0o644); err != nil {
 		t.Fatal(err)
