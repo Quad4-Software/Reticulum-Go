@@ -101,13 +101,13 @@ func RunSH(args []string, opt ...Options) int {
 	timeout := max(time.Duration(*timeoutSec*float64(time.Second)), 0)
 
 	if *printID {
-		fmt.Fprintf(stdout, "%s : %s\n", infoMsg(stdout, "Identity"), rnsutil.PrettyHex(id.Hash()))
+		_, _ = fmt.Fprintf(stdout, "%s : %s\n", infoMsg(stdout, "Identity"), rnsutil.PrettyHex(id.Hash()))
 		if *compat {
-			fmt.Fprintf(stdout, "%s : %s\n", infoMsg(stdout, "Listening on"), rnsutil.PrettyHex(destination.Hash(id, appName)))
+			_, _ = fmt.Fprintf(stdout, "%s : %s\n", infoMsg(stdout, "Listening on"), rnsutil.PrettyHex(destination.Hash(id, appName)))
 			return 0
 		}
-		fmt.Fprintf(stdout, "%s : %s\n", infoMsg(stdout, "Listening on"), rnsutil.PrettyHex(destination.Hash(id, rnsutil.RgoshAppName)))
-		fmt.Fprintf(stdout, "%s : %s\n", infoMsg(stdout, "Listening on (rnsh)"), rnsutil.PrettyHex(destination.Hash(id, rnsutil.RnshAppName)))
+		_, _ = fmt.Fprintf(stdout, "%s : %s\n", infoMsg(stdout, "Listening on"), rnsutil.PrettyHex(destination.Hash(id, rnsutil.RgoshAppName)))
+		_, _ = fmt.Fprintf(stdout, "%s : %s\n", infoMsg(stdout, "Listening on (rnsh)"), rnsutil.PrettyHex(destination.Hash(id, rnsutil.RnshAppName)))
 		return 0
 	}
 
@@ -120,7 +120,7 @@ func RunSH(args []string, opt ...Options) int {
 		diagErr(stderr, "start", err)
 		return 1
 	}
-	defer n.Stop()
+	defer func() { _ = n.Stop() }()
 	tr := n.Transport()
 
 	defaultCmd := rgosh.DefaultShell()
@@ -150,7 +150,7 @@ func RunSH(args []string, opt ...Options) int {
 	}
 	destHash, err := rnsutil.ParseDestHash(fs.Arg(0))
 	if err != nil {
-		fmt.Fprintln(stderr, errMsg(stderr, err.Error()))
+		_, _ = fmt.Fprintln(stderr, errMsg(stderr, err.Error()))
 		return 2
 	}
 	cmdline := fs.Args()[1:]
@@ -188,13 +188,13 @@ func runSHListen(tr *transport.Transport, id *identity.Identity, opts shListenOp
 	}
 	allowed, err := rnsutil.LoadRgoshAllowedIdentities(opts.allowedCLI)
 	if err != nil {
-		fmt.Fprintf(stderr, "%v\n", err)
+		_, _ = fmt.Fprintf(stderr, "%v\n", err)
 		return 1
 	}
 	if opts.allowAll {
-		fmt.Fprintln(stderr, warnMsg(stderr, "Warning: accepting shell sessions from anyone (-n)"))
+		_, _ = fmt.Fprintln(stderr, warnMsg(stderr, "Warning: accepting shell sessions from anyone (-n)"))
 	} else if len(allowed) == 0 {
-		fmt.Fprintln(stderr, warnMsg(stderr, "Warning: No allowed identities configured, rgosh will not accept sessions"))
+		_, _ = fmt.Fprintln(stderr, warnMsg(stderr, "Warning: No allowed identities configured, rgosh will not accept sessions"))
 	}
 
 	apps := []string{opts.appName}
@@ -227,13 +227,13 @@ func runSHListen(tr *transport.Transport, id *identity.Identity, opts shListenOp
 			}
 			allowedNow, loadErr := rnsutil.LoadRgoshAllowedIdentities(opts.allowedCLI)
 			if loadErr != nil {
-				fmt.Fprintf(stderr, "%v\n", loadErr)
+				_, _ = fmt.Fprintf(stderr, "%v\n", loadErr)
 				l.Teardown()
 				return
 			}
 			cfg := baseCfg.Copy()
 			cfg.Allowed = allowedNow
-			fmt.Fprintln(stderr, infoMsg(stderr, "Shell link established"))
+			_, _ = fmt.Fprintln(stderr, infoMsg(stderr, "Shell link established"))
 			// Register channel handlers before returning so an early Version
 			// from the peer is not dropped (Python rnsh sends immediately).
 			serveSHLink(l, cfg, stderr)
@@ -243,7 +243,7 @@ func runSHListen(tr *transport.Transport, id *identity.Identity, opts shListenOp
 		if appName == rnsutil.RnshAppName {
 			label = "rgosh (rnsh)"
 		}
-		fmt.Fprintln(stderr, okMsg(stderr, fmt.Sprintf("%s listening on %s", label, rnsutil.PrettyHex(dest.GetHash()))))
+		_, _ = fmt.Fprintln(stderr, okMsg(stderr, fmt.Sprintf("%s listening on %s", label, rnsutil.PrettyHex(dest.GetHash()))))
 		if !opts.noAnnounce {
 			_ = dest.Announce(false, nil, nil)
 			if opts.announceSec > 0 {
@@ -293,7 +293,7 @@ func serveSHLink(l *link.Link, baseCfg rgosh.Config, stderr io.Writer) {
 		l.Teardown()
 	}
 	sess.OnAuthDenied = func(reason string) {
-		fmt.Fprintln(stderr, warnMsg(stderr, "Identity not allowed: "+reason))
+		_, _ = fmt.Fprintln(stderr, warnMsg(stderr, "Identity not allowed: "+reason))
 	}
 
 	ch.AddMessageHandler(func(msg rgosh.Message) bool {
@@ -341,7 +341,7 @@ func runSHClient(tr *transport.Transport, id *identity.Identity, destHash []byte
 	appName := opts.appName
 	if !opts.compatForced {
 		if err := rnsutil.WaitPathWindow(ctx, tr, destHash); err != nil {
-			fmt.Fprintln(stderr, errMsg(stderr, err.Error()))
+			_, _ = fmt.Fprintln(stderr, errMsg(stderr, err.Error()))
 			return 1
 		}
 		if remote, err := identity.Recall(destHash); err == nil {
@@ -354,7 +354,7 @@ func runSHClient(tr *transport.Transport, id *identity.Identity, destHash []byte
 
 	l, err := rnsutil.EstablishRgoshLink(ctx, tr, destHash, appName)
 	if err != nil {
-		fmt.Fprintln(stderr, errMsg(stderr, err.Error()))
+		_, _ = fmt.Fprintln(stderr, errMsg(stderr, err.Error()))
 		return 1
 	}
 	defer l.Teardown()
@@ -425,7 +425,7 @@ func runSHClient(tr *transport.Transport, id *identity.Identity, destHash []byte
 
 	if !opts.noid {
 		if err := l.Identify(id); err != nil {
-			fmt.Fprintln(stderr, errMsg(stderr, "identify: "+err.Error()))
+			_, _ = fmt.Fprintln(stderr, errMsg(stderr, "identify: "+err.Error()))
 			return 1
 		}
 	}
@@ -448,7 +448,7 @@ afterAuth:
 	defer readyCancel()
 	sender := rgosh.ChannelSender{Ch: ch}
 	if err := sender.WaitReady(readyCtx); err != nil {
-		fmt.Fprintln(stderr, errMsg(stderr, "channel not ready: "+err.Error()))
+		_, _ = fmt.Fprintln(stderr, errMsg(stderr, "channel not ready: "+err.Error()))
 		return 1
 	}
 
@@ -462,7 +462,7 @@ afterAuth:
 	}
 
 	if err := sess.SendVersion(); err != nil {
-		fmt.Fprintln(stderr, errMsg(stderr, err.Error()))
+		_, _ = fmt.Fprintln(stderr, errMsg(stderr, err.Error()))
 		return 1
 	}
 
@@ -476,7 +476,7 @@ afterAuth:
 	for sess.State() == rgosh.StateWaitVers {
 		select {
 		case <-deadline:
-			fmt.Fprintln(stderr, errMsg(stderr, "timeout waiting for version"))
+			_, _ = fmt.Fprintln(stderr, errMsg(stderr, "timeout waiting for version"))
 			return 1
 		case <-done:
 			return 1
@@ -487,7 +487,7 @@ afterAuth:
 		}
 	}
 	if st := sess.State(); st != rgosh.StateWaitCmd && st != rgosh.StateRunning {
-		fmt.Fprintln(stderr, errMsg(stderr, "session ended before exec ("+st.String()+")"))
+		_, _ = fmt.Fprintln(stderr, errMsg(stderr, "session ended before exec ("+st.String()+")"))
 		return 1
 	}
 
@@ -507,7 +507,7 @@ afterAuth:
 		fd := fileFD(os.Stdin)
 		st, err := term.MakeRaw(fd)
 		if err != nil {
-			fmt.Fprintln(stderr, errMsg(stderr, "tty raw: "+err.Error()))
+			_, _ = fmt.Fprintln(stderr, errMsg(stderr, "tty raw: "+err.Error()))
 			return 1
 		}
 		restoreTTY = func() { _ = term.Restore(fd, st) }
@@ -523,7 +523,7 @@ afterAuth:
 		Rows:       rows,
 		Cols:       cols,
 	}); err != nil {
-		fmt.Fprintln(stderr, errMsg(stderr, err.Error()))
+		_, _ = fmt.Fprintln(stderr, errMsg(stderr, err.Error()))
 		return 1
 	}
 
@@ -657,11 +657,11 @@ afterAuth:
 		msg := endMsg
 		endMu.Unlock()
 		if timedOut {
-			fmt.Fprintln(stderr, errMsg(stderr, "timeout waiting for remote exit"))
+			_, _ = fmt.Fprintln(stderr, errMsg(stderr, "timeout waiting for remote exit"))
 			return 1
 		}
 		if msg != "" {
-			fmt.Fprintln(stderr, errMsg(stderr, msg))
+			_, _ = fmt.Fprintln(stderr, errMsg(stderr, msg))
 		}
 		if opts.mirror {
 			return code

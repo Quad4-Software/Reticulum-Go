@@ -7,7 +7,7 @@ import (
 	"bytes"
 	"io"
 
-	"github.com/Quad4-Software/bzip2/pkg/bzip2"
+	"git.quad4.io/libraries/bzip2/pkg/bzip2"
 )
 
 func compressMaybe(data []byte) (out []byte, compressed bool) {

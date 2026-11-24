@@ -2,6 +2,10 @@
 
 ## v1.6.2 - unreleased
 
+### Changed
+
+- The protocols module and the msgpack, bzip2, pbt and tagparser dependencies moved to the self-hosted Forgejo at git.quad4.io. Import paths are now `git.quad4.io/reticulum/Reticulum-Go/protocols`, `git.quad4.io/libraries/msgpack/v5` v5.9.3, `git.quad4.io/libraries/bzip2` v1.0.2, `git.quad4.io/libraries/pbt` v1.0.3 and `git.quad4.io/libraries/tagparser/v2` v2.2.2, replacing the github.com/Quad4-Software paths.
+
 ### Removed
 
 - The `website/` module, the Hugo docs site, the `hugo-reticulum` Micron server and the Zensical site tooling are removed from this repository. Documentation is Markdown only, under `docs/en/`.

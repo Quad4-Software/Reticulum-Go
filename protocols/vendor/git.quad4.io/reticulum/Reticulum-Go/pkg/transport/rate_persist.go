@@ -80,7 +80,7 @@ func marshalRateTable(entries map[[16]byte]rateTableEntry) []byte {
 	}
 	for _, k := range keys {
 		ts := entries[k].timestamps
-		for i := 0; i < rateTableMaxTS; i++ {
+		for i := range rateTableMaxTS {
 			v := 0.0
 			if i < len(ts) {
 				v = ts[i]
@@ -151,10 +151,10 @@ func unmarshalRateTable(blob []byte) (map[[16]byte]rateTableEntry, bool) {
 	}
 	tsBase := off
 	out := make(map[[16]byte]rateTableEntry, entryCount)
-	for i := 0; i < entryCount; i++ {
+	for i := range entryCount {
 		base := tsBase + i*fileMaxTS*8
 		ring := make([]float64, fileMaxTS)
-		for j := 0; j < fileMaxTS; j++ {
+		for j := range fileMaxTS {
 			ring[j] = math.Float64frombits(binary.LittleEndian.Uint64(blob[base+j*8 : base+j*8+8]))
 		}
 		var chronological []float64

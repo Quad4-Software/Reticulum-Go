@@ -17,7 +17,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
+	"git.quad4.io/libraries/msgpack/v5/pkg/msgpack"
 
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/stamps"
 )
@@ -153,7 +153,7 @@ func persistDiscoveredRecord(storageDir string, rec *DiscoveredInterface) error 
 	if err != nil {
 		return err
 	}
-	defer root.Close()
+	defer func() { _ = root.Close() }()
 
 	dh := DiscoveryHash(rec.TransportID, rec.Name)
 	if len(dh) == 0 {
@@ -271,7 +271,7 @@ func ListDiscoveredInterfaces(storageDir string, opts ListOptions) ([]*Discovere
 		}
 		return nil, err
 	}
-	defer root.Close()
+	defer func() { _ = root.Close() }()
 
 	entries, err := fs.ReadDir(root.FS(), ".")
 	if err != nil {

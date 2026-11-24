@@ -13,13 +13,13 @@ import (
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/link"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/transport"
-	"github.com/Quad4-Software/reticulum-go-protocols/pkg/lxst/audio/filter"
-	"github.com/Quad4-Software/reticulum-go-protocols/pkg/lxst/audio/io"
-	"github.com/Quad4-Software/reticulum-go-protocols/pkg/lxst/audio/opus"
-	"github.com/Quad4-Software/reticulum-go-protocols/pkg/lxst/audio/opusfile"
-	"github.com/Quad4-Software/reticulum-go-protocols/pkg/lxst/audio/tone"
-	"github.com/Quad4-Software/reticulum-go-protocols/pkg/lxst/media"
-	"github.com/Quad4-Software/reticulum-go-protocols/pkg/lxst/proto"
+	"git.quad4.io/reticulum/Reticulum-Go/protocols/pkg/lxst/audio/filter"
+	"git.quad4.io/reticulum/Reticulum-Go/protocols/pkg/lxst/audio/io"
+	"git.quad4.io/reticulum/Reticulum-Go/protocols/pkg/lxst/audio/opus"
+	"git.quad4.io/reticulum/Reticulum-Go/protocols/pkg/lxst/audio/opusfile"
+	"git.quad4.io/reticulum/Reticulum-Go/protocols/pkg/lxst/audio/tone"
+	"git.quad4.io/reticulum/Reticulum-Go/protocols/pkg/lxst/media"
+	"git.quad4.io/reticulum/Reticulum-Go/protocols/pkg/lxst/proto"
 )
 
 var (

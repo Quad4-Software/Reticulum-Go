@@ -70,7 +70,7 @@ This repository holds two Go modules:
 | Path | Module | Contents |
 |------|--------|----------|
 | `/` | `git.quad4.io/reticulum/Reticulum-Go` | The RNS stack, CLI utilities, librns |
-| `protocols/` | `github.com/Quad4-Software/reticulum-go-protocols` | LXMF, LXST, MF, RRC and their bindings and daemons |
+| `protocols/` | `git.quad4.io/reticulum/Reticulum-Go/protocols` | LXMF, LXST, MF, RRC and their bindings and daemons |
 
 The nested module points at the root module with a `replace` directive, so local builds use the code in this tree. Build and test it with `task protocols-build` and `task protocols-test`.
 

@@ -3,9 +3,9 @@ module git.quad4.io/reticulum/Reticulum-Go
 go 1.27.4
 
 require (
-	github.com/Quad4-Software/bzip2 v1.0.1
-	github.com/Quad4-Software/msgpack/v5 v5.9.2
-	github.com/Quad4-Software/pbt v1.0.2
+	git.quad4.io/libraries/bzip2 v1.0.2
+	git.quad4.io/libraries/msgpack/v5 v5.9.3
+	git.quad4.io/libraries/pbt v1.0.3
 	github.com/creack/pty v1.1.24
 	github.com/godbus/dbus/v5 v5.2.4
 	github.com/landlock-lsm/go-landlock v0.11.2
@@ -21,7 +21,7 @@ require (
 )
 
 require (
-	github.com/Quad4-Software/tagparser/v2 v2.2.1 // indirect
+	git.quad4.io/libraries/tagparser/v2 v2.2.2 // indirect
 	github.com/dunglas/httpsfv v1.1.2 // indirect
 	github.com/dustin/go-humanize v1.1.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect

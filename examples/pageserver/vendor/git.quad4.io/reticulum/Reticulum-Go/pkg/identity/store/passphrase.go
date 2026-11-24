@@ -81,7 +81,7 @@ func readPassphraseFD(fdName string) ([]byte, error) {
 	if f == nil {
 		return nil, fmt.Errorf("identity store: bad fd %s", fdName)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	data, err := io.ReadAll(io.LimitReader(f, 4096))
 	if err != nil {
 		return nil, err

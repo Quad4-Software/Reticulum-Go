@@ -6,10 +6,10 @@ differs from vendor/modules.txt or the files on disk, the vendored files govern.
 
 Module                                  Version   License (summary)     Full text
 --------------------------------------------------------------------------------
-github.com/Quad4-Software/bzip2                    v0.0.0    0BSD                  vendor/github.com/Quad4-Software/bzip2/LICENSE
-github.com/Quad4-Software/msgpack/v5               v5.0.0    BSD 2-Clause          vendor/github.com/Quad4-Software/msgpack/v5/LICENSE
-github.com/Quad4-Software/tagparser                v0.0.0    BSD 2-Clause          vendor/github.com/Quad4-Software/tagparser/LICENSE
-github.com/Quad4-Software/pbt                      v0.0.0    0BSD                  vendor/github.com/Quad4-Software/pbt/LICENSE
+git.quad4.io/libraries/bzip2                    v0.0.0    0BSD                  vendor/git.quad4.io/libraries/bzip2/LICENSE
+git.quad4.io/libraries/msgpack/v5               v5.0.0    BSD 2-Clause          vendor/git.quad4.io/libraries/msgpack/v5/LICENSE
+git.quad4.io/libraries/tagparser                v0.0.0    BSD 2-Clause          vendor/git.quad4.io/libraries/tagparser/LICENSE
+git.quad4.io/libraries/pbt                      v0.0.0    0BSD                  vendor/git.quad4.io/libraries/pbt/LICENSE
 golang.org/x/crypto                     v0.52.0   BSD 3-Clause          vendor/golang.org/x/crypto/LICENSE
 golang.org/x/sys                        v0.45.0   BSD 3-Clause          vendor/golang.org/x/sys/LICENSE
 

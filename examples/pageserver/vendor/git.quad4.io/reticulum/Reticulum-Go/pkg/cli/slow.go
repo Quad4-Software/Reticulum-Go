@@ -65,10 +65,10 @@ and ranks congestion signals that commonly stall resource transfers:`,
 	}
 	client, err := rnsutil.DialRPC(cfg, nil)
 	if err != nil {
-		fmt.Fprintf(stderr, "%s: %v\n", errMsg(stderr, "rpc"), err)
+		_, _ = fmt.Fprintf(stderr, "%s: %v\n", errMsg(stderr, "rpc"), err)
 		if !*quiet {
-			fmt.Fprintln(stderr, warnMsg(stderr, "hint: point -config at the daemon config dir (e.g. ~/.reticulum for rnsd)"))
-			fmt.Fprintln(stderr, warnMsg(stderr, "hint: align shared_instance_type (unix on Linux by default, or tcp) and instance_name / ports"))
+			_, _ = fmt.Fprintln(stderr, warnMsg(stderr, "hint: point -config at the daemon config dir (e.g. ~/.reticulum for rnsd)"))
+			_, _ = fmt.Fprintln(stderr, warnMsg(stderr, "hint: align shared_instance_type (unix on Linux by default, or tcp) and instance_name / ports"))
 		}
 		return 1
 	}
@@ -84,9 +84,9 @@ and ranks congestion signals that commonly stall resource transfers:`,
 	runOnce := func() int {
 		stats, err := client.GetInterfaceStats()
 		if err != nil {
-			fmt.Fprintf(stderr, "%s (%s): %v\n", errMsg(stderr, "interface stats"), client.Addr(), err)
+			_, _ = fmt.Fprintf(stderr, "%s (%s): %v\n", errMsg(stderr, "interface stats"), client.Addr(), err)
 			if !*quiet {
-				fmt.Fprintln(stderr, warnMsg(stderr, "hint: start rnsd or reticulum-go first, then retry"))
+				_, _ = fmt.Fprintln(stderr, warnMsg(stderr, "hint: start rnsd or reticulum-go first, then retry"))
 			}
 			return 1
 		}
@@ -94,9 +94,9 @@ and ranks congestion signals that commonly stall resource transfers:`,
 		if *withPaths {
 			paths, err = client.GetPathTable(nil)
 			if err != nil {
-				fmt.Fprintf(stderr, "%s: %v\n", warnMsg(stderr, "path table"), err)
+				_, _ = fmt.Fprintf(stderr, "%s: %v\n", warnMsg(stderr, "path table"), err)
 				if !*quiet {
-					fmt.Fprintln(stderr, warnMsg(stderr, "hint: continuing with interface analysis only"))
+					_, _ = fmt.Fprintln(stderr, warnMsg(stderr, "hint: continuing with interface analysis only"))
 				}
 				paths = nil
 			}
@@ -163,7 +163,7 @@ and ranks congestion signals that commonly stall resource transfers:`,
 			return code
 		}
 		time.Sleep(*interval)
-		fmt.Fprintln(stdout)
+		_, _ = fmt.Fprintln(stdout)
 	}
 }
 

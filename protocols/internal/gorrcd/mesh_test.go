@@ -3,7 +3,7 @@ package gorrcd
 
 import (
 	"fmt"
-	"github.com/Quad4-Software/reticulum-go-protocols/internal/testconfig"
+	"git.quad4.io/reticulum/Reticulum-Go/protocols/internal/testconfig"
 	"io"
 	"log/slog"
 	"testing"
@@ -14,7 +14,7 @@ import (
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/interfaces"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/transport"
-	"github.com/Quad4-Software/reticulum-go-protocols/pkg/rrc"
+	"git.quad4.io/reticulum/Reticulum-Go/protocols/pkg/rrc"
 )
 
 const daemonPathWait = 15 * time.Second

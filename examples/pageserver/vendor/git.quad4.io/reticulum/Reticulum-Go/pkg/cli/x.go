@@ -86,8 +86,8 @@ func RunX(args []string, opt ...Options) int {
 
 	if *printID {
 		destHash := destination.Hash(id, rnsutil.RNXAppName, rnsutil.RNXAspect)
-		fmt.Fprintf(stdout, "%s : %s\n", infoMsg(stdout, "Identity"), rnsutil.PrettyHex(id.Hash()))
-		fmt.Fprintf(stdout, "%s : %s\n", infoMsg(stdout, "Listening on"), rnsutil.PrettyHex(destHash))
+		_, _ = fmt.Fprintf(stdout, "%s : %s\n", infoMsg(stdout, "Identity"), rnsutil.PrettyHex(id.Hash()))
+		_, _ = fmt.Fprintf(stdout, "%s : %s\n", infoMsg(stdout, "Listening on"), rnsutil.PrettyHex(destHash))
 		return 0
 	}
 
@@ -100,7 +100,7 @@ func RunX(args []string, opt ...Options) int {
 		diagErr(stderr, "start", err)
 		return 1
 	}
-	defer n.Stop()
+	defer func() { _ = n.Stop() }()
 	tr := n.Transport()
 
 	if *listenMode {
@@ -120,7 +120,7 @@ func RunX(args []string, opt ...Options) int {
 	}
 	destHash, err := rnsutil.ParseDestHash(fs.Arg(0))
 	if err != nil {
-		fmt.Fprintln(stderr, errMsg(stderr, err.Error()))
+		_, _ = fmt.Fprintln(stderr, errMsg(stderr, err.Error()))
 		return rnsutil.ExitRNXInvalidDest
 	}
 
@@ -183,11 +183,11 @@ func runXListen(tr *transport.Transport, id *identity.Identity, opts xListenOpts
 	}
 	allowed, err := rnsutil.LoadRNXAllowedIdentities(opts.allowedCLI)
 	if err != nil {
-		fmt.Fprintf(stderr, "%v\n", err)
+		_, _ = fmt.Fprintf(stderr, "%v\n", err)
 		return 1
 	}
 	if !opts.allowAll && len(allowed) == 0 {
-		fmt.Fprintln(stderr, warnMsg(stderr, "Warning: No allowed identities configured, rgox will not accept any commands!"))
+		_, _ = fmt.Fprintln(stderr, warnMsg(stderr, "Warning: No allowed identities configured, rgox will not accept any commands!"))
 	}
 
 	dest, err := destination.New(id, destination.In, destination.Single, rnsutil.RNXAppName, tr, rnsutil.RNXAspect)
@@ -202,13 +202,13 @@ func runXListen(tr *transport.Transport, id *identity.Identity, opts xListenOpts
 		if !ok || l == nil {
 			return
 		}
-		fmt.Fprintln(stderr, infoMsg(stderr, "Command link established"))
+		_, _ = fmt.Fprintln(stderr, infoMsg(stderr, "Command link established"))
 		l.SetRemoteIdentifiedCallback(func(lnk *link.Link, remote *identity.Identity) {
 			if opts.allowAll {
 				return
 			}
 			if remote == nil || !rnsutil.AllowedContains(allowed, remote.Hash()) {
-				fmt.Fprintln(stderr, warnMsg(stderr, "Identity not allowed, tearing down link"))
+				_, _ = fmt.Fprintln(stderr, warnMsg(stderr, "Identity not allowed, tearing down link"))
 				lnk.Teardown()
 			}
 		})
@@ -229,12 +229,12 @@ func runXListen(tr *transport.Transport, id *identity.Identity, opts xListenOpts
 		if remote != nil {
 			who = rnsutil.PrettyHex(remote.Hash())
 		}
-		fmt.Fprintf(stderr, "Executing command [%s] for %s\n", req.Command, who)
+		_, _ = fmt.Fprintf(stderr, "Executing command [%s] for %s\n", req.Command, who)
 		res := rnsutil.ExecuteRNXCommandLocally(req)
 		return rnsutil.PackRNXResult(res)
 	}, allowMode, allowList)
 
-	fmt.Fprintln(stderr, okMsg(stderr, fmt.Sprintf("rgox listening for commands on %s", rnsutil.PrettyHex(dest.GetHash()))))
+	_, _ = fmt.Fprintln(stderr, okMsg(stderr, fmt.Sprintf("rgox listening for commands on %s", rnsutil.PrettyHex(dest.GetHash()))))
 	if !opts.noAnnounce {
 		_ = dest.Announce(false, nil, nil)
 	}
@@ -266,10 +266,10 @@ func runXInteractive(tr *transport.Transport, id *identity.Identity, destHash []
 	cancel()
 	if err != nil {
 		if strings.Contains(err.Error(), "path:") {
-			fmt.Fprintln(stdout, errMsg(stdout, "Path not found"))
+			_, _ = fmt.Fprintln(stdout, errMsg(stdout, "Path not found"))
 			return rnsutil.ExitRNXPathNotFound
 		}
-		fmt.Fprintln(stdout, errMsg(stdout, "Could not establish link with "+rnsutil.PrettyHex(destHash)))
+		_, _ = fmt.Fprintln(stdout, errMsg(stdout, "Could not establish link with "+rnsutil.PrettyHex(destHash)))
 		return rnsutil.ExitRNXLinkFailed
 	}
 	defer l.Teardown()
@@ -277,7 +277,7 @@ func runXInteractive(tr *transport.Transport, id *identity.Identity, destHash []
 
 	sc := bufio.NewScanner(os.Stdin)
 	for {
-		fmt.Fprint(stderr, "> ")
+		_, _ = fmt.Fprint(stderr, "> ")
 		if !sc.Scan() {
 			break
 		}
@@ -290,7 +290,7 @@ func runXInteractive(tr *transport.Transport, id *identity.Identity, destHash []
 			return 0
 		}
 		if lower == "clear" {
-			fmt.Fprint(stdout, term.ClearScreenW(stdout))
+			_, _ = fmt.Fprint(stdout, term.ClearScreenW(stdout))
 			continue
 		}
 		opts.req.Command = line
@@ -314,16 +314,16 @@ func runXExecute(tr *transport.Transport, id *identity.Identity, destHash []byte
 	if reuse {
 		l = opts.keepLink
 	} else {
-		fmt.Fprintln(stdout, infoMsg(stdout, fmt.Sprintf("Path to %s requested", rnsutil.PrettyHex(destHash))))
+		_, _ = fmt.Fprintln(stdout, infoMsg(stdout, fmt.Sprintf("Path to %s requested", rnsutil.PrettyHex(destHash))))
 		ctx, cancel := rnsutil.CLIWaitContext(opts.timeout)
 		l, err = rnsutil.EstablishRNXLink(ctx, tr, destHash)
 		cancel()
 		if err != nil {
 			if strings.Contains(err.Error(), "path:") {
-				fmt.Fprintln(stdout, errMsg(stdout, "Path not found"))
+				_, _ = fmt.Fprintln(stdout, errMsg(stdout, "Path not found"))
 				return rnsutil.ExitRNXPathNotFound
 			}
-			fmt.Fprintln(stdout, errMsg(stdout, "Could not establish link with "+rnsutil.PrettyHex(destHash)))
+			_, _ = fmt.Fprintln(stdout, errMsg(stdout, "Could not establish link with "+rnsutil.PrettyHex(destHash)))
 			return rnsutil.ExitRNXLinkFailed
 		}
 		if opts.keepLink != nil {
@@ -344,7 +344,7 @@ func runXExecute(tr *transport.Transport, id *identity.Identity, destHash []byte
 	rexec := rnsutil.RNXRequestTimeout(opts.timeout, l.RTT())
 	receipt, err := l.Request(rnsutil.RNXCommandPath, rnsutil.PackRNXRequest(opts.req), rexec)
 	if err != nil {
-		fmt.Fprintln(stdout, errMsg(stdout, "Could not request remote execution"))
+		_, _ = fmt.Fprintln(stdout, errMsg(stdout, "Could not request remote execution"))
 		return rnsutil.ExitRNXRequestFailed
 	}
 
@@ -356,25 +356,25 @@ func runXExecute(tr *transport.Transport, id *identity.Identity, destHash []byte
 
 	if err := rnsutil.WaitRequest(waitCtx, receipt); err != nil {
 		if receipt.GetStatus() == link.StatusFailed {
-			fmt.Fprintln(stdout, errMsg(stdout, "No result was received"))
+			_, _ = fmt.Fprintln(stdout, errMsg(stdout, "No result was received"))
 			return rnsutil.ExitRNXNoResult
 		}
-		fmt.Fprintln(stdout, errMsg(stdout, "Receiving result failed"))
+		_, _ = fmt.Fprintln(stdout, errMsg(stdout, "Receiving result failed"))
 		return rnsutil.ExitRNXReceiveFailed
 	}
 	if receipt.GetStatus() == link.StatusFailed {
-		fmt.Fprintln(stdout, errMsg(stdout, "No result was received"))
+		_, _ = fmt.Fprintln(stdout, errMsg(stdout, "No result was received"))
 		return rnsutil.ExitRNXNoResult
 	}
 
 	raw := receipt.GetResponseValue()
 	if raw == nil {
-		fmt.Fprintln(stdout, errMsg(stdout, "No response"))
+		_, _ = fmt.Fprintln(stdout, errMsg(stdout, "No response"))
 		return rnsutil.ExitRNXNoResponse
 	}
 	res, err := rnsutil.ParseRNXResult(raw)
 	if err != nil {
-		fmt.Fprintln(stdout, errMsg(stdout, "Received invalid result"))
+		_, _ = fmt.Fprintln(stdout, errMsg(stdout, "Received invalid result"))
 		return rnsutil.ExitRNXInvalidResult
 	}
 
@@ -396,42 +396,42 @@ func runXExecute(tr *transport.Transport, id *identity.Identity, destHash []byte
 		_ = enc.Encode(payload)
 	} else if res.Executed {
 		if len(res.Stdout) > 0 {
-			fmt.Fprint(stdout, string(res.Stdout))
+			_, _ = fmt.Fprint(stdout, string(res.Stdout))
 		}
 		if len(res.Stderr) > 0 {
-			fmt.Fprint(stderr, string(res.Stderr))
+			_, _ = fmt.Fprint(stderr, string(res.Stderr))
 		}
 		if opts.detailed {
-			fmt.Fprintln(stdout, "\n--- End of remote output, rgox done ---")
+			_, _ = fmt.Fprintln(stdout, "\n--- End of remote output, rgox done ---")
 			if res.ConcludedAt != nil {
-				fmt.Fprintf(stdout, "Remote command execution took %.3f seconds\n", *res.ConcludedAt-res.StartedAt)
+				_, _ = fmt.Fprintf(stdout, "Remote command execution took %.3f seconds\n", *res.ConcludedAt-res.StartedAt)
 			}
 			if res.Stdout != nil {
 				tstr := ""
 				if len(res.Stdout) < res.StdoutTotal {
 					tstr = fmt.Sprintf(", %d bytes displayed", len(res.Stdout))
 				}
-				fmt.Fprintf(stdout, "Remote wrote %d bytes to stdout%s\n", res.StdoutTotal, tstr)
+				_, _ = fmt.Fprintf(stdout, "Remote wrote %d bytes to stdout%s\n", res.StdoutTotal, tstr)
 			}
 			if res.Stderr != nil {
 				tstr := ""
 				if len(res.Stderr) < res.StderrTotal {
 					tstr = fmt.Sprintf(", %d bytes displayed", len(res.Stderr))
 				}
-				fmt.Fprintf(stdout, "Remote wrote %d bytes to stderr%s\n", res.StderrTotal, tstr)
+				_, _ = fmt.Fprintf(stdout, "Remote wrote %d bytes to stderr%s\n", res.StderrTotal, tstr)
 			}
 		} else if (opts.req.StdoutLimit != nil && *opts.req.StdoutLimit != 0 && len(res.Stdout) < res.StdoutTotal) ||
 			(opts.req.StderrLimit != nil && *opts.req.StderrLimit != 0 && len(res.Stderr) < res.StderrTotal) {
-			fmt.Fprintln(stdout, "\nOutput truncated before being returned:")
+			_, _ = fmt.Fprintln(stdout, "\nOutput truncated before being returned:")
 			if len(res.Stdout) > 0 && len(res.Stdout) < res.StdoutTotal {
-				fmt.Fprintf(stdout, "  stdout truncated to %d bytes\n", len(res.Stdout))
+				_, _ = fmt.Fprintf(stdout, "  stdout truncated to %d bytes\n", len(res.Stdout))
 			}
 			if len(res.Stderr) > 0 && len(res.Stderr) < res.StderrTotal {
-				fmt.Fprintf(stdout, "  stderr truncated to %d bytes\n", len(res.Stderr))
+				_, _ = fmt.Fprintf(stdout, "  stderr truncated to %d bytes\n", len(res.Stderr))
 			}
 		}
 	} else {
-		fmt.Fprintln(stdout, errMsg(stdout, "Remote could not execute command"))
+		_, _ = fmt.Fprintln(stdout, errMsg(stdout, "Remote could not execute command"))
 		return rnsutil.ExitRNXRemoteExecFail
 	}
 

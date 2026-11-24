@@ -379,7 +379,7 @@ func (hc *HTTPSClientInterface) doRegister() error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 1024))
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return fmt.Errorf("HTTPS register status %d", resp.StatusCode)
@@ -397,7 +397,7 @@ func (hc *HTTPSClientInterface) doPoll() (int, []byte, error) {
 	if err != nil {
 		return 0, nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	limit := int64(hc.MTU + httpsMaxBodySlack)
 	body, err := io.ReadAll(io.LimitReader(resp.Body, limit+1))
 	if err != nil {
@@ -480,7 +480,7 @@ func (hc *HTTPSClientInterface) ProcessOutgoing(data []byte) error {
 		hc.markOffline()
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 1024))
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		hc.markOffline()

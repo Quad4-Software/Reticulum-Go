@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity"
-	"github.com/Quad4-Software/reticulum-go-protocols/pkg/rrc"
+	"git.quad4.io/reticulum/Reticulum-Go/protocols/pkg/rrc"
 )
 
 func IdentitySeedDestination(identityHandle uint64, destHash []byte) int {

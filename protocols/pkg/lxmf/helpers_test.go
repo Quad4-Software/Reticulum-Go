@@ -6,7 +6,7 @@ import (
 	"maps"
 	"testing"
 
-	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
+	"git.quad4.io/libraries/msgpack/v5/pkg/msgpack"
 )
 
 func TestDisplayNameFromAppData_LegacyPlain(t *testing.T) {

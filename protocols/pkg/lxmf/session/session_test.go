@@ -5,7 +5,7 @@ import (
 	"context"
 	"encoding/hex"
 	"errors"
-	"github.com/Quad4-Software/reticulum-go-protocols/internal/testconfig"
+	"git.quad4.io/reticulum/Reticulum-Go/protocols/internal/testconfig"
 	"sync"
 	"testing"
 	"time"
@@ -14,8 +14,8 @@ import (
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/packet"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/transport"
-	"github.com/Quad4-Software/reticulum-go-protocols/pkg/lxmf"
-	"github.com/Quad4-Software/reticulum-go-protocols/pkg/lxmf/session"
+	"git.quad4.io/reticulum/Reticulum-Go/protocols/pkg/lxmf"
+	"git.quad4.io/reticulum/Reticulum-Go/protocols/pkg/lxmf/session"
 )
 
 type pairIface struct {

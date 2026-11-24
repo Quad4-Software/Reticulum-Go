@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/Quad4-Software/reticulum-go-protocols/pkg/lxst/audio/opus"
+	"git.quad4.io/reticulum/Reticulum-Go/protocols/pkg/lxst/audio/opus"
 )
 
 const (

@@ -152,7 +152,7 @@ func EscapeGitStdout(value string) string {
 			b.WriteString(`\r`)
 		default:
 			if c < 32 || c > 126 {
-				b.WriteString(fmt.Sprintf(`\x%02x`, c))
+				_, _ = fmt.Fprintf(&b, `\x%02x`, c)
 			} else {
 				b.WriteRune(c)
 			}
@@ -189,11 +189,11 @@ func flushWriter(w io.Writer) {
 // WriteGitListPayload writes a remote-helper list response and the required
 // terminating blank line (matches Python git-remote-rns).
 func WriteGitListPayload(w io.Writer, text string) {
-	fmt.Fprint(w, text)
+	_, _ = fmt.Fprint(w, text)
 	if !strings.HasSuffix(text, "\n") {
-		fmt.Fprintln(w)
+		_, _ = fmt.Fprintln(w)
 	}
-	fmt.Fprintln(w)
+	_, _ = fmt.Fprintln(w)
 	flushWriter(w)
 }
 

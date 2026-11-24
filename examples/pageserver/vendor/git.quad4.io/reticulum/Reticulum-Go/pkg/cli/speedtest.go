@@ -134,8 +134,8 @@ func RunSpeedtest(args []string, opt ...Options) int {
 
 	if *printID {
 		destHash := destination.Hash(id, rnsutil.SpeedtestAppName, rnsutil.SpeedtestAspect)
-		fmt.Fprintf(stdout, "%s : %s\n", infoMsg(stdout, "Identity"), hex.EncodeToString(id.Hash()))
-		fmt.Fprintf(stdout, "%s : %s\n", infoMsg(stdout, "Listening on"), hex.EncodeToString(destHash))
+		_, _ = fmt.Fprintf(stdout, "%s : %s\n", infoMsg(stdout, "Identity"), hex.EncodeToString(id.Hash()))
+		_, _ = fmt.Fprintf(stdout, "%s : %s\n", infoMsg(stdout, "Listening on"), hex.EncodeToString(destHash))
 		return 0
 	}
 
@@ -148,10 +148,10 @@ func RunSpeedtest(args []string, opt ...Options) int {
 		diagErr(stderr, "start", err)
 		return 1
 	}
-	defer n.Stop()
+	defer func() { _ = n.Stop() }()
 	tr := n.Transport()
 
-	fmt.Fprintf(stdout, "%s interfaces=%v\n", infoMsg(stdout, "speedtest using"), activeIfaces)
+	_, _ = fmt.Fprintf(stdout, "%s interfaces=%v\n", infoMsg(stdout, "speedtest using"), activeIfaces)
 
 	switch {
 	case *listenMode:
@@ -159,13 +159,13 @@ func RunSpeedtest(args []string, opt ...Options) int {
 	default:
 		if fs.NArg() != 1 {
 			usageErr(stderr, "speedtest [flags] <destination_hash>")
-			fmt.Fprintln(stderr, "       speedtest -l|-daemon [flags]")
-			fmt.Fprintln(stderr, "       speedtest -loopback [flags]")
+			_, _ = fmt.Fprintln(stderr, "       speedtest -l|-daemon [flags]")
+			_, _ = fmt.Fprintln(stderr, "       speedtest -loopback [flags]")
 			return 2
 		}
 		destHash, err := rnsutil.ParseDestHash(fs.Arg(0))
 		if err != nil {
-			fmt.Fprintf(stderr, "%v\n", err)
+			_, _ = fmt.Fprintf(stderr, "%v\n", err)
 			return 1
 		}
 		return runSpeedtestClient(tr, destHash, spOpt, timeout, *jsonOut, stdout, stderr)
@@ -188,11 +188,11 @@ func runSpeedtestListen(
 	}
 	dest.AcceptsLinks(true)
 
-	fmt.Fprintf(stdout, "%s %s\n", infoMsg(stdout, "Listening on"), hex.EncodeToString(dest.GetHash()))
+	_, _ = fmt.Fprintf(stdout, "%s %s\n", infoMsg(stdout, "Listening on"), hex.EncodeToString(dest.GetHash()))
 	if once {
-		fmt.Fprintln(stdout, infoMsg(stdout, "mode=oneshot (exit after one client)"))
+		_, _ = fmt.Fprintln(stdout, infoMsg(stdout, "mode=oneshot (exit after one client)"))
 	} else {
-		fmt.Fprintln(stdout, infoMsg(stdout, "mode=daemon (serve until signal)"))
+		_, _ = fmt.Fprintln(stdout, infoMsg(stdout, "mode=daemon (serve until signal)"))
 	}
 
 	incoming := make(chan *rlink.Link, 1)
@@ -205,7 +205,7 @@ func runSpeedtestListen(
 		select {
 		case incoming <- lnk:
 		default:
-			fmt.Fprintln(stderr, warnMsg(stderr, "busy, rejecting extra link"))
+			_, _ = fmt.Fprintln(stderr, warnMsg(stderr, "busy, rejecting extra link"))
 			lnk.Teardown()
 		}
 	})
@@ -215,7 +215,7 @@ func runSpeedtestListen(
 			diagErr(stderr, "announce", err)
 			return 1
 		}
-		fmt.Fprintln(stdout, infoMsg(stdout, "announce sent"))
+		_, _ = fmt.Fprintln(stdout, infoMsg(stdout, "announce sent"))
 	}
 	var announceStop chan struct{}
 	if announceSec > 0 {
@@ -232,7 +232,7 @@ func runSpeedtestListen(
 						diagErr(stderr, "announce", err)
 						continue
 					}
-					fmt.Fprintln(stdout, infoMsg(stdout, "announce refreshed"))
+					_, _ = fmt.Fprintln(stdout, infoMsg(stdout, "announce refreshed"))
 				}
 			}
 		}()
@@ -244,17 +244,17 @@ func runSpeedtestListen(
 	defer signal.Stop(sig)
 
 	for {
-		fmt.Fprintln(stdout, infoMsg(stdout, "Waiting for client link..."))
+		_, _ = fmt.Fprintln(stdout, infoMsg(stdout, "Waiting for client link..."))
 		var lnk *rlink.Link
 		select {
 		case lnk = <-incoming:
 		case <-sig:
-			fmt.Fprintln(stdout, "interrupted")
+			_, _ = fmt.Fprintln(stdout, "interrupted")
 			return 130
 		}
 
 		ifaceName := linkIfaceName(lnk)
-		fmt.Fprintf(stdout, "%s iface=%s link=%s\n",
+		_, _ = fmt.Fprintf(stdout, "%s iface=%s link=%s\n",
 			infoMsg(stdout, "Client linked, receiving..."),
 			ifaceName,
 			hex.EncodeToString(lnk.GetLinkID()),
@@ -264,7 +264,7 @@ func runSpeedtestListen(
 		res, err := rlink.ReceiveOnLink(lnk, recvOpt)
 		if err == nil {
 			if ackErr := rlink.SendSpeedAck(lnk, res.BytesRecv); ackErr != nil {
-				fmt.Fprintf(stderr, "ack: %v\n", ackErr)
+				_, _ = fmt.Fprintf(stderr, "ack: %v\n", ackErr)
 			}
 		}
 		code := emitSpeedResultValues(stdout, stderr, jsonOut, "server", ifaceName, res, err)
@@ -286,17 +286,17 @@ func runSpeedtestClient(
 	ctx, cancel := context.WithTimeout(context.Background(), pathTimeout)
 	defer cancel()
 
-	fmt.Fprintln(stdout, infoMsg(stdout, fmt.Sprintf("Path to %s...", rnsutil.PrettyHex(destHash))))
+	_, _ = fmt.Fprintln(stdout, infoMsg(stdout, fmt.Sprintf("Path to %s...", rnsutil.PrettyHex(destHash))))
 	lnk, err := rnsutil.EstablishSpeedtestLink(ctx, tr, destHash)
 	if err != nil {
-		fmt.Fprintf(stderr, "%s: %v\n", errMsg(stderr, "link failed"), err)
+		_, _ = fmt.Fprintf(stderr, "%s: %v\n", errMsg(stderr, "link failed"), err)
 		return 1
 	}
 	defer lnk.Teardown()
 	lnk.Start()
 
 	ifaceName := linkIfaceName(lnk)
-	fmt.Fprintf(stdout, "%s iface=%s\n", infoMsg(stdout, "Link established, sending..."), ifaceName)
+	_, _ = fmt.Fprintf(stdout, "%s iface=%s\n", infoMsg(stdout, "Link established, sending..."), ifaceName)
 	blastOpt := spOpt
 	blastOpt.EnforceFloor = false
 	if blastOpt.SendPace <= 0 {
@@ -311,7 +311,7 @@ func runSpeedtestClient(
 	ackTimeout := min(spOpt.Timeout, 30*time.Second)
 	confirmed, ackErr := rlink.WaitSpeedAck(lnk, ackTimeout)
 	if ackErr != nil {
-		fmt.Fprintf(stderr, "%s: %v (TX stats still valid)\n", warnMsg(stderr, "no server ack"), ackErr)
+		_, _ = fmt.Fprintf(stderr, "%s: %v (TX stats still valid)\n", warnMsg(stderr, "no server ack"), ackErr)
 	} else {
 		res.ConfirmedRecv = confirmed
 		res.BytesRecv = confirmed
@@ -361,7 +361,7 @@ func emitSpeedResultValues(stdout, stderr io.Writer, jsonOut bool, mode, iface s
 
 	// Always emit a one-line summary on stdout for docker logs / journald.
 	ok := err == nil
-	fmt.Fprintf(stdout, "speedtest_result mode=%s ok=%t iface=%q bps=%.0f sent=%d recv=%d duration=%s mdu=%d\n",
+	_, _ = fmt.Fprintf(stdout, "speedtest_result mode=%s ok=%t iface=%q bps=%.0f sent=%d recv=%d duration=%s mdu=%d\n",
 		mode, ok, iface, res.BytesPerSec, res.BytesSent, res.BytesRecv, res.Duration.Round(time.Millisecond), res.MDU)
 
 	if jsonOut {
@@ -370,25 +370,25 @@ func emitSpeedResultValues(stdout, stderr io.Writer, jsonOut bool, mode, iface s
 		_ = enc.Encode(out)
 	} else {
 		if err != nil {
-			fmt.Fprintf(stderr, "%s: %v\n", errMsg(stderr, "speedtest failed"), err)
+			_, _ = fmt.Fprintf(stderr, "%s: %v\n", errMsg(stderr, "speedtest failed"), err)
 		} else {
-			fmt.Fprintf(stdout, "%s (%s)\n", okMsg(stdout, "speedtest ok"), mode)
+			_, _ = fmt.Fprintf(stdout, "%s (%s)\n", okMsg(stdout, "speedtest ok"), mode)
 		}
 		if iface != "" {
-			fmt.Fprintf(stdout, "  interface   : %s\n", iface)
+			_, _ = fmt.Fprintf(stdout, "  interface   : %s\n", iface)
 		}
 		if res.BytesSent > 0 {
-			fmt.Fprintf(stdout, "  sent        : %d bytes\n", res.BytesSent)
+			_, _ = fmt.Fprintf(stdout, "  sent        : %d bytes\n", res.BytesSent)
 		}
 		if res.BytesRecv > 0 {
-			fmt.Fprintf(stdout, "  received    : %d bytes\n", res.BytesRecv)
+			_, _ = fmt.Fprintf(stdout, "  received    : %d bytes\n", res.BytesRecv)
 		}
 		if res.ConfirmedRecv > 0 && mode == "client" {
-			fmt.Fprintf(stdout, "  confirmed   : %d bytes (server ack)\n", res.ConfirmedRecv)
+			_, _ = fmt.Fprintf(stdout, "  confirmed   : %d bytes (server ack)\n", res.ConfirmedRecv)
 		}
-		fmt.Fprintf(stdout, "  mdu         : %d\n", res.MDU)
-		fmt.Fprintf(stdout, "  duration    : %s\n", res.Duration.Round(time.Millisecond))
-		fmt.Fprintf(stdout, "  throughput  : %.2f MB/s (%.0f B/s)\n", res.BytesPerSec/1e6, res.BytesPerSec)
+		_, _ = fmt.Fprintf(stdout, "  mdu         : %d\n", res.MDU)
+		_, _ = fmt.Fprintf(stdout, "  duration    : %s\n", res.Duration.Round(time.Millisecond))
+		_, _ = fmt.Fprintf(stdout, "  throughput  : %.2f MB/s (%.0f B/s)\n", res.BytesPerSec/1e6, res.BytesPerSec)
 	}
 	if err != nil {
 		return 1

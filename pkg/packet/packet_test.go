@@ -10,8 +10,8 @@ import (
 	mathrand "math/rand"
 	"testing"
 
+	"git.quad4.io/libraries/pbt/pkg/pbt"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity"
-	"github.com/Quad4-Software/pbt/pkg/pbt"
 )
 
 func randomBytes(n int) []byte {

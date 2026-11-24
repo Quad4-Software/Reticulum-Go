@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity"
-	"github.com/Quad4-Software/reticulum-go-protocols/pkg/lxst/rnsnode"
+	"git.quad4.io/reticulum/Reticulum-Go/protocols/pkg/lxst/rnsnode"
 )
 
 func TestStartUDP(t *testing.T) {

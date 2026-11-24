@@ -4,8 +4,8 @@ package raw_test
 import (
 	"testing"
 
-	"github.com/Quad4-Software/reticulum-go-protocols/pkg/lxst/audio/raw"
-	"github.com/Quad4-Software/reticulum-go-protocols/pkg/lxst/proto"
+	"git.quad4.io/reticulum/Reticulum-Go/protocols/pkg/lxst/audio/raw"
+	"git.quad4.io/reticulum/Reticulum-Go/protocols/pkg/lxst/proto"
 )
 
 func TestRawRoundTrip(t *testing.T) {

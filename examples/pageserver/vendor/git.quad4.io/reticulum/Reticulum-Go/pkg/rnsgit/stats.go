@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity"
-	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
+	"git.quad4.io/libraries/msgpack/v5/pkg/msgpack"
 )
 
 // Stat kinds recorded per repository and group. The string values match the
@@ -230,9 +230,7 @@ func (s *statsStore) persistLocked() {
 
 // run persists every statsPersistInterval until closed.
 func (s *statsStore) run() {
-	s.stopped.Add(1)
-	go func() {
-		defer s.stopped.Done()
+	s.stopped.Go(func() {
 		t := time.NewTicker(statsPersistInterval)
 		defer t.Stop()
 		for {
@@ -244,7 +242,7 @@ func (s *statsStore) run() {
 				s.persist()
 			}
 		}
-	}()
+	})
 }
 
 func (s *statsStore) close() {

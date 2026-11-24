@@ -5,6 +5,7 @@ package transport
 
 import (
 	"fmt"
+	"maps"
 	"sort"
 	"sync"
 	"time"
@@ -99,9 +100,7 @@ func shrinkSparseMap[K comparable, V any](m map[K]V, peak *int) map[K]V {
 	}
 	if *peak >= sparseMapMinPeak && n < *peak/2 {
 		nm := make(map[K]V, n*11/10+16)
-		for k, v := range m {
-			nm[k] = v
-		}
+		maps.Copy(nm, m)
 		*peak = n
 		return nm
 	}

@@ -6,8 +6,8 @@ package codec2
 import (
 	"fmt"
 
-	"github.com/Quad4-Software/reticulum-go-protocols/pkg/lxst/audio/opus"
-	"github.com/Quad4-Software/reticulum-go-protocols/pkg/lxst/proto"
+	"git.quad4.io/reticulum/Reticulum-Go/protocols/pkg/lxst/audio/opus"
+	"git.quad4.io/reticulum/Reticulum-Go/protocols/pkg/lxst/proto"
 )
 
 // stubStoredSamples bounds the PCM samples a stub frame carries so stub

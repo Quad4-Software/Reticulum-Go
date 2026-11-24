@@ -13,7 +13,7 @@ import (
 	"sort"
 
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/cryptography"
-	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
+	"git.quad4.io/libraries/msgpack/v5/pkg/msgpack"
 )
 
 const (
@@ -40,7 +40,7 @@ func StampWorkblock(material []byte, expandRounds int) ([]byte, error) {
 	}
 	out := make([]byte, 0, WorkblockExpandChunk*expandRounds)
 	nBuf := make([]byte, 0, 16)
-	for n := 0; n < expandRounds; n++ {
+	for n := range expandRounds {
 		var err error
 		nBuf, err = msgpack.AppendMarshal(nBuf[:0], n)
 		if err != nil {

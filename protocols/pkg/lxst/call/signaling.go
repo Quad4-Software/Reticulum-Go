@@ -8,7 +8,7 @@ import (
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/link"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/packet"
-	"github.com/Quad4-Software/reticulum-go-protocols/pkg/lxst/proto"
+	"git.quad4.io/reticulum/Reticulum-Go/protocols/pkg/lxst/proto"
 )
 
 func (c *Call) resendAvailableUntilIdentified() {

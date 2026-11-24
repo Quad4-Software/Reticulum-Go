@@ -84,7 +84,7 @@ The repository holds two Go modules:
 | Path | Module | Build and test |
 |------|--------|----------------|
 | `/` | `git.quad4.io/reticulum/Reticulum-Go` | `make check` |
-| `protocols/` | `github.com/Quad4-Software/reticulum-go-protocols` | `task protocols-build`, `task protocols-test` |
+| `protocols/` | `git.quad4.io/reticulum/Reticulum-Go/protocols` | `task protocols-build`, `task protocols-test` |
 
 Changes under `protocols/` run their own CI job. The docs are plain Markdown under `docs/en/` with no site build in this repository.
 

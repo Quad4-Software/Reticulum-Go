@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Quad4-Software/reticulum-go-protocols/pkg/lxst/proto"
+	"git.quad4.io/reticulum/Reticulum-Go/protocols/pkg/lxst/proto"
 )
 
 // LinkMetrics carries path telemetry used for adaptation.

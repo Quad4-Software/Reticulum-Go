@@ -757,24 +757,24 @@ func WriteSlowJSON(w io.Writer, rep SlowReport) error {
 // WriteSlowHuman prints a readable bottleneck report.
 func WriteSlowHuman(w io.Writer, rep SlowReport) error {
 	title := "rgoslow - transfer bottleneck report"
-	fmt.Fprintln(w, term.BoldW(w, title))
-	fmt.Fprintf(w, "RPC %s", rep.RPCAddr)
+	_, _ = fmt.Fprintln(w, term.BoldW(w, title))
+	_, _ = fmt.Fprintf(w, "RPC %s", rep.RPCAddr)
 	if rep.TransportID != "" {
-		fmt.Fprintf(w, "  transport %s", rep.TransportID)
+		_, _ = fmt.Fprintf(w, "  transport %s", rep.TransportID)
 	}
 	if rep.TransportUptime > 0 {
-		fmt.Fprintf(w, "  uptime %s", formatUptime(rep.TransportUptime))
+		_, _ = fmt.Fprintf(w, "  uptime %s", formatUptime(rep.TransportUptime))
 	}
 	if rep.LinkCount != nil {
-		fmt.Fprintf(w, "  links %d", *rep.LinkCount)
+		_, _ = fmt.Fprintf(w, "  links %d", *rep.LinkCount)
 	}
-	fmt.Fprintln(w)
-	fmt.Fprintf(w, "Traffic  rx %s (%s)  tx %s (%s)\n",
+	_, _ = fmt.Fprintln(w)
+	_, _ = fmt.Fprintf(w, "Traffic  rx %s (%s)  tx %s (%s)\n",
 		SizeString(float64(rep.Totals.RXB), "B"), prettyBitrate(int64(rep.Totals.RXS)),
 		SizeString(float64(rep.Totals.TXB), "B"), prettyBitrate(int64(rep.Totals.TXS)))
-	fmt.Fprintf(w, "Paths    %d total  median %d hops  high-hop(>=%d) %d  max %d\n",
+	_, _ = fmt.Fprintf(w, "Paths    %d total  median %d hops  high-hop(>=%d) %d  max %d\n",
 		rep.PathStats.Total, rep.PathStats.MedianHops, rep.HighHopAt, rep.PathStats.HighHop, rep.PathStats.MaxHops)
-	fmt.Fprintln(w)
+	_, _ = fmt.Fprintln(w)
 
 	crit, warn := 0, 0
 	for _, f := range rep.Findings {
@@ -785,50 +785,50 @@ func WriteSlowHuman(w io.Writer, rep SlowReport) error {
 			warn++
 		}
 	}
-	fmt.Fprintln(w, term.BoldW(w, "SUMMARY"))
+	_, _ = fmt.Fprintln(w, term.BoldW(w, "SUMMARY"))
 	sumLine := fmt.Sprintf("  %d critical  %d warnings  %d findings", crit, warn, len(rep.Findings))
 	if crit > 0 {
-		fmt.Fprintln(w, term.RedW(w, sumLine))
+		_, _ = fmt.Fprintln(w, term.RedW(w, sumLine))
 	} else if warn > 0 {
-		fmt.Fprintln(w, term.YellowW(w, sumLine))
+		_, _ = fmt.Fprintln(w, term.YellowW(w, sumLine))
 	} else {
-		fmt.Fprintln(w, term.GreenW(w, sumLine+"  (no strong local bottlenecks)"))
+		_, _ = fmt.Fprintln(w, term.GreenW(w, sumLine+"  (no strong local bottlenecks)"))
 	}
-	fmt.Fprintln(w)
+	_, _ = fmt.Fprintln(w)
 
 	if rep.Destination != nil {
-		fmt.Fprintln(w, term.BoldW(w, "DESTINATION"))
+		_, _ = fmt.Fprintln(w, term.BoldW(w, "DESTINATION"))
 		d := rep.Destination
 		if !d.HasPath {
-			fmt.Fprintf(w, "  %s  %s\n", d.Hash, term.RedW(w, "no path"))
+			_, _ = fmt.Fprintf(w, "  %s  %s\n", d.Hash, term.RedW(w, "no path"))
 		} else {
-			fmt.Fprintf(w, "  %s", d.Hash)
+			_, _ = fmt.Fprintf(w, "  %s", d.Hash)
 			if d.Hops > 0 {
-				fmt.Fprintf(w, "  %d hops", d.Hops)
+				_, _ = fmt.Fprintf(w, "  %d hops", d.Hops)
 			}
 			if d.Via != "" {
-				fmt.Fprintf(w, " via %s", d.Via)
+				_, _ = fmt.Fprintf(w, " via %s", d.Via)
 			}
 			if d.Interface != "" {
-				fmt.Fprintf(w, " on %s", d.Interface)
+				_, _ = fmt.Fprintf(w, " on %s", d.Interface)
 			}
-			fmt.Fprintln(w)
+			_, _ = fmt.Fprintln(w)
 			if d.FirstHopTimeoutS > 0 {
-				fmt.Fprintf(w, "  first-hop timeout %.1fs", d.FirstHopTimeoutS)
+				_, _ = fmt.Fprintf(w, "  first-hop timeout %.1fs", d.FirstHopTimeoutS)
 				if d.ExpiresInS > 0 {
-					fmt.Fprintf(w, "  path expires in %.0fs", d.ExpiresInS)
+					_, _ = fmt.Fprintf(w, "  path expires in %.0fs", d.ExpiresInS)
 				}
-				fmt.Fprintln(w)
+				_, _ = fmt.Fprintln(w)
 			}
 		}
-		fmt.Fprintln(w)
+		_, _ = fmt.Fprintln(w)
 	}
 
-	fmt.Fprintln(w, term.BoldW(w, "INTERFACES (ranked by constraint)"))
+	_, _ = fmt.Fprintln(w, term.BoldW(w, "INTERFACES (ranked by constraint)"))
 	if len(rep.Interfaces) == 0 {
-		fmt.Fprintln(w, "  (none)")
+		_, _ = fmt.Fprintln(w, "  (none)")
 	} else {
-		fmt.Fprintf(w, "  %-28s %10s %10s %6s  %s\n", "NAME", "CAP", "LOAD", "UTIL", "WHY")
+		_, _ = fmt.Fprintf(w, "  %-28s %10s %10s %6s  %s\n", "NAME", "CAP", "LOAD", "UTIL", "WHY")
 		for i, row := range rep.Interfaces {
 			load := math.Max(row.RXS, row.TXS)
 			name := row.Name
@@ -839,59 +839,59 @@ func WriteSlowHuman(w io.Writer, rep SlowReport) error {
 				name, prettyBitrateCap(row.Bitrate), prettyBitrate(int64(load)), row.UtilPct, row.Why)
 			switch {
 			case row.Score >= 60 || !row.Online:
-				fmt.Fprintln(w, term.RedW(w, line))
+				_, _ = fmt.Fprintln(w, term.RedW(w, line))
 			case row.Score >= 25:
-				fmt.Fprintln(w, term.YellowW(w, line))
+				_, _ = fmt.Fprintln(w, term.YellowW(w, line))
 			default:
 				if i < 5 {
-					fmt.Fprintln(w, line)
+					_, _ = fmt.Fprintln(w, line)
 				}
 			}
 		}
 	}
-	fmt.Fprintln(w)
+	_, _ = fmt.Fprintln(w)
 
 	if len(rep.EgressHotspots) > 0 {
-		fmt.Fprintln(w, term.BoldW(w, "PATH EGRESS HOTSPOTS"))
-		fmt.Fprintf(w, "  %-28s %6s %8s %7s %8s\n", "INTERFACE", "PATHS", "AVG_HOP", "MAX", "HIGH")
+		_, _ = fmt.Fprintln(w, term.BoldW(w, "PATH EGRESS HOTSPOTS"))
+		_, _ = fmt.Fprintf(w, "  %-28s %6s %8s %7s %8s\n", "INTERFACE", "PATHS", "AVG_HOP", "MAX", "HIGH")
 		for _, hs := range rep.EgressHotspots {
 			name := hs.Interface
 			if len(name) > 28 {
 				name = name[:25] + "..."
 			}
-			fmt.Fprintf(w, "  %-28s %6d %8.1f %7d %8d\n",
+			_, _ = fmt.Fprintf(w, "  %-28s %6d %8.1f %7d %8d\n",
 				name, hs.Paths, hs.AvgHops, hs.MaxHops, hs.HighHop)
 		}
-		fmt.Fprintln(w)
+		_, _ = fmt.Fprintln(w)
 	}
 
 	if len(rep.Findings) > 0 {
-		fmt.Fprintln(w, term.BoldW(w, "FINDINGS"))
+		_, _ = fmt.Fprintln(w, term.BoldW(w, "FINDINGS"))
 		for _, f := range rep.Findings {
 			prefix := "·"
 			line := fmt.Sprintf("  %s [%s] %s: %s", prefix, f.Severity, f.Name, f.Summary)
 			switch f.Severity {
 			case SeverityCritical:
-				fmt.Fprintln(w, term.RedW(w, line))
+				_, _ = fmt.Fprintln(w, term.RedW(w, line))
 			case SeverityWarn:
-				fmt.Fprintln(w, term.YellowW(w, line))
+				_, _ = fmt.Fprintln(w, term.YellowW(w, line))
 			default:
-				fmt.Fprintln(w, line)
+				_, _ = fmt.Fprintln(w, line)
 			}
 			if f.Detail != "" {
-				fmt.Fprintf(w, "      %s\n", f.Detail)
+				_, _ = fmt.Fprintf(w, "      %s\n", f.Detail)
 			}
 		}
-		fmt.Fprintln(w)
+		_, _ = fmt.Fprintln(w)
 	}
 
-	fmt.Fprintln(w, term.BoldW(w, "RECOMMENDATIONS"))
+	_, _ = fmt.Fprintln(w, term.BoldW(w, "RECOMMENDATIONS"))
 	for _, r := range rep.Recommendations {
-		fmt.Fprintf(w, "  · %s\n", r)
+		_, _ = fmt.Fprintf(w, "  · %s\n", r)
 	}
-	fmt.Fprintln(w)
-	fmt.Fprintln(w, term.CyanW(w, "Tip: rgoslow -dest <hash> focuses one destination. -paths adds hop/egress analysis. -json for scripting"))
-	fmt.Fprintln(w, term.CyanW(w, "Works against Go (reticulum-go) and Python (rnsd) shared instances via RPC"))
+	_, _ = fmt.Fprintln(w)
+	_, _ = fmt.Fprintln(w, term.CyanW(w, "Tip: rgoslow -dest <hash> focuses one destination. -paths adds hop/egress analysis. -json for scripting"))
+	_, _ = fmt.Fprintln(w, term.CyanW(w, "Works against Go (reticulum-go) and Python (rnsd) shared instances via RPC"))
 	return nil
 }
 

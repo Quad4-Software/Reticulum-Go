@@ -12,7 +12,7 @@ import (
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/debug"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/interfaces"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/transport"
-	"github.com/Quad4-Software/reticulum-go-protocols/pkg/lxst/rnsnode"
+	"git.quad4.io/reticulum/Reticulum-Go/protocols/pkg/lxst/rnsnode"
 )
 
 func startTransport(cfg Config, log *slog.Logger) (*transport.Transport, []interfaces.Interface, error) {

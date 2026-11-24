@@ -461,11 +461,12 @@ func (l *Link) performHandshakeLocked() error {
 	securemem.WipeBytes(sharedSecret)
 
 	var derivedKeyLength int
-	if l.mode == ModeAES128CBC {
+	switch l.mode {
+	case ModeAES128CBC:
 		derivedKeyLength = 32
-	} else if l.mode == ModeAES256CBC {
+	case ModeAES256CBC:
 		derivedKeyLength = 64
-	} else {
+	default:
 		return fmt.Errorf("invalid link mode: %d", l.mode)
 	}
 

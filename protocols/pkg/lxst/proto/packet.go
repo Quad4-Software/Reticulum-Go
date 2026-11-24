@@ -10,8 +10,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
-	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack/msgpcode"
+	"git.quad4.io/libraries/msgpack/v5/pkg/msgpack"
+	"git.quad4.io/libraries/msgpack/v5/pkg/msgpack/msgpcode"
 )
 
 var unpackReaderPool = sync.Pool{

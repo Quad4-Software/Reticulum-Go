@@ -68,10 +68,7 @@ func (m *mdToMicron) formatBlock(text, urlScope string) string {
 		}
 		para := strings.Join(quoteBuf, " ")
 		formatted := m.formatInline(para, urlScope)
-		eff := m.maxWidth - 3
-		if eff < 1 {
-			eff = 1
-		}
+		eff := max(m.maxWidth-3, 1)
 		for _, line := range wrapText(formatted, eff) {
 			out = append(out, " │ "+line)
 		}
@@ -116,7 +113,7 @@ func (m *mdToMicron) formatBlock(text, urlScope string) string {
 		codeBuf = nil
 	}
 
-	for _, line := range strings.Split(text, "\n") {
+	for line := range strings.SplitSeq(text, "\n") {
 		if fm := mdFenceRe.FindStringSubmatch(line); fm != nil {
 			flushQuote()
 			flushTable()
@@ -186,10 +183,7 @@ func (m *mdToMicron) formatLine(line, urlScope string) string {
 		return "-"
 	}
 	if hm := mdHeaderRe.FindStringSubmatch(line); hm != nil {
-		level := len(hm[1])
-		if level > 6 {
-			level = 6
-		}
+		level := min(len(hm[1]), 6)
 		return strings.Repeat(">", level) + m.formatInline(hm[2], urlScope)
 	}
 	if lm := mdListRe.FindStringSubmatch(line); lm != nil {
@@ -339,10 +333,7 @@ func stripMicron(text string) string {
 // padCell pads or truncates a cell to width with alignment.
 func padCell(text string, width int, align string) string {
 	text = truncateCell(text, width)
-	padding := width - visibleWidth(text)
-	if padding < 0 {
-		padding = 0
-	}
+	padding := max(width-visibleWidth(text), 0)
 	switch align {
 	case "right":
 		return strings.Repeat(" ", padding) + text
@@ -372,24 +363,24 @@ func truncateCell(text string, width int) string {
 			continue
 		}
 		tag := truncated[i+1]
-		switch {
-		case tag == '!' || tag == '*' || tag == '_' || tag == '=':
+		switch tag {
+		case '!', '*', '_', '=':
 			active[tag] = !active[tag]
 			i += 2
-		case tag == 'f':
+		case 'f':
 			fgActive = false
 			i += 2
-		case tag == 'b':
+		case 'b':
 			bgActive = false
 			i += 2
-		case tag == 'F':
+		case 'F':
 			fgActive = true
 			if i+2 < len(truncated) && truncated[i+2] == 'T' {
 				i += 8
 			} else {
 				i += 5
 			}
-		case tag == 'B':
+		case 'B':
 			bgActive = true
 			if i+2 < len(truncated) && truncated[i+2] == 'T' {
 				i += 8
@@ -536,7 +527,7 @@ func wrapText(text string, width int) []string {
 	var lines []string
 	var cur strings.Builder
 	curWidth := 0
-	for _, word := range strings.Fields(text) {
+	for word := range strings.FieldsSeq(text) {
 		ww := visibleWidth(word)
 		if ww > width {
 			if cur.Len() > 0 {

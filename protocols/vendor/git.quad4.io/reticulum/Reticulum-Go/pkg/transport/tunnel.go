@@ -17,7 +17,7 @@ import (
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/packet"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/stamps"
 
-	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
+	"git.quad4.io/libraries/msgpack/v5/pkg/msgpack"
 )
 
 const tunnelTimeout = 8 * time.Hour

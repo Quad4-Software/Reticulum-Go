@@ -23,21 +23,21 @@ func (c *Client) emitProgress(event string, fields map[string]any) {
 	if err != nil {
 		return
 	}
-	fmt.Fprintln(c.progressWriter, string(b))
+	_, _ = fmt.Fprintln(c.progressWriter, string(b))
 }
 
 func statusLine(w io.Writer, msg string) {
 	if w == nil {
 		return
 	}
-	fmt.Fprint(w, msg)
+	_, _ = fmt.Fprint(w, msg)
 }
 
 func statusLinef(w io.Writer, format string, args ...any) {
 	if w == nil {
 		return
 	}
-	fmt.Fprintf(w, format, args...)
+	_, _ = fmt.Fprintf(w, format, args...)
 }
 
 func resolveEditor() (string, error) {
@@ -67,7 +67,7 @@ func editWithEditor(initial string) (string, bool, error) {
 		return "", false, err
 	}
 	path := tmp.Name()
-	defer os.Remove(path)
+	defer func() { _ = os.Remove(path) }()
 	if _, err := tmp.WriteString(initial); err != nil {
 		if closeErr := tmp.Close(); closeErr != nil {
 			return "", false, fmt.Errorf("write temp file: %w (close: %v)", err, closeErr)

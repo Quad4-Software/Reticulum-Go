@@ -26,12 +26,12 @@ Optional, for Go/Python interop tests:
 
 ## Install
 
-The module path is `github.com/Quad4-Software/reticulum-go-protocols`. It is not on the public Go module proxy.
+The module path is `git.quad4.io/reticulum/Reticulum-Go/protocols`. It is not on the public Go module proxy.
 
 ```go
-require github.com/Quad4-Software/reticulum-go-protocols v0.0.0
+require git.quad4.io/reticulum/Reticulum-Go/protocols v0.0.0
 
-replace github.com/Quad4-Software/reticulum-go-protocols => github.com/Quad4-Software/reticulum-go-protocols master
+replace git.quad4.io/reticulum/Reticulum-Go/protocols => git.quad4.io/reticulum/Reticulum-Go/protocols master
 ```
 
 ```bash
@@ -41,7 +41,7 @@ go mod tidy
 Pin a commit or tag instead of `master` for a reproducible build. For a local checkout:
 
 ```go
-replace github.com/Quad4-Software/reticulum-go-protocols => ../reticulum-go-protocols
+replace git.quad4.io/reticulum/Reticulum-Go/protocols => ../reticulum-go-protocols
 ```
 
 Copy the `replace` lines for `git.quad4.io/reticulum/Reticulum-Go` and the other `quad4/*` modules from this repo's go.mod, or set:

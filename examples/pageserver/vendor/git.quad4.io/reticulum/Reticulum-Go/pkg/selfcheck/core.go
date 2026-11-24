@@ -34,7 +34,7 @@ func checkRuntime() []Result {
 		out = append(out, result("runtime/tempdir", SeverityFail, err.Error()))
 		return out
 	}
-	defer os.RemoveAll(dir)
+	defer func() { _ = os.RemoveAll(dir) }()
 	probe := filepath.Join(dir, "probe")
 	if err := os.WriteFile(probe, []byte("ok"), fileModePrivate); err != nil {
 		out = append(out, result("runtime/tempdir", SeverityFail, err.Error()))
@@ -113,7 +113,7 @@ func checkIdentityFile(opts Options) []Result {
 	if err != nil {
 		return []Result{result(nameIdentityFile, SeverityFail, err.Error())}
 	}
-	defer os.RemoveAll(dir)
+	defer func() { _ = os.RemoveAll(dir) }()
 
 	id, err := identity.New()
 	if err != nil {

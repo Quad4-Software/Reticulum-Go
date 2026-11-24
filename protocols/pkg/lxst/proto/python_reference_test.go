@@ -10,9 +10,9 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/Quad4-Software/reticulum-go-protocols/internal/lxsttest"
-	"github.com/Quad4-Software/reticulum-go-protocols/pkg/lxst/phonebook"
-	"github.com/Quad4-Software/reticulum-go-protocols/pkg/lxst/proto"
+	"git.quad4.io/reticulum/Reticulum-Go/protocols/internal/lxsttest"
+	"git.quad4.io/reticulum/Reticulum-Go/protocols/pkg/lxst/phonebook"
+	"git.quad4.io/reticulum/Reticulum-Go/protocols/pkg/lxst/proto"
 )
 
 type pythonReference struct {

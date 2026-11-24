@@ -132,7 +132,7 @@ func (n *Node) handleFetch(path string, data []byte, _ []byte, _ []byte, remote 
 	if err != nil {
 		return StatusResponse(ResRemoteFail, "Remote error")
 	}
-	defer os.RemoveAll(tmp)
+	defer func() { _ = os.RemoveAll(tmp) }()
 	bundlePath := filepath.Join(tmp, "fetch.bundle")
 	if err := n.git.CreateBundle(p, bundlePath, refs, have); err != nil {
 		if IsEmptyBundle(err) {
@@ -195,7 +195,7 @@ func (n *Node) handlePush(path string, data []byte, _ []byte, _ []byte, remote *
 		if err != nil {
 			return StatusResponse(ResRemoteFail, "Remote error")
 		}
-		defer os.RemoveAll(tmp)
+		defer func() { _ = os.RemoveAll(tmp) }()
 		bundlePath := filepath.Join(tmp, "push.bundle")
 		if err := os.WriteFile(bundlePath, bundleData, 0o600); err != nil {
 			return StatusResponse(ResRemoteFail, "Remote error")
@@ -407,7 +407,7 @@ func (n *Node) remoteClone(_ string, data []byte, remote *identity.Identity, rep
 	if err != nil {
 		return StatusResponse(ResRemoteFail, "Remote error")
 	}
-	defer os.RemoveAll(tmp) // #nosec G104 -- clone scratch dir
+	defer func() { _ = os.RemoveAll(tmp) }() // #nosec G104 -- clone scratch dir
 	tmpRepo := filepath.Join(tmp, repo)
 	if err := n.git.InitBare(tmpRepo); err != nil {
 		return StatusResponse(ResRemoteFail, "Failed to initialize repository")

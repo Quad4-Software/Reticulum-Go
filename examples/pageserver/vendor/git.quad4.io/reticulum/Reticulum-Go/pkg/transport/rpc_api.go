@@ -18,7 +18,7 @@ import (
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/packet"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/protect"
 
-	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
+	"git.quad4.io/libraries/msgpack/v5/pkg/msgpack"
 )
 
 // PathTableEntry is one path-table row for shared-instance RPC.

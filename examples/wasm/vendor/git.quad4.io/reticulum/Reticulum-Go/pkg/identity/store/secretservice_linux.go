@@ -35,7 +35,7 @@ func NewSecretServiceBackend() (*SecretServiceBackend, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrLocked, err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 	obj := conn.Object(ssDest, ssPath)
 	var output dbus.Variant
 	var sessionPath dbus.ObjectPath
@@ -50,7 +50,7 @@ func (SecretServiceBackend) withSession(fn func(conn *dbus.Conn, session dbus.Ob
 	if err != nil {
 		return fmt.Errorf("%w: %v", ErrLocked, err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 	obj := conn.Object(ssDest, ssPath)
 	var output dbus.Variant
 	var sessionPath dbus.ObjectPath

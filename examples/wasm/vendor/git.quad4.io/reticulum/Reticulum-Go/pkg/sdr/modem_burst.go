@@ -19,7 +19,8 @@ const (
 
 var burstBitBufPool = sync.Pool{
 	New: func() any {
-		return make([]byte, 0, 4096)
+		b := make([]byte, 0, 4096)
+		return &b
 	},
 }
 
@@ -200,7 +201,8 @@ func (m *BurstModem) demodBits(samples []Complex64) []byte {
 }
 
 func burstGetBits(n int) []byte {
-	buf := burstBitBufPool.Get().([]byte)
+	p := burstBitBufPool.Get().(*[]byte)
+	buf := *p
 	if cap(buf) < n {
 		return make([]byte, n)
 	}
@@ -213,7 +215,8 @@ func burstPutBits(bits []byte) {
 	if bits == nil || cap(bits) == 0 {
 		return
 	}
-	burstBitBufPool.Put(bits[:0])
+	bits = bits[:0]
+	burstBitBufPool.Put(&bits)
 }
 
 var errBurstTooLarge = errBurstSize{}

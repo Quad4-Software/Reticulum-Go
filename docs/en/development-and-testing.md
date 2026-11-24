@@ -1,6 +1,6 @@
 # Development and testing
 
-See [CONTRIBUTING.md](https://github.com/Quad4-Software/Reticulum-Go/blob/master/CONTRIBUTING.md) for commit format, pull request checklist, and CI overview.
+See [CONTRIBUTING.md](https://git.quad4.io/reticulum/Reticulum-Go/blob/master/CONTRIBUTING.md) for commit format, pull request checklist, and CI overview.
 
 ## Development environment
 
@@ -80,7 +80,7 @@ Pinned versions: `scripts/ci/versions.env` and `scripts/ci/dev-tools.env`.
 | `make test-wasm` | js/wasm package tests (Node exec helper) |
 | `make build-wasm` | `GOOS=js GOARCH=wasm go build -ldflags="-s -w" -o bin/reticulum-go.wasm ./cmd/reticulum-wasm` |
 | `make microvm-up` / `microvm-stop` | Firecracker guest. See [microvm](microvm.md) |
-| `make tree-rsm-verify` / `tree-rsm-sign` | Source tree `.rsm` inventory. See [SECURITY.md](https://github.com/Quad4-Software/Reticulum-Go/blob/master/SECURITY.md) |
+| `make tree-rsm-verify` / `tree-rsm-sign` | Source tree `.rsm` inventory. See [SECURITY.md](https://git.quad4.io/reticulum/Reticulum-Go/blob/master/SECURITY.md) |
 | `make doctor` / `bootstrap` / `changelog-preview` | Dev tool pins and CHANGELOG preview |
 
 ## Code quality commands
@@ -176,7 +176,7 @@ Follow existing naming, error wrapping, and SPDX headers in each file.
 | Layer | How to run | What it covers |
 |-------|------------|----------------|
 | Unit | make test / make test-short | Package *_test.go |
-| Property | make test-property | *_pbt_test.go and embedded github.com/Quad4-Software/pbt / testing/quick |
+| Property | make test-property | *_pbt_test.go and embedded git.quad4.io/libraries/pbt / testing/quick |
 | Mutation | make test-mutation | gomutant on cryptography, packet, announce, destination, identity, ifac, backbone, interfaces |
 | Chaos | make test-chaos / make test-soak / make test-soak-protect | TestSimChaos* / TestLinkChaos* / TestIfaceChaos* plus soak, including dos_protection flood soak |
 | Oracle | make test-oracle | Crossref vectors, health TransportCounters deltas, adversarial corpus |
@@ -202,7 +202,7 @@ go test -short -v ./...
 
 ### Property-based tests
 
-Files named *_pbt_test.go use github.com/Quad4-Software/pbt for generative testing (cryptography, packet, buffer, rate, resource, announce, link, identity). Some properties still live beside unit tests in the same package.
+Files named *_pbt_test.go use git.quad4.io/libraries/pbt for generative testing (cryptography, packet, buffer, rate, resource, announce, link, identity). Some properties still live beside unit tests in the same package.
 
 ```bash
 make test-property
@@ -651,7 +651,7 @@ Builds and runs bindings/c/examples (smoke plus page-fetch/pageserver compile). 
 2. If wire format changes, update crossref vectors and Python reference together
 3. Run make check locally
 4. For protocol behavior, add or extend interop test when feasible
-5. Update [Compatibility](compatibility.md) and [COMPATIBILITY.md](https://github.com/Quad4-Software/Reticulum-Go/blob/master/COMPATIBILITY.md) if parity status changes
+5. Update [Compatibility](compatibility.md) and [COMPATIBILITY.md](https://git.quad4.io/reticulum/Reticulum-Go/blob/master/COMPATIBILITY.md) if parity status changes
 
 ## Memory diagnostics on a running node
 

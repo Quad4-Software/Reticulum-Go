@@ -4,7 +4,7 @@ package libmf_test
 import (
 	"testing"
 
-	"github.com/Quad4-Software/reticulum-go-protocols/pkg/libmf"
+	"git.quad4.io/reticulum/Reticulum-Go/protocols/pkg/libmf"
 )
 
 func TestMFCodecRoundTrip(t *testing.T) {

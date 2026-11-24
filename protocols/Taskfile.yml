@@ -290,7 +290,7 @@ tasks:
       - '{{.GOCMD}} tool cover -html=coverage.out'
 
   deps:
-    desc: Tidy go.mod and refresh vendor/ from GitHub
+    desc: Tidy go.mod and refresh vendor/
     env:
       GOFLAGS: ''
       GOPROXY: direct

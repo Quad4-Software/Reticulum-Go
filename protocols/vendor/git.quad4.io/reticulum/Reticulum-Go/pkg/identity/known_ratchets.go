@@ -15,7 +15,7 @@ import (
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/cryptography"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/debug"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/rate"
-	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
+	"git.quad4.io/libraries/msgpack/v5/pkg/msgpack"
 )
 
 type knownRatchetEntry struct {

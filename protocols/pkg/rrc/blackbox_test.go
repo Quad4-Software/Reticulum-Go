@@ -6,7 +6,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/Quad4-Software/reticulum-go-protocols/pkg/rrc"
+	"git.quad4.io/reticulum/Reticulum-Go/protocols/pkg/rrc"
 )
 
 func TestBlackBox_PublicAPI_EnvelopeRoundTrip(t *testing.T) {

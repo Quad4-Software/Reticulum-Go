@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
+	"git.quad4.io/libraries/msgpack/v5/pkg/msgpack"
 )
 
 // MgmtClient performs remote rngit management commands.
@@ -538,7 +538,7 @@ func (c *MgmtClient) WorkView(ctx context.Context, remote, docID, scope string) 
 	meta, _ := result["meta"].(map[string]any)
 	var b strings.Builder
 	fmt.Fprintf(&b, "%s #%v: %s\n\n", reqStringVal(result["scope"]), result["id"], meta["title"])
-	b.WriteString(fmt.Sprint(result["content"]))
+	_, _ = fmt.Fprint(&b, result["content"])
 	b.WriteString("\n")
 	if comments, ok := result["comments"].([]any); ok && len(comments) > 0 {
 		b.WriteString("\nComments:\n")

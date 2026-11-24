@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity"
-	"github.com/Quad4-Software/reticulum-go-protocols/pkg/lxst/phonebook"
+	"git.quad4.io/reticulum/Reticulum-Go/protocols/pkg/lxst/phonebook"
 )
 
 const fingerprintGroup = 4

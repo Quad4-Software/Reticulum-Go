@@ -142,7 +142,8 @@ func (wsi *WebSocketInterface) Start() error {
 	var conn net.Conn
 	var host string
 
-	if u.Scheme == "wss" {
+	switch u.Scheme {
+	case "wss":
 		host = u.Host
 		if !strings.Contains(host, ":") {
 			host += fmt.Sprintf(":%d", WSHTTPSPort)
@@ -162,7 +163,7 @@ func (wsi *WebSocketInterface) Start() error {
 			return fmt.Errorf("TLS handshake failed: %w", err)
 		}
 		conn = tlsConn
-	} else if u.Scheme == "ws" {
+	case "ws":
 		host = u.Host
 		if !strings.Contains(host, ":") {
 			host += fmt.Sprintf(":%d", WSHTTPPort)
@@ -174,7 +175,7 @@ func (wsi *WebSocketInterface) Start() error {
 			return fmt.Errorf("failed to connect: %w", err)
 		}
 		conn = tcpConn
-	} else {
+	default:
 		debug.Log(debug.DebugError, "Unsupported WebSocket scheme", "name", wsi.Name, "scheme", u.Scheme)
 		return fmt.Errorf("unsupported scheme: %s (use ws:// or wss://)", u.Scheme)
 	}
@@ -223,7 +224,7 @@ func (wsi *WebSocketInterface) Start() error {
 		_ = conn.Close()
 		return fmt.Errorf("failed to read handshake response: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusSwitchingProtocols {
 		_ = conn.Close()
@@ -408,13 +409,14 @@ func (wsi *WebSocketInterface) readFrameWithRemaining(remaining int, depth int) 
 		return nil, fmt.Errorf("unsupported opcode: %d", opcode)
 	}
 
-	if payloadLen == WSPayloadLen16Bit {
+	switch payloadLen {
+	case WSPayloadLen16Bit:
 		lenBytes := make([]byte, 2)
 		if _, err := io.ReadFull(reader, lenBytes); err != nil {
 			return nil, err
 		}
 		payloadLen = int(binary.BigEndian.Uint16(lenBytes))
-	} else if payloadLen == WSPayloadLen64Bit {
+	case WSPayloadLen64Bit:
 		lenBytes := make([]byte, 8)
 		if _, err := io.ReadFull(reader, lenBytes); err != nil {
 			return nil, err
@@ -537,13 +539,14 @@ func (wsi *WebSocketInterface) sendCloseFrameLocked() {
 }
 
 func (wsi *WebSocketInterface) handlePingFrame(reader *bufio.Reader, payloadLen int, masked bool) ([]byte, error) {
-	if payloadLen == WSPayloadLen16Bit {
+	switch payloadLen {
+	case WSPayloadLen16Bit:
 		lenBytes := make([]byte, 2)
 		if _, err := io.ReadFull(reader, lenBytes); err != nil {
 			return nil, err
 		}
 		payloadLen = int(binary.BigEndian.Uint16(lenBytes))
-	} else if payloadLen == WSPayloadLen64Bit {
+	case WSPayloadLen64Bit:
 		lenBytes := make([]byte, 8)
 		if _, err := io.ReadFull(reader, lenBytes); err != nil {
 			return nil, err
@@ -584,13 +587,14 @@ func (wsi *WebSocketInterface) handlePingFrame(reader *bufio.Reader, payloadLen 
 }
 
 func (wsi *WebSocketInterface) handlePongFrame(reader *bufio.Reader, payloadLen int, masked bool) ([]byte, error) {
-	if payloadLen == WSPayloadLen16Bit {
+	switch payloadLen {
+	case WSPayloadLen16Bit:
 		lenBytes := make([]byte, 2)
 		if _, err := io.ReadFull(reader, lenBytes); err != nil {
 			return nil, err
 		}
 		payloadLen = int(binary.BigEndian.Uint16(lenBytes))
-	} else if payloadLen == WSPayloadLen64Bit {
+	case WSPayloadLen64Bit:
 		lenBytes := make([]byte, 8)
 		if _, err := io.ReadFull(reader, lenBytes); err != nil {
 			return nil, err

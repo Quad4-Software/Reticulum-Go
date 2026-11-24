@@ -39,7 +39,7 @@ See [Architecture](architecture.md) for the layered model and control flow.
 
 ## Feature status
 
-Below is a summary of major features. For line-by-line parity with Python, see [Compatibility](compatibility.md) and [COMPATIBILITY.md](https://github.com/Quad4-Software/Reticulum-Go/blob/master/COMPATIBILITY.md).
+Below is a summary of major features. For line-by-line parity with Python, see [Compatibility](compatibility.md) and [COMPATIBILITY.md](https://git.quad4.io/reticulum/Reticulum-Go/blob/master/COMPATIBILITY.md).
 
 | Area | Status | Location |
 |------|--------|----------|
@@ -135,4 +135,4 @@ Reticulum-Go adds features that Python does not ship today (control API, librns,
 
 ## License and credit
 
-Reticulum-Go is licensed under the Reticulum License. See [LICENSE](https://github.com/Quad4-Software/Reticulum-Go/blob/master/LICENSE).
+Reticulum-Go is licensed under the Reticulum License. See [LICENSE](https://git.quad4.io/reticulum/Reticulum-Go/blob/master/LICENSE).

@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
+	"git.quad4.io/libraries/pbt/pkg/pbt"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/common"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity"
-	"github.com/Quad4-Software/pbt/pkg/pbt"
 )
 
 func TestPBTCreateThenHandleAnnounce(t *testing.T) {

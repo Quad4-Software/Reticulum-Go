@@ -9,9 +9,9 @@ import (
 	"fmt"
 	"sync"
 
+	"git.quad4.io/libraries/msgpack/v5/pkg/msgpack"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/cryptography"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/stamps"
-	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
 )
 
 // StampWorkblock returns the HKDF-expanded workblock (256 * expandRounds

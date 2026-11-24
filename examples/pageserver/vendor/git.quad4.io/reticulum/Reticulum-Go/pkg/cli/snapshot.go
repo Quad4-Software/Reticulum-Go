@@ -68,9 +68,9 @@ func RunSnapshot(args []string, opt ...Options) int {
 	}
 	client, err := rnsutil.DialRPC(cfg, nil)
 	if err != nil {
-		fmt.Fprintf(stderr, "%s: %v\n", errMsg(stderr, "rpc"), err)
+		_, _ = fmt.Fprintf(stderr, "%s: %v\n", errMsg(stderr, "rpc"), err)
 		if !*quiet {
-			fmt.Fprintln(stderr, warnMsg(stderr, "hint: point -config at the daemon config dir"))
+			_, _ = fmt.Fprintln(stderr, warnMsg(stderr, "hint: point -config at the daemon config dir"))
 		}
 		return 1
 	}
@@ -78,7 +78,7 @@ func RunSnapshot(args []string, opt ...Options) int {
 
 	stats, err := client.GetInterfaceStats()
 	if err != nil {
-		fmt.Fprintf(stderr, "%s: %v\n", errMsg(stderr, "interface stats"), err)
+		_, _ = fmt.Fprintf(stderr, "%s: %v\n", errMsg(stderr, "interface stats"), err)
 		return 1
 	}
 

@@ -57,7 +57,7 @@ func RunZen(args []string, opt ...Options) int {
 		Python:   *python,
 	})
 	if err != nil {
-		fmt.Fprintf(stderr, "%s\n", errMsg(stderr, err.Error()))
+		_, _ = fmt.Fprintf(stderr, "%s\n", errMsg(stderr, err.Error()))
 		return 1
 	}
 
@@ -65,21 +65,21 @@ func RunZen(args []string, opt ...Options) int {
 		enc := json.NewEncoder(stdout)
 		enc.SetIndent("", "  ")
 		if err := enc.Encode(res); err != nil {
-			fmt.Fprintf(stderr, "%s\n", errMsg(stderr, err.Error()))
+			_, _ = fmt.Fprintf(stderr, "%s\n", errMsg(stderr, err.Error()))
 			return 1
 		}
 	} else {
 		for i, f := range res.Findings {
 			if i > 0 {
-				fmt.Fprintln(stdout)
+				_, _ = fmt.Fprintln(stdout)
 			}
 			printZenFinding(stdout, f, *plain)
 		}
 		if len(res.Findings) > 0 {
-			fmt.Fprintln(stdout)
+			_, _ = fmt.Fprintln(stdout)
 			printZenSummary(stdout, res.Summary, *plain)
 		} else {
-			fmt.Fprintln(stdout, okMsg(stdout, "no zen issues found"))
+			_, _ = fmt.Fprintln(stdout, okMsg(stdout, "no zen issues found"))
 		}
 	}
 
@@ -95,38 +95,38 @@ func RunZen(args []string, opt ...Options) int {
 func printZenRules(w io.Writer, plain bool) {
 	for i, rule := range zenfix.AllRules {
 		if i > 0 {
-			fmt.Fprintln(w)
+			_, _ = fmt.Fprintln(w)
 		}
-		fmt.Fprintf(w, "%s\n", zenSeverityLabel(w, rule.Severity, plain))
-		fmt.Fprintf(w, "  %s\n", zenRuleID(w, rule.ID, plain))
-		fmt.Fprintf(w, "  %s\n", rule.Title)
+		_, _ = fmt.Fprintf(w, "%s\n", zenSeverityLabel(w, rule.Severity, plain))
+		_, _ = fmt.Fprintf(w, "  %s\n", zenRuleID(w, rule.ID, plain))
+		_, _ = fmt.Fprintf(w, "  %s\n", rule.Title)
 		if rule.Why != "" {
-			fmt.Fprintf(w, "  why: %s\n", rule.Why)
+			_, _ = fmt.Fprintf(w, "  why: %s\n", rule.Why)
 		}
 		if rule.Hint != "" {
-			fmt.Fprintf(w, "  fix: %s\n", rule.Hint)
+			_, _ = fmt.Fprintf(w, "  fix: %s\n", rule.Hint)
 		}
 		for _, ref := range rule.Refs {
-			fmt.Fprintf(w, "  see: %s\n", zenRef(w, ref, plain))
+			_, _ = fmt.Fprintf(w, "  see: %s\n", zenRef(w, ref, plain))
 		}
 		if rule.Fixable {
-			fmt.Fprintf(w, "  %s\n", infoMsg(w, "auto-fix available with -fix"))
+			_, _ = fmt.Fprintf(w, "  %s\n", infoMsg(w, "auto-fix available with -fix"))
 		}
 	}
 }
 
 func printZenFinding(w io.Writer, f zenfix.Finding, plain bool) {
-	fmt.Fprintf(w, "%s  %s\n", zenSeverityLabel(w, f.Severity, plain), zenRuleID(w, f.Rule, plain))
-	fmt.Fprintf(w, "  %s:%d:%d\n", f.File, f.Line, f.Col)
-	fmt.Fprintf(w, "\n  %s\n", f.Message)
+	_, _ = fmt.Fprintf(w, "%s  %s\n", zenSeverityLabel(w, f.Severity, plain), zenRuleID(w, f.Rule, plain))
+	_, _ = fmt.Fprintf(w, "  %s:%d:%d\n", f.File, f.Line, f.Col)
+	_, _ = fmt.Fprintf(w, "\n  %s\n", f.Message)
 	if f.Why != "" {
-		fmt.Fprintf(w, "\n  %s %s\n", zenLabel(w, "why:", plain), f.Why)
+		_, _ = fmt.Fprintf(w, "\n  %s %s\n", zenLabel(w, "why:", plain), f.Why)
 	}
 	if f.Hint != "" {
-		fmt.Fprintf(w, "\n  %s %s\n", zenLabel(w, "fix:", plain), f.Hint)
+		_, _ = fmt.Fprintf(w, "\n  %s %s\n", zenLabel(w, "fix:", plain), f.Hint)
 	}
 	for _, ref := range f.Refs {
-		fmt.Fprintf(w, "  %s %s\n", zenLabel(w, "see:", plain), zenRef(w, ref, plain))
+		_, _ = fmt.Fprintf(w, "  %s %s\n", zenLabel(w, "see:", plain), zenRef(w, ref, plain))
 	}
 }
 
@@ -136,16 +136,16 @@ func printZenSummary(w io.Writer, s zenfix.Summary, plain bool) {
 		line += fmt.Sprintf(", %d fixed", s.Fixed)
 	}
 	if plain {
-		fmt.Fprintln(w, line)
+		_, _ = fmt.Fprintln(w, line)
 		return
 	}
 	switch {
 	case s.Errors > 0:
-		fmt.Fprintln(w, errMsg(w, line))
+		_, _ = fmt.Fprintln(w, errMsg(w, line))
 	case s.Warnings > 0:
-		fmt.Fprintln(w, warnMsg(w, line))
+		_, _ = fmt.Fprintln(w, warnMsg(w, line))
 	default:
-		fmt.Fprintln(w, infoMsg(w, line))
+		_, _ = fmt.Fprintln(w, infoMsg(w, line))
 	}
 }
 

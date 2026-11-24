@@ -161,7 +161,7 @@ func NewAutoInterface(name string, config *common.InterfaceConfig) (*AutoInterfa
 	var gt strings.Builder
 	gt.WriteString("0")
 	for i := 1; i <= 6; i++ {
-		gt.WriteString(fmt.Sprintf(":%02x%02x", groupHash[i*2], groupHash[i*2+1]))
+		_, _ = fmt.Fprintf(&gt, ":%02x%02x", groupHash[i*2], groupHash[i*2+1])
 	}
 	mcastAddr := fmt.Sprintf("ff%s%s:%s", multicastAddrType, discoveryScope, gt.String())
 
@@ -844,19 +844,19 @@ func (ai *AutoInterface) Stop() error {
 	ai.Out = false
 
 	for _, server := range ai.interfaceServers {
-		server.Close() // #nosec G104
+		_ = server.Close() // #nosec G104
 	}
 
 	for _, server := range ai.discoveryServers {
-		server.Close() // #nosec G104
+		_ = server.Close() // #nosec G104
 	}
 
 	for _, server := range ai.unicastDiscoveryServers {
-		server.Close() // #nosec G104
+		_ = server.Close() // #nosec G104
 	}
 
 	for _, conn := range ai.outboundConns {
-		conn.Close() // #nosec G104
+		_ = conn.Close() // #nosec G104
 	}
 
 	unsub := ai.netwatchUnsub

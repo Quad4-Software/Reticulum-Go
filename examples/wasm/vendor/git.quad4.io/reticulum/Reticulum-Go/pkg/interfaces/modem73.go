@@ -297,7 +297,7 @@ func (m *Modem73Interface) probeInitialMTU() {
 		m.applyMTU(modem73MTUFloor)
 		return
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 	if err := writeModem73Control(conn, map[string]any{"cmd": "get_config"}); err != nil {
 		m.applyMTU(modem73MTUFloor)
 		return

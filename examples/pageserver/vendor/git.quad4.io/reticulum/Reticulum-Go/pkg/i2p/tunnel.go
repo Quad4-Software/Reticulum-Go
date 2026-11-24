@@ -118,7 +118,7 @@ func (t *ClientTunnel) acceptLoop(ctx context.Context, destB64 string) {
 }
 
 func (t *ClientTunnel) handleClient(ctx context.Context, local net.Conn, destB64 string) {
-	defer local.Close()
+	defer func() { _ = local.Close() }()
 	streamCtx, cancel := context.WithTimeout(ctx, defaultSetupTimeout)
 	defer cancel()
 	remote, err := t.client.StreamConnect(streamCtx, t.session.ID, destB64)
@@ -126,7 +126,7 @@ func (t *ClientTunnel) handleClient(ctx context.Context, local net.Conn, destB64
 		debug.Log(debug.DebugError, "I2P stream connect failed", "error", err)
 		return
 	}
-	defer remote.Close()
+	defer func() { _ = remote.Close() }()
 	go ioCopyAndClose(remote, local)
 	ioCopyAndClose(local, remote)
 }
@@ -260,7 +260,7 @@ func (t *ServerTunnel) acceptLoop(ctx context.Context) {
 }
 
 func (t *ServerTunnel) handleIncoming(ctx context.Context, incoming net.Conn) {
-	defer incoming.Close()
+	defer func() { _ = incoming.Close() }()
 	br := make([]byte, 4096)
 	n, err := incoming.Read(br)
 	if err != nil {
@@ -289,7 +289,7 @@ func (t *ServerTunnel) handleIncoming(ctx context.Context, incoming net.Conn) {
 	if err != nil {
 		return
 	}
-	defer local.Close()
+	defer func() { _ = local.Close() }()
 	if len(rest) > 0 {
 		_, _ = local.Write(rest)
 	}

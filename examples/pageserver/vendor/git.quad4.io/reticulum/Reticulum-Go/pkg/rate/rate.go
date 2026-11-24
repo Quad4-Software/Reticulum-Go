@@ -6,6 +6,7 @@ package rate
 
 import (
 	"math"
+	"slices"
 	"sync"
 	"time"
 )
@@ -428,8 +429,8 @@ func (ic *IngressControl) CullHeldAnnounce(cull func(dest [16]byte, data []byte)
 	defer ic.mutex.Unlock()
 
 	removed := 0
-	for i := len(ic.heldQueue) - 1; i >= 0; i-- {
-		h := ic.heldQueue[i]
+	for i, h := range slices.Backward(ic.heldQueue) {
+
 		if cull(h.dest, h.data) {
 			ic.removeHeldLocked(i)
 			removed++

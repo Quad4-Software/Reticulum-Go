@@ -3,7 +3,7 @@ package integration_test
 
 import (
 	"context"
-	"github.com/Quad4-Software/reticulum-go-protocols/internal/testconfig"
+	"git.quad4.io/reticulum/Reticulum-Go/protocols/internal/testconfig"
 	"math/rand"
 	"sync"
 	"testing"
@@ -13,9 +13,9 @@ import (
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/destination"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/transport"
-	"github.com/Quad4-Software/reticulum-go-protocols/pkg/lxst/call"
-	"github.com/Quad4-Software/reticulum-go-protocols/pkg/lxst/media"
-	"github.com/Quad4-Software/reticulum-go-protocols/pkg/lxst/proto"
+	"git.quad4.io/reticulum/Reticulum-Go/protocols/pkg/lxst/call"
+	"git.quad4.io/reticulum/Reticulum-Go/protocols/pkg/lxst/media"
+	"git.quad4.io/reticulum/Reticulum-Go/protocols/pkg/lxst/proto"
 )
 
 type simIface struct {

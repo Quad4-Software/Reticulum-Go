@@ -7,8 +7,8 @@ import (
 	"bytes"
 	"testing"
 
+	"git.quad4.io/libraries/msgpack/v5/pkg/msgpack"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/resource"
-	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
 )
 
 func TestSplitResourceMetadataCorruptMsgpackStillStripsPrefix(t *testing.T) {

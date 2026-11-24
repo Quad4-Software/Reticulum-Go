@@ -16,7 +16,7 @@ import (
 	"strings"
 
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity"
-	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
+	"git.quad4.io/libraries/msgpack/v5/pkg/msgpack"
 )
 
 const (
@@ -310,7 +310,7 @@ func SignFileRSG(signer *identity.Identity, path string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	return CreateRSG(signer, f, false, nil)
 }
 
@@ -320,7 +320,7 @@ func VerifyFileRSG(rsg []byte, path string, requiredSigner any) (RSGResult, erro
 	if err != nil {
 		return RSGResult{}, err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	return ValidateRSG(rsg, f, requiredSigner)
 }
 
@@ -353,12 +353,12 @@ func EncryptFileRFE(id *identity.Identity, inPath, outPath string) error {
 	if err != nil {
 		return err
 	}
-	defer in.Close()
+	defer func() { _ = in.Close() }()
 	out, err := os.OpenFile(outPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600) // #nosec G304 G302
 	if err != nil {
 		return err
 	}
-	defer out.Close()
+	defer func() { _ = out.Close() }()
 	buf := make([]byte, EncChunk)
 	for {
 		n, readErr := in.Read(buf)
@@ -386,12 +386,12 @@ func DecryptFileRFE(id *identity.Identity, inPath, outPath string) error {
 	if err != nil {
 		return err
 	}
-	defer in.Close()
+	defer func() { _ = in.Close() }()
 	out, err := os.OpenFile(outPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600) // #nosec G304 G302
 	if err != nil {
 		return err
 	}
-	defer out.Close()
+	defer func() { _ = out.Close() }()
 	buf := make([]byte, EncChunk+TokenOverhead)
 	for {
 		n, readErr := in.Read(buf)

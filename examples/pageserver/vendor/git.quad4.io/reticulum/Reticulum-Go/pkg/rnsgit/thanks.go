@@ -8,7 +8,7 @@ import (
 	"sync"
 
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/cryptography"
-	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
+	"git.quad4.io/libraries/msgpack/v5/pkg/msgpack"
 )
 
 // thanksDedupBound matches the Python deque maxlen of 256 recent thankers.

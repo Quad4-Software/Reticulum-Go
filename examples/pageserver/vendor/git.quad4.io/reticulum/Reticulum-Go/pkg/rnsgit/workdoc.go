@@ -15,7 +15,7 @@ import (
 	"time"
 
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity"
-	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
+	"git.quad4.io/libraries/msgpack/v5/pkg/msgpack"
 )
 
 // workDocLimit matches Python WORK_DOC_LIMIT.
@@ -864,7 +864,7 @@ func (n *Node) workDocPermAccess(workPath, group, repo string, req map[any]any, 
 	interactAccess := n.accessTable().Resolve(group, repo, remote.Hash(), permInteract)
 	adminAccess := n.accessTable().ResolveDoc(group, repo, docID, remote.Hash(), permAdmin)
 	manageAccess := interactAccess && writeAccess
-	if !(isAuthor && manageAccess) && !adminAccess {
+	if (!isAuthor || !manageAccess) && !adminAccess {
 		return 0, "", StatusResponse(ResDisallowed, "Not allowed")
 	}
 	return docID, docDir, nil

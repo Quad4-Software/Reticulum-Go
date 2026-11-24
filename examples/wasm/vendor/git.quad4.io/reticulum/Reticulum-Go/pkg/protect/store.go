@@ -13,7 +13,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
+	"git.quad4.io/libraries/msgpack/v5/pkg/msgpack"
 )
 
 // persistedIface is one iface baseline row in the learning store.

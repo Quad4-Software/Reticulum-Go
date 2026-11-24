@@ -1,3 +1,16 @@
+# git.quad4.io/libraries/bzip2 v1.0.2
+## explicit; go 1.27.4
+git.quad4.io/libraries/bzip2/internal/enc
+git.quad4.io/libraries/bzip2/pkg/bzip2
+# git.quad4.io/libraries/msgpack/v5 v5.9.3
+## explicit; go 1.27.4
+git.quad4.io/libraries/msgpack/v5/pkg/msgpack
+git.quad4.io/libraries/msgpack/v5/pkg/msgpack/msgpcode
+# git.quad4.io/libraries/tagparser/v2 v2.2.2
+## explicit; go 1.27.4
+git.quad4.io/libraries/tagparser/v2/internal
+git.quad4.io/libraries/tagparser/v2/internal/parser
+git.quad4.io/libraries/tagparser/v2/pkg/tagparser
 # git.quad4.io/reticulum/Reticulum-Go v1.4.2-0.20261116070446-8ea07667aa63 => ../../
 ## explicit; go 1.27.4
 git.quad4.io/reticulum/Reticulum-Go/internal/sqlitestore
@@ -31,22 +44,9 @@ git.quad4.io/reticulum/Reticulum-Go/pkg/stamps
 git.quad4.io/reticulum/Reticulum-Go/pkg/term
 git.quad4.io/reticulum/Reticulum-Go/pkg/transport
 git.quad4.io/reticulum/Reticulum-Go/pkg/wasm
-# github.com/Quad4-Software/bzip2 v1.0.1
-## explicit; go 1.27.1
-github.com/Quad4-Software/bzip2/internal/enc
-github.com/Quad4-Software/bzip2/pkg/bzip2
-# github.com/Quad4-Software/msgpack/v5 v5.9.2
-## explicit; go 1.27.1
-github.com/Quad4-Software/msgpack/v5/pkg/msgpack
-github.com/Quad4-Software/msgpack/v5/pkg/msgpack/msgpcode
-# github.com/Quad4-Software/reticulum-go-protocols v0.0.0-20261116094814-29d56fba9be7
+# git.quad4.io/reticulum/Reticulum-Go/protocols v0.0.0-20261116094814-29d56fba9be7 => ../../protocols
 ## explicit; go 1.27.4
-github.com/Quad4-Software/reticulum-go-protocols/pkg/mf
-# github.com/Quad4-Software/tagparser/v2 v2.2.1
-## explicit; go 1.27.1
-github.com/Quad4-Software/tagparser/v2/internal
-github.com/Quad4-Software/tagparser/v2/internal/parser
-github.com/Quad4-Software/tagparser/v2/pkg/tagparser
+git.quad4.io/reticulum/Reticulum-Go/protocols/pkg/mf
 # github.com/dunglas/httpsfv v1.1.2
 ## explicit; go 1.14
 github.com/dunglas/httpsfv
@@ -191,3 +191,4 @@ modernc.org/sqlite
 modernc.org/sqlite/lib
 modernc.org/sqlite/vtab
 # git.quad4.io/reticulum/Reticulum-Go => ../../
+# git.quad4.io/reticulum/Reticulum-Go/protocols => ../../protocols

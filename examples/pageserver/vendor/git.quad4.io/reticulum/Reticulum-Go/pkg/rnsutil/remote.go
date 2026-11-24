@@ -17,7 +17,7 @@ import (
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/link"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/profiler"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/transport"
-	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
+	"git.quad4.io/libraries/msgpack/v5/pkg/msgpack"
 )
 
 const (

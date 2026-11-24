@@ -30,6 +30,6 @@ if [ "$GOOS" = windows ]; then
 	name="${name}.exe"
 fi
 
-ldflags="-s -w -X github.com/Quad4-Software/reticulum-go-protocols/internal/golxmd.Version=${VERSION}"
+ldflags="-s -w -X git.quad4.io/reticulum/Reticulum-Go/protocols/internal/golxmd.Version=${VERSION}"
 go build -trimpath -ldflags "$ldflags" -o "${OUTDIR}/${name}" ./cmd/golxmd
 echo "${OUTDIR}/${name}"

@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
+	"git.quad4.io/libraries/msgpack/v5/pkg/msgpack"
 )
 
 // EncodeRequest packs a rngit request dict with integer keys.

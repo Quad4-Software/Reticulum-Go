@@ -67,12 +67,12 @@ func RunGitRemoteRNS(args []string, opt ...Options) int {
 	}
 	url := fs.Args()[1]
 	if !strings.HasPrefix(strings.ToLower(url), rnsgit.ProtoRNS) {
-		fmt.Fprintln(stderr, "Invalid URL scheme. Must be rns://")
+		_, _ = fmt.Fprintln(stderr, "Invalid URL scheme. Must be rns://")
 		return 1
 	}
 	destHex, group, repo, err := rnsgit.ParseRNSURL(url)
 	if err != nil {
-		fmt.Fprintln(stderr, err)
+		_, _ = fmt.Fprintln(stderr, err)
 		return 1
 	}
 	cfgDir := *configDir
@@ -89,14 +89,14 @@ func RunGitRemoteRNS(args []string, opt ...Options) int {
 		ProgressWriter: stderr,
 	})
 	if err != nil {
-		fmt.Fprintf(stderr, "git-remote-rns failed: %v\n", err)
+		_, _ = fmt.Fprintf(stderr, "git-remote-rns failed: %v\n", err)
 		return 255
 	}
 	defer client.Close()
 	ctx, cancel := rnsutil.CLIWaitContext(0)
 	defer cancel()
 	if err := client.RunGitHelper(ctx, os.Stdin, os.Stdout, stderr); err != nil {
-		fmt.Fprintf(stderr, "git-remote-rns failed: %v\n", err)
+		_, _ = fmt.Fprintf(stderr, "git-remote-rns failed: %v\n", err)
 		return 255
 	}
 	return 0
@@ -165,8 +165,8 @@ func runGitServer(args []string, opt ...Options) int {
 		return 1
 	}
 	if printID {
-		fmt.Fprintf(stdout, "Git Peer Identity         : <%s>\n", term.CyanW(stdout, node.IdentityHash()))
-		fmt.Fprintf(stdout, "Repositories Destination  : <%s>\n", term.CyanW(stdout, node.ReposDestHash()))
+		_, _ = fmt.Fprintf(stdout, "Git Peer Identity         : <%s>\n", term.CyanW(stdout, node.IdentityHash()))
+		_, _ = fmt.Fprintf(stdout, "Repositories Destination  : <%s>\n", term.CyanW(stdout, node.ReposDestHash()))
 		return 0
 	}
 	if serviceMode {
@@ -181,9 +181,9 @@ func runGitServer(args []string, opt ...Options) int {
 			rnsConfig = rnsCfg.ConfigPath
 		}
 	}
-	fmt.Fprintf(stderr, "%s Reticulum Git Node listening on <%s>\n", infoMsg(stderr, "Notice"), node.ReposDestHash())
+	_, _ = fmt.Fprintf(stderr, "%s Reticulum Git Node listening on <%s>\n", infoMsg(stderr, "Notice"), node.ReposDestHash())
 	if err := node.RunService(rnsConfig); err != nil {
-		fmt.Fprintf(stderr, "git node: %v\n", err)
+		_, _ = fmt.Fprintf(stderr, "git node: %v\n", err)
 		return 1
 	}
 	return 0
@@ -234,22 +234,22 @@ func runGitMgmt(args []string, opt ...Options) int {
 	switch sub {
 	case "create":
 		if err := client.CreateRepo(ctx, args[1]); err != nil {
-			fmt.Fprintf(stderr, "%v\n", err)
+			_, _ = fmt.Fprintf(stderr, "%v\n", err)
 			return 1
 		}
-		fmt.Fprintf(stdout, "Repository created\n")
+		_, _ = fmt.Fprintf(stdout, "Repository created\n")
 	case "sync":
 		if err := client.SyncRepo(ctx, args[1]); err != nil {
-			fmt.Fprintf(stderr, "%v\n", err)
+			_, _ = fmt.Fprintf(stderr, "%v\n", err)
 			return 1
 		}
-		fmt.Fprintf(stdout, "Repository synced\n")
+		_, _ = fmt.Fprintf(stdout, "Repository synced\n")
 	case "fork", "mirror":
 		if err := client.CloneRemote(ctx, args[1], args[2], sub); err != nil {
-			fmt.Fprintf(stderr, "%v\n", err)
+			_, _ = fmt.Fprintf(stderr, "%v\n", err)
 			return 1
 		}
-		fmt.Fprintf(stdout, "Repository %sd\n", sub)
+		_, _ = fmt.Fprintf(stdout, "Repository %sd\n", sub)
 	case "perms":
 		contentPath := ""
 		useEditor := true
@@ -266,16 +266,16 @@ func runGitMgmt(args []string, opt ...Options) int {
 			}
 		}
 		if err := client.ManagePermissions(ctx, args[1], contentPath, useEditor); err != nil {
-			fmt.Fprintf(stderr, "%v\n", err)
+			_, _ = fmt.Fprintf(stderr, "%v\n", err)
 			return 1
 		}
-		fmt.Fprintf(stdout, "Permissions updated\n")
+		_, _ = fmt.Fprintf(stdout, "Permissions updated\n")
 	case "release":
 		return runGitRelease(ctx, client, args, stdout, stderr)
 	case "work":
 		return runGitWork(ctx, client, args, stdout, stderr)
 	default:
-		fmt.Fprintf(stderr, "subcommand %q not implemented via CLI yet\n", sub)
+		_, _ = fmt.Fprintf(stderr, "subcommand %q not implemented via CLI yet\n", sub)
 		return 2
 	}
 	return 0
@@ -288,10 +288,10 @@ func runGitRelease(ctx context.Context, client *rnsgit.MgmtClient, args []string
 	case "list":
 		out, err := client.ReleaseList(ctx, remote)
 		if err != nil {
-			fmt.Fprintf(stderr, "%v\n", err)
+			_, _ = fmt.Fprintf(stderr, "%v\n", err)
 			return 1
 		}
-		fmt.Fprint(stdout, out)
+		_, _ = fmt.Fprint(stdout, out)
 	case "fetch":
 		if len(args) < 5 {
 			usageErr(stderr, "reticulum-go git release fetch <rns://...> <tag> <artifact> [-o out]")
@@ -310,10 +310,10 @@ func runGitRelease(ctx context.Context, client *rnsgit.MgmtClient, args []string
 			}
 		}
 		if err := client.ReleaseFetch(ctx, remote, tag, artifact, outPath); err != nil {
-			fmt.Fprintf(stderr, "%v\n", err)
+			_, _ = fmt.Fprintf(stderr, "%v\n", err)
 			return 1
 		}
-		fmt.Fprintf(stdout, "Release artifact saved to %s\n", outPath)
+		_, _ = fmt.Fprintf(stdout, "Release artifact saved to %s\n", outPath)
 	case "view":
 		if len(args) < 4 {
 			usageErr(stderr, "reticulum-go git release view <rns://...> <tag>")
@@ -321,10 +321,10 @@ func runGitRelease(ctx context.Context, client *rnsgit.MgmtClient, args []string
 		}
 		out, err := client.ReleaseView(ctx, remote, args[3])
 		if err != nil {
-			fmt.Fprintf(stderr, "%v\n", err)
+			_, _ = fmt.Fprintf(stderr, "%v\n", err)
 			return 1
 		}
-		fmt.Fprint(stdout, out)
+		_, _ = fmt.Fprint(stdout, out)
 	case "create":
 		if len(args) < 4 {
 			usageErr(stderr, "reticulum-go git release create <rns://...> <tag> [-notes file] [-notes-format micron] [-hash sha] [-artifact file]")
@@ -351,7 +351,7 @@ func runGitRelease(ctx context.Context, client *rnsgit.MgmtClient, args []string
 				}
 				b, err := os.ReadFile(v) // #nosec G304 -- operator-chosen notes file
 				if err != nil {
-					fmt.Fprintf(stderr, "%v\n", err)
+					_, _ = fmt.Fprintf(stderr, "%v\n", err)
 					return 1
 				}
 				notes = string(b)
@@ -377,39 +377,39 @@ func runGitRelease(ctx context.Context, client *rnsgit.MgmtClient, args []string
 				}
 				b, err := os.ReadFile(v) // #nosec G304 -- operator-chosen artifact file
 				if err != nil {
-					fmt.Fprintf(stderr, "%v\n", err)
+					_, _ = fmt.Fprintf(stderr, "%v\n", err)
 					return 1
 				}
 				artifacts = append(artifacts, rnsgit.ReleaseArtifact{Name: filepath.Base(v), Data: b})
 			}
 		}
 		if err := client.ReleaseCreate(ctx, remote, args[3], notes, notesFormat, commitHash, artifacts); err != nil {
-			fmt.Fprintf(stderr, "%v\n", err)
+			_, _ = fmt.Fprintf(stderr, "%v\n", err)
 			return 1
 		}
-		fmt.Fprintf(stdout, "Release created\n")
+		_, _ = fmt.Fprintf(stdout, "Release created\n")
 	case "delete":
 		if len(args) < 4 {
 			usageErr(stderr, "reticulum-go git release delete <rns://...> <tag>")
 			return 2
 		}
 		if err := client.ReleaseDelete(ctx, remote, args[3]); err != nil {
-			fmt.Fprintf(stderr, "%v\n", err)
+			_, _ = fmt.Fprintf(stderr, "%v\n", err)
 			return 1
 		}
-		fmt.Fprintf(stdout, "Release deleted\n")
+		_, _ = fmt.Fprintf(stdout, "Release deleted\n")
 	case "latest":
 		if len(args) < 4 {
 			usageErr(stderr, "reticulum-go git release latest <rns://...> <tag>")
 			return 2
 		}
 		if err := client.ReleaseLatest(ctx, remote, args[3]); err != nil {
-			fmt.Fprintf(stderr, "%v\n", err)
+			_, _ = fmt.Fprintf(stderr, "%v\n", err)
 			return 1
 		}
-		fmt.Fprintf(stdout, "Latest release updated\n")
+		_, _ = fmt.Fprintf(stdout, "Latest release updated\n")
 	default:
-		fmt.Fprintf(stderr, "unknown release operation %q\n", op)
+		_, _ = fmt.Fprintf(stderr, "unknown release operation %q\n", op)
 		return 2
 	}
 	return 0
@@ -444,10 +444,10 @@ func runGitWork(ctx context.Context, client *rnsgit.MgmtClient, args []string, s
 	case "list":
 		out, err := client.WorkList(ctx, remote, scope)
 		if err != nil {
-			fmt.Fprintf(stderr, "%v\n", err)
+			_, _ = fmt.Fprintf(stderr, "%v\n", err)
 			return 1
 		}
-		fmt.Fprint(stdout, out)
+		_, _ = fmt.Fprint(stdout, out)
 	case "view":
 		if len(positional) < 1 {
 			usageErr(stderr, "reticulum-go git work view <rns://...> <doc_id> [-scope s]")
@@ -455,10 +455,10 @@ func runGitWork(ctx context.Context, client *rnsgit.MgmtClient, args []string, s
 		}
 		out, err := client.WorkView(ctx, remote, positional[0], scope)
 		if err != nil {
-			fmt.Fprintf(stderr, "%v\n", err)
+			_, _ = fmt.Fprintf(stderr, "%v\n", err)
 			return 1
 		}
-		fmt.Fprint(stdout, out)
+		_, _ = fmt.Fprint(stdout, out)
 	case "create", "propose":
 		if len(positional) < 1 {
 			usageErr(stderr, fmt.Sprintf("reticulum-go git work %s <rns://...> <title> [-content file]", op))
@@ -474,16 +474,16 @@ func runGitWork(ctx context.Context, client *rnsgit.MgmtClient, args []string, s
 			result, err = client.WorkPropose(ctx, remote, positional[0], contentPath)
 		}
 		if err != nil {
-			fmt.Fprintf(stderr, "%v\n", err)
+			_, _ = fmt.Fprintf(stderr, "%v\n", err)
 			return 1
 		}
 		if result != "" {
-			fmt.Fprint(stdout, result)
+			_, _ = fmt.Fprint(stdout, result)
 			if !strings.HasSuffix(result, "\n") {
-				fmt.Fprintln(stdout)
+				_, _ = fmt.Fprintln(stdout)
 			}
 		} else {
-			fmt.Fprintf(stdout, "Work document %sd\n", op)
+			_, _ = fmt.Fprintf(stdout, "Work document %sd\n", op)
 		}
 	case "edit":
 		if len(positional) < 1 {
@@ -499,13 +499,13 @@ func runGitWork(ctx context.Context, client *rnsgit.MgmtClient, args []string, s
 		}
 		result, err := client.WorkEdit(ctx, remote, positional[0], scope, title, contentPath)
 		if err != nil {
-			fmt.Fprintf(stderr, "%v\n", err)
+			_, _ = fmt.Fprintf(stderr, "%v\n", err)
 			return 1
 		}
 		if result != "" {
-			fmt.Fprintln(stdout, result)
+			_, _ = fmt.Fprintln(stdout, result)
 		} else {
-			fmt.Fprintf(stdout, "Work document %s #%s updated\n", scopeOrEmpty(scope), positional[0])
+			_, _ = fmt.Fprintf(stdout, "Work document %s #%s updated\n", scopeOrEmpty(scope), positional[0])
 		}
 	case "delete", "complete", "activate":
 		if len(positional) < 1 {
@@ -522,32 +522,32 @@ func runGitWork(ctx context.Context, client *rnsgit.MgmtClient, args []string, s
 			err = client.WorkActivate(ctx, remote, positional[0])
 		}
 		if err != nil {
-			fmt.Fprintf(stderr, "%v\n", err)
+			_, _ = fmt.Fprintf(stderr, "%v\n", err)
 			return 1
 		}
-		fmt.Fprintf(stdout, "Work document #%s %sd\n", positional[0], op)
+		_, _ = fmt.Fprintf(stdout, "Work document #%s %sd\n", positional[0], op)
 	case "comment":
 		if len(positional) < 1 {
 			usageErr(stderr, "reticulum-go git work comment <rns://...> <doc_id> [-content file] [-scope s]")
 			return 2
 		}
 		if err := client.WorkComment(ctx, remote, positional[0], scope, contentPath); err != nil {
-			fmt.Fprintf(stderr, "%v\n", err)
+			_, _ = fmt.Fprintf(stderr, "%v\n", err)
 			return 1
 		}
-		fmt.Fprintf(stdout, "Comment added to work document #%s\n", positional[0])
+		_, _ = fmt.Fprintf(stdout, "Comment added to work document #%s\n", positional[0])
 	case "perms":
 		if len(positional) < 1 {
 			usageErr(stderr, "reticulum-go git work perms <rns://...> <doc_id> [-content file]")
 			return 2
 		}
 		if err := client.WorkPermissions(ctx, remote, positional[0], contentPath, contentPath == ""); err != nil {
-			fmt.Fprintf(stderr, "%v\n", err)
+			_, _ = fmt.Fprintf(stderr, "%v\n", err)
 			return 1
 		}
-		fmt.Fprintf(stdout, "Permissions updated\n")
+		_, _ = fmt.Fprintf(stdout, "Permissions updated\n")
 	default:
-		fmt.Fprintf(stderr, "unknown work operation %q\n", op)
+		_, _ = fmt.Fprintf(stderr, "unknown work operation %q\n", op)
 		return 2
 	}
 	return 0
@@ -575,7 +575,7 @@ func printGitHelp(w io.Writer) {
 		helpLine{"reticulum-go git work list|view|create|propose|edit|delete|comment|complete|activate|perms ...", "manage work documents"},
 		helpLine{"reticulum-go git remote-rns <name> <rns://...>", "git remote helper"},
 	)
-	fmt.Fprintln(w)
+	_, _ = fmt.Fprintln(w)
 	helpNote(w, "Install git-remote-rns symlink to reticulum-go for transparent git clone rns:// URLs.")
 }
 
@@ -587,7 +587,7 @@ func EmitGitJSON(w io.Writer, event string, fields map[string]any) {
 	m := map[string]any{"event": event}
 	maps.Copy(m, fields)
 	b, _ := json.Marshal(m)
-	fmt.Fprintln(w, string(b))
+	_, _ = fmt.Fprintln(w, string(b))
 }
 
 // GitBundleVerify wraps git bundle verify for tests.

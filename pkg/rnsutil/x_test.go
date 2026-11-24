@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
+	"git.quad4.io/libraries/msgpack/v5/pkg/msgpack"
 )
 
 func TestPackParseRNXRequestRoundTrip(t *testing.T) {

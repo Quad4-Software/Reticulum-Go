@@ -61,7 +61,7 @@ func VersionTuple(version string) []int {
 		return nil
 	}
 	var out []int
-	for _, component := range strings.Split(version, ".") {
+	for component := range strings.SplitSeq(version, ".") {
 		i := 0
 		for i < len(component) && component[i] >= '0' && component[i] <= '9' {
 			i++
@@ -90,7 +90,7 @@ func VersionAtLeast(version, minimum string) bool {
 	if v == nil || m == nil {
 		return false
 	}
-	for i := 0; i < len(m); i++ {
+	for i := range m {
 		var vc int
 		if i < len(v) {
 			vc = v[i]

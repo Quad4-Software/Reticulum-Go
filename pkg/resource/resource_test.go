@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/Quad4-Software/pbt/pkg/pbt"
+	"git.quad4.io/libraries/pbt/pkg/pbt"
 )
 
 func TestNewResourceFromBytes(t *testing.T) {

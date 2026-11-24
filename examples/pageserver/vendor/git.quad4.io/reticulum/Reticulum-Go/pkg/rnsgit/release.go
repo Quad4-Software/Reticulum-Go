@@ -15,7 +15,7 @@ import (
 
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/link"
-	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
+	"git.quad4.io/libraries/msgpack/v5/pkg/msgpack"
 )
 
 // releaseMeta is a ConfigObj-style META file for a release directory.
@@ -30,7 +30,7 @@ func readReleaseMeta(path string) (releaseMeta, error) {
 		return nil, err
 	}
 	m := releaseMeta{}
-	for _, line := range strings.Split(string(b), "\n") {
+	for line := range strings.SplitSeq(string(b), "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
@@ -125,7 +125,7 @@ func releasesListData(releasesPath string) ([]map[string]any, string) {
 				continue
 			}
 			var lines []string
-			for _, line := range strings.Split(string(b), "\n") {
+			for line := range strings.SplitSeq(string(b), "\n") {
 				if strings.HasPrefix(line, "#") || strings.HasPrefix(line, ">") {
 					continue
 				}

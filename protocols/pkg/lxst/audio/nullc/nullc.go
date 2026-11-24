@@ -5,7 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 
-	"github.com/Quad4-Software/reticulum-go-protocols/pkg/lxst/audio/opus"
+	"git.quad4.io/reticulum/Reticulum-Go/protocols/pkg/lxst/audio/opus"
 )
 
 // Codec is a local pass-through used for ringtones and mixers.

@@ -73,7 +73,7 @@ func RunDebug(args []string, opt ...Options) int {
 			return 1
 		}
 		diagErr(stderr, "rpc", err)
-		fmt.Fprintf(stdout, "config_path=%s log_level=%d goos=%s goarch=%s\n",
+		_, _ = fmt.Fprintf(stdout, "config_path=%s log_level=%d goos=%s goarch=%s\n",
 			out.ConfigPath, out.LogLevel, out.GOOS, out.GOARCH)
 		return 1
 	}
@@ -111,20 +111,20 @@ func RunDebug(args []string, opt ...Options) int {
 		return 0
 	}
 
-	fmt.Fprintf(stdout, "%s : %s\n", infoMsg(stdout, "config_path "), out.ConfigPath)
-	fmt.Fprintf(stdout, "%s : %d\n", infoMsg(stdout, "log_level   "), out.LogLevel)
-	fmt.Fprintf(stdout, "%s : %d\n", infoMsg(stdout, "debug_level "), out.DebugLevel)
-	fmt.Fprintf(stdout, "%s : %s/%s\n", infoMsg(stdout, "platform    "), out.GOOS, out.GOARCH)
-	fmt.Fprintf(stdout, "%s : %s\n", infoMsg(stdout, "rpc_addr    "), out.RPCAddr)
+	_, _ = fmt.Fprintf(stdout, "%s : %s\n", infoMsg(stdout, "config_path "), out.ConfigPath)
+	_, _ = fmt.Fprintf(stdout, "%s : %d\n", infoMsg(stdout, "log_level   "), out.LogLevel)
+	_, _ = fmt.Fprintf(stdout, "%s : %d\n", infoMsg(stdout, "debug_level "), out.DebugLevel)
+	_, _ = fmt.Fprintf(stdout, "%s : %s/%s\n", infoMsg(stdout, "platform    "), out.GOOS, out.GOARCH)
+	_, _ = fmt.Fprintf(stdout, "%s : %s\n", infoMsg(stdout, "rpc_addr    "), out.RPCAddr)
 	if out.Error != "" {
-		fmt.Fprintf(stdout, "%s : %s\n", errMsg(stdout, "rpc_error   "), out.Error)
+		_, _ = fmt.Fprintf(stdout, "%s : %s\n", errMsg(stdout, "rpc_error   "), out.Error)
 		return 1
 	}
-	fmt.Fprintf(stdout, "%s : %s\n", infoMsg(stdout, "transport_id"), out.TransportID)
-	fmt.Fprintf(stdout, "%s : %.1f\n", infoMsg(stdout, "uptime_sec  "), out.UptimeSec)
-	fmt.Fprintf(stdout, "%s : %d\n", infoMsg(stdout, "interfaces  "), out.InterfaceN)
+	_, _ = fmt.Fprintf(stdout, "%s : %s\n", infoMsg(stdout, "transport_id"), out.TransportID)
+	_, _ = fmt.Fprintf(stdout, "%s : %.1f\n", infoMsg(stdout, "uptime_sec  "), out.UptimeSec)
+	_, _ = fmt.Fprintf(stdout, "%s : %d\n", infoMsg(stdout, "interfaces  "), out.InterfaceN)
 	if *rates {
-		fmt.Fprintf(stdout, "%s : %d entries\n", infoMsg(stdout, "rate_table  "), out.RateTableLen)
+		_, _ = fmt.Fprintf(stdout, "%s : %d entries\n", infoMsg(stdout, "rate_table  "), out.RateTableLen)
 	}
 	return 0
 }

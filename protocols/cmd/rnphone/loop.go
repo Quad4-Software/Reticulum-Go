@@ -13,11 +13,11 @@ import (
 
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/destination"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity"
-	"github.com/Quad4-Software/reticulum-go-protocols/pkg/lxst/call"
-	"github.com/Quad4-Software/reticulum-go-protocols/pkg/lxst/history"
-	"github.com/Quad4-Software/reticulum-go-protocols/pkg/lxst/phonebook"
-	"github.com/Quad4-Software/reticulum-go-protocols/pkg/lxst/proto"
-	"github.com/Quad4-Software/reticulum-go-protocols/pkg/lxst/rnsnode"
+	"git.quad4.io/reticulum/Reticulum-Go/protocols/pkg/lxst/call"
+	"git.quad4.io/reticulum/Reticulum-Go/protocols/pkg/lxst/history"
+	"git.quad4.io/reticulum/Reticulum-Go/protocols/pkg/lxst/phonebook"
+	"git.quad4.io/reticulum/Reticulum-Go/protocols/pkg/lxst/proto"
+	"git.quad4.io/reticulum/Reticulum-Go/protocols/pkg/lxst/rnsnode"
 )
 
 const (

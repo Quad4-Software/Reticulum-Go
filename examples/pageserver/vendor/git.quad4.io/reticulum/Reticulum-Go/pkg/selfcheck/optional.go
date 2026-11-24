@@ -49,7 +49,7 @@ func checkPythonRNS() Result {
 		return result("interop/python-rns", SeveritySkip, "unsafe PYTHON_INTEROP path")
 	}
 	if _, err := exec.LookPath(py); err != nil {
-		if !(filepath.IsAbs(py) || strings.Contains(py, string(os.PathSeparator))) {
+		if !filepath.IsAbs(py) && !strings.Contains(py, string(os.PathSeparator)) {
 			return result("interop/python-rns", SeveritySkip, py+" not on PATH")
 		}
 		if _, err := os.Stat(py); err != nil { // #nosec G703 -- path cleaned by sanitizePythonInterp

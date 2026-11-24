@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Quad4-Software/reticulum-go-protocols/pkg/rrc"
+	"git.quad4.io/reticulum/Reticulum-Go/protocols/pkg/rrc"
 )
 
 func TestE2E_JoinListWhoGreeting(t *testing.T) {

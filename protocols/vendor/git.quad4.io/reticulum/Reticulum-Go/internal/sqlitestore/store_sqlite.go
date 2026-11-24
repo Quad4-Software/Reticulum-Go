@@ -9,6 +9,7 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"sync"
@@ -165,7 +166,7 @@ func (s *KnownDestinationsStore) LoadAll() ([]*KnownDestEntry, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	var out []*KnownDestEntry
 	for rows.Next() {
 		e := &KnownDestEntry{}
@@ -265,7 +266,7 @@ func (s *KnownDestinationsStore) LoadRatchets() (map[string][]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	out := make(map[string][]byte)
 	for rows.Next() {
 		var h, r []byte
@@ -384,9 +385,7 @@ func (c *AnnounceCache) Flush() (int, error) {
 			[]byte(h), e.received, e.raw, iface); err != nil {
 			_ = tx.Rollback()
 			c.mu.Lock()
-			for k, v := range pending {
-				c.pending[k] = v
-			}
+			maps.Copy(c.pending, pending)
 			c.mu.Unlock()
 			return 0, err
 		}

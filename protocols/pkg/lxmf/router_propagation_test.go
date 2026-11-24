@@ -2,12 +2,12 @@
 package lxmf
 
 import (
-	"github.com/Quad4-Software/reticulum-go-protocols/internal/testconfig"
+	"git.quad4.io/reticulum/Reticulum-Go/protocols/internal/testconfig"
 	"path/filepath"
 	"testing"
 
+	"git.quad4.io/libraries/msgpack/v5/pkg/msgpack"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/transport"
-	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
 )
 
 func TestPeerSkipsOwnPropagationHash(t *testing.T) {

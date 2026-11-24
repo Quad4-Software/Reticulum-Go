@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Quad4-Software/reticulum-go-protocols/pkg/rrc"
+	"git.quad4.io/reticulum/Reticulum-Go/protocols/pkg/rrc"
 )
 
 type clientRecord struct {

@@ -15,7 +15,7 @@ import (
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/debug"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/profiler"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/transport"
-	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
+	"git.quad4.io/libraries/msgpack/v5/pkg/msgpack"
 )
 
 // RPCHandler serves shared-instance control requests.
@@ -231,7 +231,7 @@ func (s *RPCServer) serve() {
 		s.wg.Add(1)
 		go func(c net.Conn) {
 			defer s.wg.Done()
-			defer c.Close()
+			defer func() { _ = c.Close() }()
 			defer func() {
 				if r := recover(); r != nil {
 					debug.Log(debug.DebugCritical, "Shared instance RPC panic",

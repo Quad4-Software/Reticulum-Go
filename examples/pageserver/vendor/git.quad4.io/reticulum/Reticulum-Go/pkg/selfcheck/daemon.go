@@ -55,7 +55,7 @@ func checkDaemon(ctx context.Context, opts Options) []Result {
 		fail := result(nameDaemonSmoke, SeverityFail, err.Error())
 		return []Result{fail, result(nameDaemonRPC, SeveritySkip, "setup failed"), result(nameDaemonReload, SeveritySkip, "setup failed")}
 	}
-	defer os.RemoveAll(dir)
+	defer func() { _ = os.RemoveAll(dir) }()
 
 	storage := filepath.Join(dir, "storage")
 	if err := os.MkdirAll(storage, dirModePrivate); err != nil {

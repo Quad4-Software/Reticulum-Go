@@ -15,12 +15,12 @@ import (
 	"testing"
 	"time"
 
+	"git.quad4.io/libraries/bzip2/pkg/bzip2"
+	"git.quad4.io/libraries/pbt/pkg/pbt"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/channel"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/common"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/packet"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/transport"
-	"github.com/Quad4-Software/bzip2/pkg/bzip2"
-	"github.com/Quad4-Software/pbt/pkg/pbt"
 )
 
 func TestStreamDataMessage_Pack(t *testing.T) {

@@ -26,7 +26,7 @@ import (
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/resource"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/securemem"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/transport"
-	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
+	"git.quad4.io/libraries/msgpack/v5/pkg/msgpack"
 )
 
 func init() {
@@ -700,11 +700,10 @@ func (l *Link) handleDataPacket(pkt *packet.Packet) error {
 	var err error
 
 	if l.hasSessionKeys() {
-		if pkt.Context == packet.ContextResource {
+		switch pkt.Context {
+		case packet.ContextResource, packet.ContextCacheReq:
 			plaintext = pkt.Data
-		} else if pkt.Context == packet.ContextCacheReq {
-			plaintext = pkt.Data
-		} else {
+		default:
 			minEnc := aes.BlockSize + aes.BlockSize + 32
 			switch {
 			case pkt.Context == packet.ContextKeepalive && len(pkt.Data) < minEnc:

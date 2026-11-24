@@ -4,9 +4,9 @@ package smoke_test
 import (
 	"testing"
 
-	"github.com/Quad4-Software/reticulum-go-protocols/pkg/lxst/audio/io"
-	"github.com/Quad4-Software/reticulum-go-protocols/pkg/lxst/call"
-	"github.com/Quad4-Software/reticulum-go-protocols/pkg/lxst/proto"
+	"git.quad4.io/reticulum/Reticulum-Go/protocols/pkg/lxst/audio/io"
+	"git.quad4.io/reticulum/Reticulum-Go/protocols/pkg/lxst/call"
+	"git.quad4.io/reticulum/Reticulum-Go/protocols/pkg/lxst/proto"
 )
 
 func TestSmokePackAvailable(t *testing.T) {

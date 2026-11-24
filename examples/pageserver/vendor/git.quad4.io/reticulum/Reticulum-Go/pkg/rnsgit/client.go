@@ -262,17 +262,17 @@ func (c *Client) RunGitHelper(ctx context.Context, stdin io.Reader, stdout, stde
 			}
 			fetchQueue = fetchQueue[:0]
 			pushQueue = pushQueue[:0]
-			fmt.Fprintln(stdout)
+			_, _ = fmt.Fprintln(stdout)
 			flushWriter(stdout)
 			continue
 		}
 		switch {
 		case line == "capabilities":
-			fmt.Fprintln(stdout, "list")
-			fmt.Fprintln(stdout, "fetch")
-			fmt.Fprintln(stdout, "push")
-			fmt.Fprintln(stdout, "option")
-			fmt.Fprintln(stdout)
+			_, _ = fmt.Fprintln(stdout, "list")
+			_, _ = fmt.Fprintln(stdout, "fetch")
+			_, _ = fmt.Fprintln(stdout, "push")
+			_, _ = fmt.Fprintln(stdout, "option")
+			_, _ = fmt.Fprintln(stdout)
 			flushWriter(stdout)
 		case line == "list":
 			if err := c.handleList(ctx, stdout, false); err != nil {
@@ -286,9 +286,9 @@ func (c *Client) RunGitHelper(ctx context.Context, stdin io.Reader, stdout, stde
 			parts := strings.Fields(line)
 			if len(parts) >= 3 && parts[1] == "progress" {
 				c.progress = parts[2] == "true" || parts[2] == "1" || parts[2] == "yes"
-				fmt.Fprintln(stdout, "ok")
+				_, _ = fmt.Fprintln(stdout, "ok")
 			} else {
-				fmt.Fprintln(stdout, "unsupported")
+				_, _ = fmt.Fprintln(stdout, "unsupported")
 			}
 			flushWriter(stdout)
 		case strings.HasPrefix(line, "fetch"):
@@ -469,17 +469,17 @@ func (c *Client) reportFetchTransfer(stderr io.Writer, bundlePath string) {
 	if !c.progress || stderr == nil {
 		return
 	}
-	fmt.Fprintf(stderr, "Transferring: 100%% (%d bytes).\n", st.Size())
+	_, _ = fmt.Fprintf(stderr, "Transferring: 100%% (%d bytes).\n", st.Size())
 }
 
 func (c *Client) processPush(ctx context.Context, localRef, remoteRef string, stdout, stderr io.Writer) error {
 	if localRef == "" {
 		body, err := c.sendRequest(ctx, PathDelete, map[any]any{IdxRepository: c.repoPath, "ref": remoteRef}, 120*time.Second)
 		if err != nil || len(body) == 0 || body[0] != ResOK {
-			fmt.Fprintf(stdout, "error %s %s\n", remoteRef, EscapeGitStdout("delete failed"))
+			_, _ = fmt.Fprintf(stdout, "error %s %s\n", remoteRef, EscapeGitStdout("delete failed"))
 			return nil
 		}
-		fmt.Fprintf(stdout, "ok %s\n", remoteRef)
+		_, _ = fmt.Fprintf(stdout, "ok %s\n", remoteRef)
 		return nil
 	}
 	force := strings.HasPrefix(localRef, "+")
@@ -493,7 +493,7 @@ func (c *Client) processPush(ctx context.Context, localRef, remoteRef string, st
 	}
 	localSHA, err := localGitCmd("rev-parse", localRef).Output()
 	if err != nil {
-		fmt.Fprintf(stdout, "error %s %s\n", remoteRef, EscapeGitStdout("could not resolve local ref"))
+		_, _ = fmt.Fprintf(stdout, "error %s %s\n", remoteRef, EscapeGitStdout("could not resolve local ref"))
 		return nil
 	}
 	sha := strings.TrimSpace(string(localSHA))
@@ -514,7 +514,7 @@ func (c *Client) processPush(ctx context.Context, localRef, remoteRef string, st
 	bundleEmpty := false
 	if err := create.Run(); err != nil {
 		if !strings.Contains(strings.ToLower(createErr.String()), "empty bundle") {
-			fmt.Fprintf(stdout, "error %s %s\n", remoteRef, EscapeGitStdout("bundle creation failed"))
+			_, _ = fmt.Fprintf(stdout, "error %s %s\n", remoteRef, EscapeGitStdout("bundle creation failed"))
 			return nil
 		}
 		bundleEmpty = true
@@ -536,7 +536,7 @@ func (c *Client) processPush(ctx context.Context, localRef, remoteRef string, st
 			if len(body) > 1 {
 				msg = string(body[1:])
 			}
-			fmt.Fprintf(stdout, "error %s %s\n", remoteRef, EscapeGitStdout(msg))
+			_, _ = fmt.Fprintf(stdout, "error %s %s\n", remoteRef, EscapeGitStdout(msg))
 			return nil
 		}
 	} else {
@@ -550,11 +550,11 @@ func (c *Client) processPush(ctx context.Context, localRef, remoteRef string, st
 			}},
 		}, 120*time.Second)
 		if err != nil || len(body) == 0 || body[0] != ResOK {
-			fmt.Fprintf(stdout, "error %s %s\n", remoteRef, EscapeGitStdout("ref update failed"))
+			_, _ = fmt.Fprintf(stdout, "error %s %s\n", remoteRef, EscapeGitStdout("ref update failed"))
 			return nil
 		}
 	}
-	fmt.Fprintf(stdout, "ok %s\n", remoteRef)
+	_, _ = fmt.Fprintf(stdout, "ok %s\n", remoteRef)
 	flushWriter(stdout)
 	return nil
 }

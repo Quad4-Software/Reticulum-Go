@@ -245,7 +245,7 @@ func LoadConfig(path string) (*common.ReticulumConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	cfg := DefaultConfig()
 	cfg.ConfigPath = path

@@ -333,7 +333,6 @@ func (p *I2PInterface) serverTunnelLoop() {
 			}
 			continue
 		}
-		backoff = i2pServerRetryWait
 		if dest != nil {
 			p.b32 = dest.Base32()
 			p.Mutex.Lock()
@@ -342,10 +341,8 @@ func (p *I2PInterface) serverTunnelLoop() {
 		}
 		// Park until shutdown. Accept loop inside the server tunnel
 		// retries transient SAM accept failures on its own.
-		select {
-		case <-p.serverDone:
-			return
-		}
+		<-p.serverDone
+		return
 	}
 }
 

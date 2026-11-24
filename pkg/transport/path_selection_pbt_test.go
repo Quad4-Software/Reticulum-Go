@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"git.quad4.io/libraries/pbt/pkg/pbt"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/common"
-	"github.com/Quad4-Software/pbt/pkg/pbt"
 )
 
 func TestPBTShouldUpdateRejectsKnownBlobWhenHopsNotWorse(t *testing.T) {

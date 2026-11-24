@@ -4,13 +4,13 @@ package session
 import (
 	"context"
 	"errors"
-	"github.com/Quad4-Software/reticulum-go-protocols/internal/testconfig"
+	"git.quad4.io/reticulum/Reticulum-Go/protocols/internal/testconfig"
 	"testing"
 	"time"
 
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/transport"
-	"github.com/Quad4-Software/reticulum-go-protocols/pkg/lxmf"
+	"git.quad4.io/reticulum/Reticulum-Go/protocols/pkg/lxmf"
 )
 
 func TestUnverifiedDelivered(t *testing.T) {

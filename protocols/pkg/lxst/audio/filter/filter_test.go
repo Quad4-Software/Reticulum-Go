@@ -4,7 +4,7 @@ package filter_test
 import (
 	"testing"
 
-	"github.com/Quad4-Software/reticulum-go-protocols/pkg/lxst/audio/filter"
+	"git.quad4.io/reticulum/Reticulum-Go/protocols/pkg/lxst/audio/filter"
 )
 
 func TestBandPassSilence(t *testing.T) {

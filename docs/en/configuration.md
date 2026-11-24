@@ -421,7 +421,7 @@ Optional hardware-bound descriptors (RHB1, 72 bytes) are documented in [Identity
 - [Interfaces](interfaces.md) for per-type behavior and reconnect policy
 - [Architecture](architecture.md) for shared instance and persistence
 - [CLI utilities](utilities.md) for rgostatus / rgoid / rgoprobe and RPC setup
-- [COMPATIBILITY.md](https://github.com/Quad4-Software/Reticulum-Go/blob/master/COMPATIBILITY.md) for full Python key comparison tables
+- [COMPATIBILITY.md](https://git.quad4.io/reticulum/Reticulum-Go/blob/master/COMPATIBILITY.md) for full Python key comparison tables
 
 ## Stamps and filtering (RNS 1.6.1)
 

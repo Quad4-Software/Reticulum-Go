@@ -3,7 +3,7 @@ package lxmf
 
 import (
 	"bytes"
-	"github.com/Quad4-Software/reticulum-go-protocols/internal/testconfig"
+	"git.quad4.io/reticulum/Reticulum-Go/protocols/internal/testconfig"
 	"testing"
 
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity"

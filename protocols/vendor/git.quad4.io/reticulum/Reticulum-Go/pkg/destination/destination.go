@@ -22,7 +22,7 @@ import (
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/packet"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/securemem"
-	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
+	"git.quad4.io/libraries/msgpack/v5/pkg/msgpack"
 )
 
 // PacketCallback handles plaintext delivered to a destination.
@@ -1108,7 +1108,7 @@ func (d *Destination) reloadRatchets() error {
 	if err != nil {
 		return fmt.Errorf("failed to open ratchet file: %w", err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	// Read all data
 	fileData, err := io.ReadAll(file)

@@ -172,7 +172,7 @@ func (c *Client) NamingLookup(ctx context.Context, name string) (string, error) 
 	if err != nil {
 		return "", err
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 	if _, err := conn.Write(fmt.Appendf(nil, "NAMING LOOKUP NAME=%s\n", name)); err != nil {
 		return "", err
 	}
@@ -195,7 +195,7 @@ func (c *Client) DestGenerate(ctx context.Context) (*Destination, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 	if _, err := conn.Write(fmt.Appendf(nil, "DEST GENERATE SIGNATURE_TYPE=%d\n", ed25519SigType)); err != nil {
 		return nil, err
 	}

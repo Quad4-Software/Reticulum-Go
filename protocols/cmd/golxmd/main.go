@@ -10,8 +10,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/Quad4-Software/reticulum-go-protocols/internal/golxmd"
-	"github.com/Quad4-Software/reticulum-go-protocols/pkg/lxmf"
+	"git.quad4.io/reticulum/Reticulum-Go/protocols/internal/golxmd"
+	"git.quad4.io/reticulum/Reticulum-Go/protocols/pkg/lxmf"
 )
 
 func main() {

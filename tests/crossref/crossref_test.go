@@ -17,15 +17,15 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
+	"git.quad4.io/libraries/msgpack/v5/pkg/msgpack"
 
+	"git.quad4.io/libraries/bzip2/pkg/bzip2"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/buffer"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/channel"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/cryptography"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/packet"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/resource"
-	"github.com/Quad4-Software/bzip2/pkg/bzip2"
 )
 
 type TestVectors struct {

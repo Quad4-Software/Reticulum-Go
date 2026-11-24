@@ -16,7 +16,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
+	"git.quad4.io/libraries/msgpack/v5/pkg/msgpack"
 )
 
 type Resource struct {
@@ -90,10 +90,7 @@ func New(data any, autoCompress bool) (*Resource, error) {
 		return nil, errors.New("unsupported data type")
 	}
 
-	parts := (r.dataSize + DefaultSegmentSize - 1) / DefaultSegmentSize
-	if parts < 1 {
-		parts = 1
-	}
+	parts := max((r.dataSize+DefaultSegmentSize-1)/DefaultSegmentSize, 1)
 	if parts > int64(MaxSegments) {
 		r.segments = MaxSegments
 	} else {

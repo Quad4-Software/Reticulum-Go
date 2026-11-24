@@ -42,24 +42,24 @@ module git.quad4.io/reticulum/Reticulum-Go
 go 1.27.4
 
 require (
-	github.com/Quad4-Software/bzip2 v1.0.1
-	github.com/Quad4-Software/msgpack/v5 v5.9.2
-	github.com/Quad4-Software/pbt v1.0.2
+	git.quad4.io/libraries/bzip2 v1.0.2
+	git.quad4.io/libraries/msgpack/v5 v5.9.3
+	git.quad4.io/libraries/pbt v1.0.3
 	github.com/landlock-lsm/go-landlock v0.11.2
 	golang.org/x/crypto v0.59.0
 	golang.org/x/sys v0.50.0
 )
 
 require (
-	github.com/Quad4-Software/tagparser/v2 v2.2.1 // indirect
+	git.quad4.io/libraries/tagparser/v2 v2.2.2 // indirect
 	golang.org/x/net v0.62.0 // indirect
 )
 
 replace (
-	github.com/Quad4-Software/bzip2 => $REL_LIBS/bzip2
-	github.com/Quad4-Software/msgpack/v5 => $REL_LIBS/msgpack
-	github.com/Quad4-Software/pbt => $REL_LIBS/pbt
-	github.com/Quad4-Software/tagparser/v2 => $REL_LIBS/tagparser
+	git.quad4.io/libraries/bzip2 => $REL_LIBS/bzip2
+	git.quad4.io/libraries/msgpack/v5 => $REL_LIBS/msgpack
+	git.quad4.io/libraries/pbt => $REL_LIBS/pbt
+	git.quad4.io/libraries/tagparser/v2 => $REL_LIBS/tagparser
 )
 EOF
 
@@ -70,24 +70,24 @@ go 1.27.4
 
 require (
 	git.quad4.io/reticulum/Reticulum-Go v0.0.0
-	github.com/Quad4-Software/reticulum-go-protocols v0.0.0
+	git.quad4.io/reticulum/Reticulum-Go/protocols v0.0.0
 )
 
 require (
-	github.com/Quad4-Software/msgpack/v5 v5.9.2 // indirect
-	github.com/Quad4-Software/pbt v1.0.2 // indirect
-	github.com/Quad4-Software/tagparser/v2 v2.2.1 // indirect
+	git.quad4.io/libraries/msgpack/v5 v5.9.3 // indirect
+	git.quad4.io/libraries/pbt v1.0.3 // indirect
+	git.quad4.io/libraries/tagparser/v2 v2.2.2 // indirect
 	golang.org/x/crypto v0.59.0 // indirect
 	golang.org/x/net v0.62.0 // indirect
 )
 
 replace (
 	git.quad4.io/reticulum/Reticulum-Go => ../../
-	github.com/Quad4-Software/bzip2 => $REL_WASM_LIBS/bzip2
-	github.com/Quad4-Software/msgpack/v5 => $REL_WASM_LIBS/msgpack
-	github.com/Quad4-Software/pbt => $REL_WASM_LIBS/pbt
-	github.com/Quad4-Software/reticulum-go-protocols => $REL_PROTO
-	github.com/Quad4-Software/tagparser/v2 => $REL_WASM_LIBS/tagparser
+	git.quad4.io/libraries/bzip2 => $REL_WASM_LIBS/bzip2
+	git.quad4.io/libraries/msgpack/v5 => $REL_WASM_LIBS/msgpack
+	git.quad4.io/libraries/pbt => $REL_WASM_LIBS/pbt
+	git.quad4.io/reticulum/Reticulum-Go/protocols => $REL_PROTO
+	git.quad4.io/libraries/tagparser/v2 => $REL_WASM_LIBS/tagparser
 )
 EOF
 
@@ -99,20 +99,20 @@ go 1.27.4
 require git.quad4.io/reticulum/Reticulum-Go v0.0.0
 
 require (
-	github.com/Quad4-Software/bzip2 v1.0.1 // indirect
-	github.com/Quad4-Software/msgpack/v5 v5.9.2 // indirect
-	github.com/Quad4-Software/pbt v1.0.2 // indirect
-	github.com/Quad4-Software/tagparser/v2 v2.2.1 // indirect
+	git.quad4.io/libraries/bzip2 v1.0.2 // indirect
+	git.quad4.io/libraries/msgpack/v5 v5.9.3 // indirect
+	git.quad4.io/libraries/pbt v1.0.3 // indirect
+	git.quad4.io/libraries/tagparser/v2 v2.2.2 // indirect
 	golang.org/x/crypto v0.59.0 // indirect
 	golang.org/x/net v0.62.0 // indirect
 )
 
 replace (
 	git.quad4.io/reticulum/Reticulum-Go => ../..
-	github.com/Quad4-Software/bzip2 => $REL_PS_LIBS/bzip2
-	github.com/Quad4-Software/msgpack/v5 => $REL_PS_LIBS/msgpack
-	github.com/Quad4-Software/pbt => $REL_PS_LIBS/pbt
-	github.com/Quad4-Software/tagparser/v2 => $REL_PS_LIBS/tagparser
+	git.quad4.io/libraries/bzip2 => $REL_PS_LIBS/bzip2
+	git.quad4.io/libraries/msgpack/v5 => $REL_PS_LIBS/msgpack
+	git.quad4.io/libraries/pbt => $REL_PS_LIBS/pbt
+	git.quad4.io/libraries/tagparser/v2 => $REL_PS_LIBS/tagparser
 )
 EOF
 

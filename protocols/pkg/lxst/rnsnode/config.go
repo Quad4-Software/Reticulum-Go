@@ -11,7 +11,7 @@ import (
 
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/common"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/reticulumconfig"
-	"github.com/Quad4-Software/reticulum-go-protocols/pkg/lxst/sandbox"
+	"git.quad4.io/reticulum/Reticulum-Go/protocols/pkg/lxst/sandbox"
 )
 
 const (

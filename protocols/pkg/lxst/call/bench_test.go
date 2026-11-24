@@ -4,7 +4,7 @@ package call
 import (
 	"testing"
 
-	"github.com/Quad4-Software/reticulum-go-protocols/pkg/lxst/proto"
+	"git.quad4.io/reticulum/Reticulum-Go/protocols/pkg/lxst/proto"
 )
 
 func BenchmarkPackFrameIntoHotPath(b *testing.B) {

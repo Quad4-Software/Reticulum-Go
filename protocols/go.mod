@@ -1,11 +1,11 @@
-module github.com/Quad4-Software/reticulum-go-protocols
+module git.quad4.io/reticulum/Reticulum-Go/protocols
 
 go 1.27.4
 
 require (
 	git.quad4.io/reticulum/Reticulum-Go v1.4.2-0.20261116070446-8ea07667aa63
-	github.com/Quad4-Software/msgpack/v5 v5.9.2
-	github.com/Quad4-Software/pbt v1.0.2
+	git.quad4.io/libraries/msgpack/v5 v5.9.3
+	git.quad4.io/libraries/pbt v1.0.3
 	github.com/ebitengine/purego v0.11.3
 	github.com/fxamacker/cbor/v2 v2.10.0
 	github.com/landlock-lsm/go-landlock v0.11.2
@@ -14,8 +14,8 @@ require (
 )
 
 require (
-	github.com/Quad4-Software/bzip2 v1.0.1 // indirect
-	github.com/Quad4-Software/tagparser/v2 v2.2.1 // indirect
+	git.quad4.io/libraries/bzip2 v1.0.2 // indirect
+	git.quad4.io/libraries/tagparser/v2 v2.2.2 // indirect
 	github.com/dunglas/httpsfv v1.1.2 // indirect
 	github.com/dustin/go-humanize v1.1.0 // indirect
 	github.com/godbus/dbus/v5 v5.2.4 // indirect

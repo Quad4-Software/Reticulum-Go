@@ -11,7 +11,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/Quad4-Software/pbt/pkg/pbt"
+	"git.quad4.io/libraries/pbt/pkg/pbt"
 )
 
 func TestGenerateAES256Key(t *testing.T) {

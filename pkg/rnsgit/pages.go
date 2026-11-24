@@ -9,9 +9,9 @@ import (
 	"path"
 	"strings"
 
+	"git.quad4.io/libraries/msgpack/v5/pkg/msgpack"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/link"
-	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
 )
 
 // imageExts are media extensions eligible for WebP conversion.

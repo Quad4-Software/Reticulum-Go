@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/Quad4-Software/pbt/pkg/pbt"
+	"git.quad4.io/libraries/pbt/pkg/pbt"
 )
 
 func TestDeriveKey(t *testing.T) {

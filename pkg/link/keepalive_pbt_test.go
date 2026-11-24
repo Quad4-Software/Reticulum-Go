@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Quad4-Software/pbt/pkg/pbt"
+	"git.quad4.io/libraries/pbt/pkg/pbt"
 )
 
 func TestPBTKeepaliveInitiatorLaws(t *testing.T) {

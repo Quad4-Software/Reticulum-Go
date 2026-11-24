@@ -8,10 +8,10 @@ import (
 	"sync"
 	"testing"
 
+	"git.quad4.io/libraries/msgpack/v5/pkg/msgpack"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/common"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/profiler"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/transport"
-	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
 )
 
 func TestProfilingResultsMsgpackRoundTrip(t *testing.T) {

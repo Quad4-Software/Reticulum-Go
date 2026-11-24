@@ -8,7 +8,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/Quad4-Software/reticulum-go-protocols/internal/gorrcd"
+	"git.quad4.io/reticulum/Reticulum-Go/protocols/internal/gorrcd"
 )
 
 func main() {

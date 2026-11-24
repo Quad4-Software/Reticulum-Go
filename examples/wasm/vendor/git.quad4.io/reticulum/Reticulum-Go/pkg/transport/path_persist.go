@@ -14,7 +14,7 @@ import (
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/debug"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/packet"
-	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
+	"git.quad4.io/libraries/msgpack/v5/pkg/msgpack"
 )
 
 // pathRecord is a fully-decoded, transport-independent path table entry.

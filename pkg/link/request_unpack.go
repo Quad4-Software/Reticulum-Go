@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
+	"git.quad4.io/libraries/msgpack/v5/pkg/msgpack"
 )
 
 func unpackLinkRequest(plaintext []byte) (requestedAt time.Time, pathHash []byte, requestPayload []byte, err error) {

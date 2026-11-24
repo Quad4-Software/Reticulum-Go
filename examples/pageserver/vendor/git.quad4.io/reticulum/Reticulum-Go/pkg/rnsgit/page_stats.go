@@ -133,10 +133,7 @@ func chartFooter(width int, labels []string) string {
 	if len(labels) >= 2 {
 		first := truncate(labels[0], 12)
 		last := truncate(labels[len(labels)-1], 12)
-		pad := width + 2 - len(first) - len(last)
-		if pad < 0 {
-			pad = 0
-		}
+		pad := max(width+2-len(first)-len(last), 0)
 		b.WriteString("`F666" + first + strings.Repeat(" ", pad) + last + "`f\n")
 	}
 	return b.String()
@@ -222,7 +219,7 @@ func renderCombinedChart(views, fetches, pushes, downloads []int64, labels []str
 		upperMin := lowerMax
 		upperMax := float64(row) / float64(height)
 		b.WriteString("│")
-		for i := 0; i < n; i++ {
+		for i := range n {
 			var total int64
 			for _, c := range cats {
 				total += c.data[i]

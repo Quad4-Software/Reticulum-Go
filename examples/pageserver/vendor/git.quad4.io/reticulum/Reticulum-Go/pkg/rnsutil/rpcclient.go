@@ -16,7 +16,7 @@ import (
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/reticulumconfig"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/sharedinstance"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/transport"
-	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
+	"git.quad4.io/libraries/msgpack/v5/pkg/msgpack"
 )
 
 // RPCClient is a one-shot shared-instance RPC client over
@@ -117,7 +117,7 @@ func (c *RPCClient) Call(call map[string]any, dest any) error {
 	if err != nil {
 		return fmt.Errorf("dial shared instance rpc: %w", err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 	_ = conn.SetDeadline(time.Now().Add(c.timeout))
 
 	if err := sharedinstance.AuthenticateClient(conn, c.authkey); err != nil {

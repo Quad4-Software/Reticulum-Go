@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"git.quad4.io/reticulum/Reticulum-Go/internal/storage"
-	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
+	"git.quad4.io/libraries/msgpack/v5/pkg/msgpack"
 )
 
 const (

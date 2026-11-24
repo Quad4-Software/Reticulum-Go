@@ -183,10 +183,11 @@ func modem73OFDMPhy(modulation, codeRate string, frameSize int) Modem73PhyResult
 
 	if rate >= 5 {
 		var pl, du int
-		if frameSize == 0 {
+		switch frameSize {
+		case 0:
 			pl = modem73OFDMRepPayloadShort[mod]
 			du = modem73OFDMRepDurationShortMs[mod]
-		} else if frameSize == 1 {
+		case 1:
 			pl = modem73OFDMRepPayloadNormal[mod]
 			du = modem73OFDMRepDurationNormalMs[mod]
 		}

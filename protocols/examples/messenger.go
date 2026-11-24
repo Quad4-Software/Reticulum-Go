@@ -13,7 +13,7 @@ import (
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/interfaces"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/transport"
-	"github.com/Quad4-Software/reticulum-go-protocols/pkg/mf"
+	"git.quad4.io/reticulum/Reticulum-Go/protocols/pkg/mf"
 )
 
 const (

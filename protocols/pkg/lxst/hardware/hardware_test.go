@@ -4,7 +4,7 @@ package hardware_test
 import (
 	"testing"
 
-	"github.com/Quad4-Software/reticulum-go-protocols/pkg/lxst/hardware"
+	"git.quad4.io/reticulum/Reticulum-Go/protocols/pkg/lxst/hardware"
 )
 
 func TestEnableKnownDrivers(t *testing.T) {

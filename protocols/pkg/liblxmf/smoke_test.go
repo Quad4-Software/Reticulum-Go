@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/Quad4-Software/reticulum-go-protocols/pkg/liblxmf"
-	"github.com/Quad4-Software/reticulum-go-protocols/pkg/lxmf"
+	"git.quad4.io/reticulum/Reticulum-Go/protocols/pkg/liblxmf"
+	"git.quad4.io/reticulum/Reticulum-Go/protocols/pkg/lxmf"
 )
 
 func TestIdentitySaveLoad(t *testing.T) {

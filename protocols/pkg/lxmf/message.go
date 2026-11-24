@@ -15,9 +15,9 @@ import (
 	"sync"
 	"time"
 
+	"git.quad4.io/libraries/msgpack/v5/pkg/msgpack"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/destination"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity"
-	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
 )
 
 // Signer signs packed message bytes (implemented by identity.Identity and similar).

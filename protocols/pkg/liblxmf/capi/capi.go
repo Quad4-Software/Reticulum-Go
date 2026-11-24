@@ -22,7 +22,7 @@ import (
 	"sync"
 	"unsafe"
 
-	"github.com/Quad4-Software/reticulum-go-protocols/pkg/liblxmf"
+	"git.quad4.io/reticulum/Reticulum-Go/protocols/pkg/liblxmf"
 )
 
 const maxCGoBytes = math.MaxInt32

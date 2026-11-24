@@ -11,10 +11,10 @@ import (
 	"strconv"
 	"strings"
 
+	"git.quad4.io/libraries/msgpack/v5/pkg/msgpack"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/debug"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/link"
-	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
 )
 
 // serveArtifact streams a release artifact for published releases only.

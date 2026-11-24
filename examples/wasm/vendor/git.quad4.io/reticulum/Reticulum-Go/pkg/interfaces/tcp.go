@@ -457,11 +457,12 @@ func appendFrameHDLC(dst []byte, payload []byte) []byte {
 func escapeKISS(data []byte) []byte {
 	escaped := make([]byte, 0, len(data)*2)
 	for _, b := range data {
-		if b == KISSFend {
+		switch b {
+		case KISSFend:
 			escaped = append(escaped, KISSFesc, KISSTFend)
-		} else if b == KISSFesc {
+		case KISSFesc:
 			escaped = append(escaped, KISSFesc, KISSTFesc)
-		} else {
+		default:
 			escaped = append(escaped, b)
 		}
 	}

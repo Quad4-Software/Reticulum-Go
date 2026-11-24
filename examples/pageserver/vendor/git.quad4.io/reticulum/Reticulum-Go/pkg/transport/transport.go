@@ -375,7 +375,10 @@ type delayedAnnounceJob struct {
 // announceForwardPool recycles the announce forward-copy buffer. Entries are
 // retained only between schedule and execution.
 var announceForwardPool = sync.Pool{
-	New: func() any { return make([]byte, 0, 2*common.DefaultMTU) },
+	New: func() any {
+		b := make([]byte, 0, 2*common.DefaultMTU)
+		return &b
+	},
 }
 
 // signDataPool recycles the signature-verification scratch buffer used while
@@ -717,10 +720,7 @@ func (t *Transport) evictSeenAnnouncesUnlocked(now time.Time) {
 	// Evict down to 90% of the cap in one sorted pass. The previous
 	// selection scan ran O(n) on every remember once over the cap. Batching
 	// amortizes it over thousands of inserts.
-	need := len(t.seenAnnounces) - limit*9/10
-	if need < 1 {
-		need = 1
-	}
+	need := max(len(t.seenAnnounces)-limit*9/10, 1)
 	evictOldestMapKeys(t.seenAnnounces,
 		func(v time.Time) time.Time { return v },
 		nil, need)
@@ -1396,7 +1396,7 @@ func (t *Transport) Close() error {
 	t.handlerClosed.Store(true)
 	t.handlerOnce.Do(func() {})
 	t.growMu.Lock()
-	t.growMu.Unlock()
+	t.growMu.Unlock() //nolint:staticcheck // intentional quiesce: drains in-flight growOneHandler before handlerWG.Wait
 	t.handlerWG.Wait()
 
 	if e := protect.Default(); e != nil {
@@ -2706,7 +2706,8 @@ func (t *Transport) scheduleAnnounceForward(data []byte, dest hash16, destinatio
 		}
 		return
 	}
-	fwd := append(announceForwardPool.Get().([]byte)[:0], data...)
+	fwdBuf := announceForwardPool.Get().(*[]byte)
+	fwd := append((*fwdBuf)[:0], data...)
 	if len(fwd) >= 2 {
 		fwd[1] = hops
 	}
@@ -2898,7 +2899,8 @@ func (t *Transport) processDelayedAnnounceJobs() {
 	}
 	for _, buf := range released {
 		if cap(buf) <= 4*common.DefaultMTU {
-			announceForwardPool.Put(buf)
+			buf = buf[:0]
+			announceForwardPool.Put(&buf)
 		}
 	}
 }

@@ -5,7 +5,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"errors"
-	"github.com/Quad4-Software/reticulum-go-protocols/internal/testconfig"
+	"git.quad4.io/reticulum/Reticulum-Go/protocols/internal/testconfig"
 	"sync"
 	"testing"
 	"time"

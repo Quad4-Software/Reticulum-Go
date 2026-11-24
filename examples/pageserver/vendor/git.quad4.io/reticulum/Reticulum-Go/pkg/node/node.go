@@ -385,7 +385,7 @@ func (n *Node) nodeConfigDir() string {
 // one entry per line, blank lines and # comments skipped.
 func parseBlockedIPs(raw []byte) []string {
 	var out []string
-	for _, line := range strings.Split(string(raw), "\n") {
+	for line := range strings.SplitSeq(string(raw), "\n") {
 		ip := strings.TrimSpace(line)
 		if ip == "" || strings.HasPrefix(ip, "#") {
 			continue
@@ -423,7 +423,7 @@ func (n *Node) loadConfigDirTables() {
 		if err != nil {
 			continue
 		}
-		for _, line := range strings.Split(string(raw), "\n") {
+		for line := range strings.SplitSeq(string(raw), "\n") {
 			name := strings.TrimSpace(line)
 			if name == "" || strings.HasPrefix(name, "#") {
 				continue

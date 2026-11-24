@@ -11,11 +11,11 @@ import (
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/debug"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/destination"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/transport"
-	"github.com/Quad4-Software/reticulum-go-protocols/internal/lxstcli"
-	"github.com/Quad4-Software/reticulum-go-protocols/pkg/lxst/call"
-	"github.com/Quad4-Software/reticulum-go-protocols/pkg/lxst/proto"
-	"github.com/Quad4-Software/reticulum-go-protocols/pkg/lxst/rnsnode"
-	"github.com/Quad4-Software/reticulum-go-protocols/pkg/lxst/sandbox"
+	"git.quad4.io/reticulum/Reticulum-Go/protocols/internal/lxstcli"
+	"git.quad4.io/reticulum/Reticulum-Go/protocols/pkg/lxst/call"
+	"git.quad4.io/reticulum/Reticulum-Go/protocols/pkg/lxst/proto"
+	"git.quad4.io/reticulum/Reticulum-Go/protocols/pkg/lxst/rnsnode"
+	"git.quad4.io/reticulum/Reticulum-Go/protocols/pkg/lxst/sandbox"
 )
 
 var (

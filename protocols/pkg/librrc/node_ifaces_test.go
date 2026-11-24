@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Quad4-Software/reticulum-go-protocols/pkg/librrc"
+	"git.quad4.io/reticulum/Reticulum-Go/protocols/pkg/librrc"
 )
 
 // Full hub-client session over TCP: hub node hosts a TCP server interface,

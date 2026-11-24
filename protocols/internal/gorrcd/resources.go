@@ -9,7 +9,7 @@ import (
 
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/link"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/resource"
-	"github.com/Quad4-Software/reticulum-go-protocols/pkg/rrc"
+	"git.quad4.io/reticulum/Reticulum-Go/protocols/pkg/rrc"
 )
 
 type expectation struct {

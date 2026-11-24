@@ -48,7 +48,7 @@ func (d *kissStreamDecoder) feed(buf []byte) {
 			buf = buf[1:]
 			continue
 		}
-		if !(d.inFrame && d.haveCmd && d.command == KISSCmdData) {
+		if !d.inFrame || !d.haveCmd || d.command != KISSCmdData {
 			d.feedByte(buf[0])
 			buf = buf[1:]
 			continue

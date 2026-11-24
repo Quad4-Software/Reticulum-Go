@@ -12,7 +12,7 @@ import (
 
 	"sync/atomic"
 
-	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
+	"git.quad4.io/libraries/msgpack/v5/pkg/msgpack"
 
 	"path/filepath"
 
@@ -116,10 +116,7 @@ func (t *Transport) evictAnnouncePacketCacheUnlocked() {
 	// Evict down to 90% of the cap in one sorted pass so the O(n log n)
 	// scan amortizes over a batch of inserts instead of running on every
 	// cacheAnnouncePacket once the cache sits at its soft cap.
-	need := len(t.announcePacketCache) - limit*9/10
-	if need < 1 {
-		need = 1
-	}
+	need := max(len(t.announcePacketCache)-limit*9/10, 1)
 	evictOldestMapKeys(t.announcePacketCache,
 		func(e *cachedAnnounce) time.Time {
 			if e == nil {

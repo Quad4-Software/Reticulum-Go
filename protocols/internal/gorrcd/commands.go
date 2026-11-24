@@ -6,7 +6,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/Quad4-Software/reticulum-go-protocols/pkg/rrc"
+	"git.quad4.io/reticulum/Reticulum-Go/protocols/pkg/rrc"
 )
 
 func (s *Service) handleCommand(peer []byte, room, text string) {

@@ -4,7 +4,7 @@ package gorrcd
 import (
 	"testing"
 
-	"github.com/Quad4-Software/reticulum-go-protocols/pkg/rrc"
+	"git.quad4.io/reticulum/Reticulum-Go/protocols/pkg/rrc"
 )
 
 func TestSmoke_VersionSet(t *testing.T) {

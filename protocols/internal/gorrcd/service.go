@@ -15,7 +15,7 @@ import (
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/interfaces"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/link"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/transport"
-	"github.com/Quad4-Software/reticulum-go-protocols/pkg/rrc"
+	"git.quad4.io/reticulum/Reticulum-Go/protocols/pkg/rrc"
 	"github.com/fxamacker/cbor/v2"
 )
 

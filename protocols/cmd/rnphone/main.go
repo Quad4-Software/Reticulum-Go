@@ -11,17 +11,17 @@ import (
 
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/debug"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/destination"
-	"github.com/Quad4-Software/reticulum-go-protocols/internal/lxstcli"
-	"github.com/Quad4-Software/reticulum-go-protocols/pkg/lxst/audio/io"
-	"github.com/Quad4-Software/reticulum-go-protocols/pkg/lxst/audio/opus"
-	"github.com/Quad4-Software/reticulum-go-protocols/pkg/lxst/call"
-	"github.com/Quad4-Software/reticulum-go-protocols/pkg/lxst/hardware"
-	"github.com/Quad4-Software/reticulum-go-protocols/pkg/lxst/history"
-	"github.com/Quad4-Software/reticulum-go-protocols/pkg/lxst/phonebook"
-	"github.com/Quad4-Software/reticulum-go-protocols/pkg/lxst/proto"
-	"github.com/Quad4-Software/reticulum-go-protocols/pkg/lxst/rnsnode"
-	"github.com/Quad4-Software/reticulum-go-protocols/pkg/lxst/sandbox"
-	"github.com/Quad4-Software/reticulum-go-protocols/pkg/lxst/sounds"
+	"git.quad4.io/reticulum/Reticulum-Go/protocols/internal/lxstcli"
+	"git.quad4.io/reticulum/Reticulum-Go/protocols/pkg/lxst/audio/io"
+	"git.quad4.io/reticulum/Reticulum-Go/protocols/pkg/lxst/audio/opus"
+	"git.quad4.io/reticulum/Reticulum-Go/protocols/pkg/lxst/call"
+	"git.quad4.io/reticulum/Reticulum-Go/protocols/pkg/lxst/hardware"
+	"git.quad4.io/reticulum/Reticulum-Go/protocols/pkg/lxst/history"
+	"git.quad4.io/reticulum/Reticulum-Go/protocols/pkg/lxst/phonebook"
+	"git.quad4.io/reticulum/Reticulum-Go/protocols/pkg/lxst/proto"
+	"git.quad4.io/reticulum/Reticulum-Go/protocols/pkg/lxst/rnsnode"
+	"git.quad4.io/reticulum/Reticulum-Go/protocols/pkg/lxst/sandbox"
+	"git.quad4.io/reticulum/Reticulum-Go/protocols/pkg/lxst/sounds"
 )
 
 const (

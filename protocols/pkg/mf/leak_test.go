@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Quad4-Software/reticulum-go-protocols/internal/leaktest"
+	"git.quad4.io/reticulum/Reticulum-Go/protocols/internal/leaktest"
 )
 
 func TestLeak_MF_PackUnpack(t *testing.T) {
