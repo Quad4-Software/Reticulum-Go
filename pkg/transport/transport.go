@@ -268,6 +268,8 @@ type Transport struct {
 	pathPersistGen           atomic.Uint64
 	pathPersistSaving        sync.Mutex
 	pathPersistLast          atomic.Int64
+	announceCacheLastFlush   time.Time
+	announceCacheLastClean   time.Time
 	pendingPathEntries       []pendingPathEntry
 	done                     chan struct{}
 	stopOnce                 sync.Once

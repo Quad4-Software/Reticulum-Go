@@ -4,6 +4,7 @@
 package link
 
 import (
+	"os"
 	"testing"
 
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/common"
@@ -214,5 +215,34 @@ func TestDropSplitAssembliesReleasesState(t *testing.T) {
 	}
 	if splitResourceBudget.Used() != 0 {
 		t.Fatalf("budget not released on teardown, used=%d", splitResourceBudget.Used())
+	}
+}
+
+func TestDropSplitAssembliesRemovesPartialDiskFiles(t *testing.T) {
+	resetSplitResourceMemoryForTest()
+	t.Cleanup(resetSplitResourceMemoryForTest)
+
+	tmp := t.TempDir()
+	tr := transport.NewTransport(&common.ReticulumConfig{
+		ConfigPath:    tmp + "/config",
+		ShareInstance: false,
+	})
+	t.Cleanup(func() { _ = tr.Close() })
+	l := &Link{
+		transport: tr,
+		linkID:    []byte{0x42, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2},
+	}
+	hash := make([]byte, 32)
+	hash[0] = 0x09
+	if err := l.handleSplitSegmentComplete([]byte("partial"), splitAdv(hash, 1, 3, 0), nil); err != nil {
+		t.Fatal(err)
+	}
+	path := l.resourceStoragePath(hash)
+	if _, err := os.Stat(path); err != nil {
+		t.Fatalf("partial resource was not staged on disk: %v", err)
+	}
+	l.dropSplitAssemblies()
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Fatalf("partial resource file remained after teardown: %v", err)
 	}
 }

@@ -18,6 +18,9 @@ import (
 // Guarantee: persistPathTableIfDirty honors PathPersistMinInterval, while
 // savePathTableSync / Close force a write even inside the window.
 func TestOraclePathPersistThrottleAndForce(t *testing.T) {
+	if PathPersistMinInterval != 12*time.Hour {
+		t.Fatalf("PathPersistMinInterval=%v want 12h (RNS PERSIST_INTERVAL)", PathPersistMinInterval)
+	}
 	tmp := t.TempDir()
 	cfgPath := filepath.Join(tmp, "config")
 	cfg := &common.ReticulumConfig{ConfigPath: cfgPath}
@@ -75,5 +78,30 @@ func TestOraclePathPersistThrottleAndForce(t *testing.T) {
 	tr2.mutex.RUnlock()
 	if p == nil || p.HopCount != 3 {
 		t.Fatalf("forced path persist lost hop count, path=%v", p)
+	}
+}
+
+func TestOracleClientDetachPersistBypassesIntervalOnlyWhenDirty(t *testing.T) {
+	tmp := t.TempDir()
+	cfgPath := filepath.Join(tmp, "config")
+	tr := NewTransport(&common.ReticulumConfig{ConfigPath: cfgPath})
+	t.Cleanup(func() { _ = tr.Close() })
+	if err := tr.RegisterInterface("wan", newPersistMockInterface("wan")); err != nil {
+		t.Fatal(err)
+	}
+	dest := bytes.Repeat([]byte{0xC3}, identity.TruncatedHashLength/8)
+	next := bytes.Repeat([]byte{0xD4}, identity.TruncatedHashLength/8)
+	tr.UpdatePath(dest, next, "wan", 1)
+	tr.pathPersistLast.Store(time.Now().UnixNano())
+	tr.PersistStateForClientDetach()
+	if tr.pathPersistDirty.Load() {
+		t.Fatal("client-detach persist did not clear dirty path table")
+	}
+	path, err := storage.DestinationTablePath(cfgPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(path); err != nil {
+		t.Fatalf("client-detach persist did not write destination table: %v", err)
 	}
 }

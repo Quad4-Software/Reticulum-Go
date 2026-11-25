@@ -207,3 +207,53 @@ print("OK")
 		t.Fatalf("rows %+v", rows)
 	}
 }
+
+func TestKnownDestinationsFlushFailureRequeuesPending(t *testing.T) {
+	dir := t.TempDir()
+	s, err := OpenKnownDestinations(filepath.Join(dir, "known.db"), 16, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	entry := &KnownDestEntry{
+		DestinationHash: []byte("0123456789abcdef"),
+		LastHeard:       1,
+		PublicKey:       bytes.Repeat([]byte{1}, 64),
+	}
+	s.MarkDirty(entry)
+	_ = s.db.Close()
+	if err := s.Flush(); err == nil {
+		t.Fatal("expected flush error after db close")
+	}
+	s.mu.Lock()
+	pending := len(s.dirtyUpserts)
+	s.mu.Unlock()
+	if pending != 1 {
+		t.Fatalf("pending upserts=%d want 1", pending)
+	}
+}
+
+func TestAnnounceCacheFlushFailureRequeuesWithoutClobberingNewerWrite(t *testing.T) {
+	dir := t.TempDir()
+	c, err := OpenAnnounceCache(filepath.Join(dir, "announces.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	key := []byte("0123456789abcdef")
+	c.Store(key, []byte("old"), "")
+	_ = c.db.Close()
+	if _, err := c.Flush(); err == nil {
+		t.Fatal("expected flush error after db close")
+	}
+	if got := c.PendingCount(); got != 1 {
+		t.Fatalf("pending=%d want 1", got)
+	}
+
+	c.Store(key, []byte("new"), "")
+	c.requeuePending(map[string]cachedAnnounce{
+		string(key): {received: 1, raw: []byte("old")},
+	})
+	raw, _, ok := c.Fetch(key)
+	if !ok || string(raw) != "new" {
+		t.Fatalf("pending fetch raw=%q ok=%v, want newer write", raw, ok)
+	}
+}

@@ -13,6 +13,12 @@ import (
 // Guarantee: dirty periodic flushes respect KnownPersistMinInterval, while
 // SaveKnownDestinationsSync (force) always writes and clears dirty.
 func TestOracleKnownPersistThrottleSkipsThenForceWrites(t *testing.T) {
+	if KnownPersistMinInterval != 12*time.Hour {
+		t.Fatalf("KnownPersistMinInterval=%v want 12h (RNS PERSIST_INTERVAL)", KnownPersistMinInterval)
+	}
+	if knownDestDBFlushInterval != 10*time.Second {
+		t.Fatalf("knownDestDBFlushInterval=%v want 10s (RNS kd_flush_interval)", knownDestDBFlushInterval)
+	}
 	resetKnownDestinations(t)
 	tmp := t.TempDir()
 	cfgPath := filepath.Join(tmp, "config")

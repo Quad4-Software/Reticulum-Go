@@ -215,12 +215,12 @@ func (l *Link) dropSplitAssemblies() {
 	if len(l.linkID) > 0 {
 		prefix = hex.EncodeToString(l.linkID) + ":"
 	}
-	var staged []string
+	var staged [][]byte
 	splitResourceMu.Lock()
 	for k, asm := range splitAssemblies {
 		if strings.HasPrefix(k, prefix) {
 			delete(splitAssemblies, k)
-			staged = append(staged, hex.EncodeToString(asm.origHash))
+			staged = append(staged, append([]byte(nil), asm.origHash...))
 			if buf := splitResourceMem[k]; buf != nil {
 				splitResourceBudget.Release(int64(len(buf.data)))
 				delete(splitResourceMem, k)
@@ -232,8 +232,8 @@ func (l *Link) dropSplitAssemblies() {
 		}
 	}
 	splitResourceMu.Unlock()
-	for _, hashHex := range staged {
-		path := filepath.Join(l.resourceStorageDir(), hashHex)
+	for _, hash := range staged {
+		path := l.resourceStoragePath(hash)
 		_ = os.Remove(path)
 		_ = os.Remove(path + ".meta")
 	}

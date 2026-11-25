@@ -9,7 +9,6 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"fmt"
-	"maps"
 	"os"
 	"path/filepath"
 	"sync"
@@ -112,6 +111,13 @@ func (s *KnownDestinationsStore) identityHash(publicKey []byte) []byte {
 	return h[:s.hashWidth]
 }
 
+// PendingCount reports queued destination and ratchet operations.
+func (s *KnownDestinationsStore) PendingCount() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return len(s.dirtyUpserts) + len(s.dirtyDeletes) + len(s.ratchetUpsert) + len(s.ratchetDelete)
+}
+
 // MarkDirty records an entry for write-behind persistence.
 func (s *KnownDestinationsStore) MarkDirty(e *KnownDestEntry) {
 	if s.readOnly {
@@ -122,6 +128,15 @@ func (s *KnownDestinationsStore) MarkDirty(e *KnownDestEntry) {
 	k := string(e.DestinationHash)
 	delete(s.dirtyDeletes, k)
 	cp := *e
+	cp.DestinationHash = append([]byte(nil), e.DestinationHash...)
+	cp.PacketHash = append([]byte(nil), e.PacketHash...)
+	cp.PublicKey = append([]byte(nil), e.PublicKey...)
+	cp.AppData = append([]byte(nil), e.AppData...)
+	cp.Stamp = append([]byte(nil), e.Stamp...)
+	if e.LRCost != nil {
+		lrCost := *e.LRCost
+		cp.LRCost = &lrCost
+	}
 	s.dirtyUpserts[k] = &cp
 }
 
@@ -189,6 +204,37 @@ func (s *KnownDestinationsStore) LoadAll() ([]*KnownDestEntry, error) {
 	return out, rows.Err()
 }
 
+// requeuePending restores a failed flush without overwriting entries that
+// were marked dirty again while the transaction was running.
+func (s *KnownDestinationsStore) requeuePending(upserts map[string]*KnownDestEntry, deletes map[string]struct{}, ratchetUpserts map[string][]byte, ratchetDeletes map[string]struct{}) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for k, e := range upserts {
+		if _, exists := s.dirtyUpserts[k]; !exists {
+			if _, deleted := s.dirtyDeletes[k]; !deleted {
+				s.dirtyUpserts[k] = e
+			}
+		}
+	}
+	for k := range deletes {
+		if _, exists := s.dirtyUpserts[k]; !exists {
+			s.dirtyDeletes[k] = struct{}{}
+		}
+	}
+	for k, r := range ratchetUpserts {
+		if _, exists := s.ratchetUpsert[k]; !exists {
+			if _, deleted := s.ratchetDelete[k]; !deleted {
+				s.ratchetUpsert[k] = r
+			}
+		}
+	}
+	for k := range ratchetDeletes {
+		if _, exists := s.ratchetUpsert[k]; !exists {
+			s.ratchetDelete[k] = struct{}{}
+		}
+	}
+}
+
 // Flush writes all pending changes in one transaction (Python flush).
 func (s *KnownDestinationsStore) Flush() error {
 	if s.readOnly {
@@ -208,6 +254,7 @@ func (s *KnownDestinationsStore) Flush() error {
 	}
 	tx, err := s.db.Begin()
 	if err != nil {
+		s.requeuePending(upserts, deletes, ru, rd)
 		return err
 	}
 	for _, e := range upserts {
@@ -221,12 +268,14 @@ func (s *KnownDestinationsStore) Flush() error {
 			ON CONFLICT(destination_hash) DO UPDATE SET last_heard=excluded.last_heard,packet_hash=excluded.packet_hash,public_key=excluded.public_key,app_data=excluded.app_data,used=excluded.used,stamp=excluded.stamp,stamp_value=excluded.stamp_value,lr_cost=excluded.lr_cost,identity_hash=excluded.identity_hash`,
 			e.DestinationHash, e.LastHeard, e.PacketHash, e.PublicKey, e.AppData, e.Used, e.Stamp, e.StampValue, lr, s.identityHash(e.PublicKey)); err != nil {
 			_ = tx.Rollback()
+			s.requeuePending(upserts, deletes, ru, rd)
 			return err
 		}
 	}
 	for k := range deletes {
 		if _, err := tx.Exec("DELETE FROM known_destinations WHERE destination_hash=?", []byte(k)); err != nil {
 			_ = tx.Rollback()
+			s.requeuePending(upserts, deletes, ru, rd)
 			return err
 		}
 	}
@@ -235,16 +284,22 @@ func (s *KnownDestinationsStore) Flush() error {
 			ON CONFLICT(destination_hash) DO UPDATE SET ratchet=excluded.ratchet,received=excluded.received`,
 			[]byte(k), r, float64Now()); err != nil {
 			_ = tx.Rollback()
+			s.requeuePending(upserts, deletes, ru, rd)
 			return err
 		}
 	}
 	for k := range rd {
 		if _, err := tx.Exec("DELETE FROM ratchets WHERE destination_hash=?", []byte(k)); err != nil {
 			_ = tx.Rollback()
+			s.requeuePending(upserts, deletes, ru, rd)
 			return err
 		}
 	}
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		s.requeuePending(upserts, deletes, ru, rd)
+		return err
+	}
+	return nil
 }
 
 // FetchRatchet returns the stored ratchet for a destination, if any.
@@ -363,6 +418,16 @@ func (c *AnnounceCache) PendingCount() int {
 	return len(c.pending)
 }
 
+func (c *AnnounceCache) requeuePending(pending map[string]cachedAnnounce) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	for k, e := range pending {
+		if _, exists := c.pending[k]; !exists {
+			c.pending[k] = e
+		}
+	}
+}
+
 func (c *AnnounceCache) Flush() (int, error) {
 	c.mu.Lock()
 	pending := c.pending
@@ -373,6 +438,7 @@ func (c *AnnounceCache) Flush() (int, error) {
 	}
 	tx, err := c.db.Begin()
 	if err != nil {
+		c.requeuePending(pending)
 		return 0, err
 	}
 	for h, e := range pending {
@@ -384,13 +450,12 @@ func (c *AnnounceCache) Flush() (int, error) {
 			ON CONFLICT(packet_hash) DO UPDATE SET received=excluded.received, raw=excluded.raw, interface_reference=excluded.interface_reference`,
 			[]byte(h), e.received, e.raw, iface); err != nil {
 			_ = tx.Rollback()
-			c.mu.Lock()
-			maps.Copy(c.pending, pending)
-			c.mu.Unlock()
+			c.requeuePending(pending)
 			return 0, err
 		}
 	}
 	if err := tx.Commit(); err != nil {
+		c.requeuePending(pending)
 		return 0, err
 	}
 	return len(pending), nil

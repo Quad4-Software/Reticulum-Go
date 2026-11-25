@@ -27,9 +27,11 @@ const (
 	// PathfinderE is path table lifetime in seconds (Python PATHFINDER_E).
 	PathfinderE = 60 * 60 * 24 * 7
 
-	// PathPersistMinInterval is the minimum gap between dirty flushes of the
-	// path table. Shutdown uses savePathTableSync (force).
-	PathPersistMinInterval = 30 * time.Second
+	// PathPersistMinInterval is the minimum gap between dirty periodic flushes
+	// of the path table. Python Reticulum persists the full table every 12
+	// hours, with bounded graceful writes when local clients detach and a
+	// final write on shutdown. Shutdown uses savePathTableSync (force).
+	PathPersistMinInterval = 12 * time.Hour
 
 	// KnownDestinationsInterval is how often known destinations are cleaned
 	// (Python known_destinations_interval).

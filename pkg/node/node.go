@@ -471,6 +471,9 @@ func (n *Node) fromConfigContext() *interfaces.FromConfigContext {
 			client.SetDisconnectHooks(func() {
 				n.transport.UnregisterInterface(name)
 				n.unregisterInterfaceBuffers(name)
+				if clients := client.ParentClients(); clients == nil || clients.Load() == 0 {
+					n.transport.PersistStateForClientDetach()
+				}
 			}, nil)
 		},
 		SpawnTCP: func(client *interfaces.TCPServerClientInterface) {

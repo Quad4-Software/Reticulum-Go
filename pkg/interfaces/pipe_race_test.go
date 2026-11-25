@@ -4,6 +4,7 @@
 package interfaces
 
 import (
+	"io"
 	"net"
 	"os/exec"
 	"sync"
@@ -77,22 +78,29 @@ func TestLocalClientConcurrentSendRace(t *testing.T) {
 		BaseInterface: NewBaseInterface("local-race", common.IFTypeUnix, true),
 		conn:          client,
 		done:          make(chan struct{}),
+		txFrame:       make([]byte, 0, 512),
 	}
 	lc.MTU = 262144
 	lc.Online = true
 
-	go lc.readLoop()
+	done := make(chan struct{})
+	go func() {
+		_, _ = io.Copy(io.Discard, server)
+		close(done)
+	}()
 
 	var wg sync.WaitGroup
 	for range 8 {
 		wg.Go(func() {
-			frame := []byte{HDLCFlag, 0x42, HDLCFlag}
+			payload := []byte{0x01, 0x02, 0x03, 0x04}
 			for range 40 {
-				_, _ = server.Write(frame)
+				_ = lc.ProcessOutgoing(payload)
 			}
 		})
 	}
 	wg.Wait()
 	_ = lc.Stop()
+	_ = client.Close()
 	_ = server.Close()
+	<-done
 }
