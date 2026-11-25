@@ -22,7 +22,7 @@ import (
 
 func HandleIncomingLinkRequest(pkt *packet.Packet, dest *destination.Destination, transport *transport.Transport, networkIface common.NetworkInterface) (*Link, error) {
 	startTime := time.Now()
-	debug.Log(debug.DebugVerbose, "Creating link for incoming request", "dest_hash", fmt.Sprintf("%x", dest.GetHash()), "interface", networkIface.GetName())
+	debug.Log(debug.DebugVerbose, "Creating link for incoming request", "dest_hash", debug.Hex(dest.GetHash()), "interface", networkIface.GetName())
 
 	// Replay dedup before any slot or crypto work: an identical
 	// LINKREQUEST produces an identical linkID. If a live link for it
@@ -77,7 +77,7 @@ func HandleIncomingLinkRequest(pkt *packet.Packet, dest *destination.Destination
 
 	go l.startWatchdog()
 
-	debug.Log(debug.DebugInfo, "Link established for incoming request", "link_id", fmt.Sprintf("%x", l.linkID), "elapsed", time.Since(startTime).Seconds())
+	debug.Log(debug.DebugInfo, "Link established for incoming request", "link_id", debug.Hex(l.linkID), "elapsed", time.Since(startTime).Seconds())
 	return l, nil
 }
 
@@ -106,7 +106,7 @@ func (l *Link) resendProofIfPending() bool {
 			debug.Log(debug.DebugVerbose, "Failed to resend cached link proof", "error", err)
 		} else {
 			l.recordOutbound()
-			debug.Log(debug.DebugVerbose, "Resent cached link proof for replayed request", "link_id", fmt.Sprintf("%x", l.linkID))
+			debug.Log(debug.DebugVerbose, "Resent cached link proof for replayed request", "link_id", debug.Hex(l.linkID))
 		}
 	} else if cachedPkt != nil && tr != nil {
 		if err := tr.SendPacket(cachedPkt); err != nil {
@@ -166,26 +166,26 @@ func (l *Link) HandleIdentification(data []byte) error {
 	pubKey := data[:pubKeySize]
 	signature := data[pubKeySize:]
 
-	debug.Log(debug.DebugVerbose, "Processing identification from public key", "public_key", fmt.Sprintf("%x", pubKey[:8]))
+	debug.Log(debug.DebugVerbose, "Processing identification from public key", "public_key", debug.Hex(pubKey[:8]))
 
 	remoteIdentity := identity.FromPublicKey(pubKey)
 	if remoteIdentity == nil {
-		debug.Log(debug.DebugWarning, "Invalid remote identity from public key", "public_key", fmt.Sprintf("%x", pubKey[:8]))
+		debug.Log(debug.DebugWarning, "Invalid remote identity from public key", "public_key", debug.Hex(pubKey[:8]))
 		return errors.New("invalid remote identity")
 	}
 
 	signData := append(l.linkID, pubKey...)
 	if !remoteIdentity.Verify(signData, signature) {
-		debug.Log(debug.DebugWarning, "Invalid signature from remote identity", "public_key", fmt.Sprintf("%x", pubKey[:8]))
+		debug.Log(debug.DebugWarning, "Invalid signature from remote identity", "public_key", debug.Hex(pubKey[:8]))
 		return errors.New("invalid signature")
 	}
 
-	debug.Log(debug.DebugVerbose, "Remote identity verified successfully", "public_key", fmt.Sprintf("%x", pubKey[:8]))
+	debug.Log(debug.DebugVerbose, "Remote identity verified successfully", "public_key", debug.Hex(pubKey[:8]))
 
 	if tab := l.transport.BlackholeTable(); tab != nil {
 		if tab.Has(remoteIdentity.Hash()) {
 			debug.Log(debug.DebugWarning, "Terminating link from blackholed identity",
-				"identity", fmt.Sprintf("%x", remoteIdentity.Hash()))
+				"identity", debug.Hex(remoteIdentity.Hash()))
 			l.Teardown()
 			return errors.New("remote identity is blackholed")
 		}
@@ -201,7 +201,7 @@ func (l *Link) HandleIdentification(data []byte) error {
 	cb := l.identifiedCallback
 	l.mutex.Unlock()
 	if cb != nil {
-		debug.Log(debug.DebugVerbose, "Executing identified callback for remote identity", "public_key", fmt.Sprintf("%x", pubKey[:8]))
+		debug.Log(debug.DebugVerbose, "Executing identified callback for remote identity", "public_key", debug.Hex(pubKey[:8]))
 		cb(l, remoteIdentity)
 	}
 
@@ -308,7 +308,7 @@ func (l *Link) sendPreparedLinkRequest() error {
 		return fmt.Errorf("failed to send link request: %w", err)
 	}
 
-	debug.Log(debug.DebugVerbose, "Link request sent", "link_id", fmt.Sprintf("%x", l.linkID), "send_elapsed", time.Since(sendStartTime).Seconds(), "dest_hash", fmt.Sprintf("%x", l.destination.GetHash()))
+	debug.Log(debug.DebugVerbose, "Link request sent", "link_id", debug.Hex(l.linkID), "send_elapsed", time.Since(sendStartTime).Seconds(), "dest_hash", debug.Hex(l.destination.GetHash()))
 	return nil
 }
 func linkIDFromPacket(pkt *packet.Packet) []byte {
@@ -316,7 +316,7 @@ func linkIDFromPacket(pkt *packet.Packet) []byte {
 }
 func (l *Link) HandleLinkRequest(pkt *packet.Packet, ownerIdentity *identity.Identity) error {
 	startTime := time.Now()
-	debug.Log(debug.DebugVerbose, "Handling incoming link request", "data_len", len(pkt.Data), "has_interface", l.networkInterface != nil, "dest_hash", fmt.Sprintf("%x", l.destination.GetHash()))
+	debug.Log(debug.DebugVerbose, "Handling incoming link request", "data_len", len(pkt.Data), "has_interface", l.networkInterface != nil, "dest_hash", debug.Hex(l.destination.GetHash()))
 	if len(pkt.Data) < ECPubSize {
 		return errors.New("link request data too short")
 	}
@@ -332,7 +332,7 @@ func (l *Link) HandleLinkRequest(pkt *packet.Packet, ownerIdentity *identity.Ide
 	if v, err := l.validateLinkRequestStamp(l.destination.GetHash(), l.destination.GetLinkCost(), peerPub, peerSigPub); err != nil {
 		l.stampCost = v
 		l.stampStatus = true
-		debug.Log(debug.DebugWarning, "Rejected link request: insufficient stamp", "value", v, "dest_hash", fmt.Sprintf("%x", l.destination.GetHash()))
+		debug.Log(debug.DebugWarning, "Rejected link request: insufficient stamp", "value", v, "dest_hash", debug.Hex(l.destination.GetHash()))
 		return err
 	} else {
 		l.stampCost = v
@@ -342,11 +342,11 @@ func (l *Link) HandleLinkRequest(pkt *packet.Packet, ownerIdentity *identity.Ide
 	l.linkID = linkIDFromPacket(pkt)
 	l.initiator = false
 
-	myPubStr := "not_generated_yet"
+	var myPubStr any = "not_generated_yet"
 	if len(l.pub) >= 8 {
-		myPubStr = fmt.Sprintf("%x", l.pub[:8])
+		myPubStr = debug.Hex(l.pub[:8])
 	}
-	debug.Log(debug.DebugVerbose, "Link request processed (responder)", "link_id", fmt.Sprintf("%x", l.linkID), "peer_pub", fmt.Sprintf("%x", peerPub[:8]), "my_pub", myPubStr, "elapsed", time.Since(startTime).Seconds())
+	debug.Log(debug.DebugVerbose, "Link request processed (responder)", "link_id", debug.Hex(l.linkID), "peer_pub", debug.Hex(peerPub[:8]), "my_pub", myPubStr, "elapsed", time.Since(startTime).Seconds())
 
 	if len(pkt.Data) >= ECPubSize+LinkMTUSize {
 		mtuBytes := pkt.Data[ECPubSize : ECPubSize+LinkMTUSize]
@@ -368,7 +368,7 @@ func (l *Link) HandleLinkRequest(pkt *packet.Packet, ownerIdentity *identity.Ide
 		return err
 	}
 
-	debug.Log(debug.DebugVerbose, "Ephemeral keys generated (responder)", "link_id", fmt.Sprintf("%x", l.linkID), "my_pub", fmt.Sprintf("%x", l.pub[:8]), "peer_pub", fmt.Sprintf("%x", l.peerPub[:8]))
+	debug.Log(debug.DebugVerbose, "Ephemeral keys generated (responder)", "link_id", debug.Hex(l.linkID), "my_pub", debug.Hex(l.pub[:8]), "peer_pub", debug.Hex(l.peerPub[:8]))
 
 	if err := l.performHandshake(); err != nil {
 		return fmt.Errorf("handshake failed: %w", err)
@@ -383,7 +383,7 @@ func (l *Link) HandleLinkRequest(pkt *packet.Packet, ownerIdentity *identity.Ide
 	// backbone proof or RTT races are not closed too aggressively.
 	hops := max(int(pkt.Hops), 1)
 	l.establishmentTimeout = time.Duration(float64(hops)*EstablishmentTimeoutPerHop*float64(time.Second)) + l.keepalive
-	debug.Log(debug.DebugVerbose, "Responder establishment timeout configured", "link_id", fmt.Sprintf("%x", l.linkID), "packet_hops", pkt.Hops, "effective_hops", hops, "timeout_sec", l.establishmentTimeout.Seconds())
+	debug.Log(debug.DebugVerbose, "Responder establishment timeout configured", "link_id", debug.Hex(l.linkID), "packet_hops", pkt.Hops, "effective_hops", hops, "timeout_sec", l.establishmentTimeout.Seconds())
 
 	// Register before sending proof so an immediate LRRTT cannot race and miss.
 	if l.transport != nil {
@@ -399,7 +399,7 @@ func (l *Link) HandleLinkRequest(pkt *packet.Packet, ownerIdentity *identity.Ide
 		return fmt.Errorf("failed to send link proof: %w", err)
 	}
 
-	debug.Log(debug.DebugVerbose, "Link proof sent (responder), waiting for RTT", "link_id", fmt.Sprintf("%x", l.linkID), "proof_send_elapsed", time.Since(proofStartTime).Seconds(), "total_elapsed", time.Since(startTime).Seconds())
+	debug.Log(debug.DebugVerbose, "Link proof sent (responder), waiting for RTT", "link_id", debug.Hex(l.linkID), "proof_send_elapsed", time.Since(proofStartTime).Seconds(), "total_elapsed", time.Since(startTime).Seconds())
 
 	return nil
 }
@@ -488,7 +488,7 @@ func (l *Link) performHandshakeLocked() error {
 			securemem.WipeBytes(derivedKey)
 			return err
 		}
-		debug.Log(debug.DebugVerbose, "Session keys derived", "link_id", fmt.Sprintf("%x", l.linkID), "mode", l.mode, "initiator", l.initiator, "key_material_bytes", len(derivedKey))
+		debug.Log(debug.DebugVerbose, "Session keys derived", "link_id", debug.Hex(l.linkID), "mode", l.mode, "initiator", l.initiator, "key_material_bytes", len(derivedKey))
 	} else if len(derivedKey) >= 32 {
 		if err := setSecBuf(&l.hmacKey, derivedKey[0:16]); err != nil {
 			securemem.WipeBytes(derivedKey)
@@ -503,6 +503,6 @@ func (l *Link) performHandshakeLocked() error {
 	l.refreshAESBlockLocked()
 
 	l.status.Store(int32(StatusHandshake))
-	debug.Log(debug.DebugVerbose, "Handshake completed", "key_material_bytes", derivedKeyLength, "link_id", fmt.Sprintf("%x", l.linkID))
+	debug.Log(debug.DebugVerbose, "Handshake completed", "key_material_bytes", derivedKeyLength, "link_id", debug.Hex(l.linkID))
 	return nil
 }

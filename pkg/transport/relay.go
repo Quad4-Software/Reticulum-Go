@@ -299,14 +299,14 @@ func (t *Transport) forwardTransportPacket(pkt *packet.Packet, raw []byte, sourc
 	if !bytes.Equal(pkt.TransportID, ourID) {
 		if debug.Enabled(debug.DebugVerbose) {
 			debug.Log(debug.DebugVerbose, "Transport packet not for us, ignoring",
-				"transport_id", fmt.Sprintf("%x", pkt.TransportID),
-				"our_id", fmt.Sprintf("%x", ourID))
+				"transport_id", debug.Hex(pkt.TransportID),
+				"our_id", debug.Hex(ourID))
 		}
 		return false
 	}
 	if !t.mayRelayForSharedInstanceClient(sourceIface) {
 		debug.Log(debug.DebugInfo, common.MsgTransportLinkRelayDisabled,
-			"dest_hash", fmt.Sprintf("%x", pkt.DestinationHash),
+			"dest_hash", debug.Hex(pkt.DestinationHash),
 			"iface", sourceIface.GetName())
 		return true
 	}
@@ -325,14 +325,14 @@ func (t *Transport) forwardTransportPacket(pkt *packet.Packet, raw []byte, sourc
 	if isLocal {
 		if debug.Enabled(debug.DebugVerbose) {
 			debug.Log(debug.DebugVerbose, "Transport packet absorbed (local destination)",
-				"dest_hash", fmt.Sprintf("%x", destHash))
+				"dest_hash", debug.Hex(destHash))
 		}
 		return false
 	}
 	if !hasPath || path == nil || path.Interface == nil {
 		if allowNoPathLog(destHash, sourceIface.GetName()) {
 			debug.Log(debug.DebugInfo, common.MsgTransportNoPathForLinkRelay,
-				"dest_hash", fmt.Sprintf("%x", destHash),
+				"dest_hash", debug.Hex(destHash),
 				"iface", sourceIface.GetName(),
 				"hint", "call Transport.AwaitPath before Link.Establish")
 		}
@@ -381,7 +381,7 @@ func (t *Transport) forwardTransportPacket(pkt *packet.Packet, raw []byte, sourc
 
 	if debug.Enabled(debug.DebugVerbose) {
 		debug.Log(debug.DebugVerbose, "Relaying transport packet",
-			"dest_hash", fmt.Sprintf("%x", destHash),
+			"dest_hash", debug.Hex(destHash),
 			"out_iface", path.Interface.GetName(),
 			"hops_remaining", path.HopCount,
 			"new_hops", newHops)
@@ -423,7 +423,7 @@ func (t *Transport) forwardLocalClientPacket(pkt *packet.Packet, raw []byte, sou
 	if !hasPath || path == nil || path.Interface == nil {
 		if debug.Enabled(debug.DebugVerbose) {
 			debug.Log(debug.DebugVerbose, "No path for local client packet",
-				"dest_hash", fmt.Sprintf("%x", destHash))
+				"dest_hash", debug.Hex(destHash))
 		}
 		return false
 	}
@@ -457,7 +457,7 @@ func (t *Transport) forwardLocalClientPacket(pkt *packet.Packet, raw []byte, sou
 
 	if debug.Enabled(debug.DebugVerbose) {
 		debug.Log(debug.DebugVerbose, "Forwarding packet from local client",
-			"dest_hash", fmt.Sprintf("%x", destHash),
+			"dest_hash", debug.Hex(destHash),
 			"out_iface", path.Interface.GetName(),
 			"hops", newHops,
 			"path_hops", path.HopCount)
@@ -502,7 +502,7 @@ func (t *Transport) recordLinkRelay(raw []byte, recvIface common.NetworkInterfac
 	}
 	t.linkTable.put(linkID, entry)
 	debug.Log(debug.DebugInfo, "Registered relayed link",
-		"link_id", fmt.Sprintf("%x", linkID),
+		"link_id", debug.Hex(linkID),
 		"remaining_hops", remaining,
 		"recv_iface", recvIface.GetName(),
 		"next_hop_iface", path.Interface.GetName())
@@ -525,7 +525,7 @@ func (t *Transport) forwardLinkData(linkID []byte, raw []byte, sourceIface commo
 	}
 	if !t.mayRelayForSharedInstanceClient(sourceIface, entry.ReceivedIface, entry.NextHopIface) {
 		debug.Log(debug.DebugInfo, common.MsgTransportLinkRelayDisabled,
-			"link_id", fmt.Sprintf("%x", linkID),
+			"link_id", debug.Hex(linkID),
 			"iface", sourceIface.GetName())
 		return true
 	}
@@ -539,7 +539,7 @@ func (t *Transport) forwardLinkData(linkID []byte, raw []byte, sourceIface commo
 		if int(accounted) != entry.RemainingHops && int(accounted) != entry.TakenHops {
 			if debug.Enabled(debug.DebugVerbose) {
 				debug.Log(debug.DebugVerbose, "Link relay hop mismatch on shared iface",
-					"link_id", fmt.Sprintf("%x", linkID),
+					"link_id", debug.Hex(linkID),
 					"accounted_hops", accounted,
 					"taken", entry.TakenHops,
 					"remaining", entry.RemainingHops)
@@ -551,7 +551,7 @@ func (t *Transport) forwardLinkData(linkID []byte, raw []byte, sourceIface commo
 		if int(accounted) != entry.RemainingHops {
 			if debug.Enabled(debug.DebugVerbose) {
 				debug.Log(debug.DebugVerbose, "Link relay hop mismatch from next-hop iface",
-					"link_id", fmt.Sprintf("%x", linkID),
+					"link_id", debug.Hex(linkID),
 					"accounted_hops", accounted,
 					"remaining", entry.RemainingHops)
 			}
@@ -562,7 +562,7 @@ func (t *Transport) forwardLinkData(linkID []byte, raw []byte, sourceIface commo
 		if int(accounted) != entry.TakenHops {
 			if debug.Enabled(debug.DebugVerbose) {
 				debug.Log(debug.DebugVerbose, "Link relay hop mismatch from receive iface",
-					"link_id", fmt.Sprintf("%x", linkID),
+					"link_id", debug.Hex(linkID),
 					"accounted_hops", accounted,
 					"taken", entry.TakenHops)
 			}
@@ -572,7 +572,7 @@ func (t *Transport) forwardLinkData(linkID []byte, raw []byte, sourceIface commo
 	default:
 		if debug.Enabled(debug.DebugVerbose) {
 			debug.Log(debug.DebugVerbose, "Link relay: source iface unknown, dropping",
-				"link_id", fmt.Sprintf("%x", linkID))
+				"link_id", debug.Hex(linkID))
 		}
 		health.Inc("", health.KindLinkRelayUnknownIface)
 		return true
@@ -584,7 +584,7 @@ func (t *Transport) forwardLinkData(linkID []byte, raw []byte, sourceIface commo
 	out := rewriteHopsOnly(raw, accounted)
 	if debug.Enabled(debug.DebugVerbose) {
 		debug.Log(debug.DebugVerbose, "Relaying link data packet",
-			"link_id", fmt.Sprintf("%x", linkID),
+			"link_id", debug.Hex(linkID),
 			"out_iface", outIface.GetName(),
 			"hops", accounted)
 	}
@@ -630,7 +630,7 @@ func (t *Transport) relayBridgedLinkRequest(pkt *packet.Packet, raw []byte, sour
 func (t *Transport) relayBridgedLinkRequestHT1(pkt *packet.Packet, raw []byte, sourceIface common.NetworkInterface) bool {
 	if !t.mayRelayForSharedInstanceClient(sourceIface) {
 		debug.Log(debug.DebugInfo, common.MsgTransportLinkRelayDisabled,
-			"dest_hash", fmt.Sprintf("%x", pkt.DestinationHash),
+			"dest_hash", debug.Hex(pkt.DestinationHash),
 			"iface", sourceIface.GetName())
 		return true
 	}
@@ -648,7 +648,7 @@ func (t *Transport) relayBridgedLinkRequestHT1(pkt *packet.Packet, raw []byte, s
 	if isLocal || !hasPath || path == nil || path.Interface == nil {
 		if !isLocal && allowNoPathLog(destHash, sourceIface.GetName()) {
 			debug.Log(debug.DebugInfo, common.MsgTransportNoPathForLinkRelay,
-				"dest_hash", fmt.Sprintf("%x", destHash),
+				"dest_hash", debug.Hex(destHash),
 				"iface", sourceIface.GetName(),
 				"has_path", hasPath,
 				"hint", "call Transport.AwaitPath before Link.Establish")
@@ -658,7 +658,7 @@ func (t *Transport) relayBridgedLinkRequestHT1(pkt *packet.Packet, raw []byte, s
 	if path.Interface == sourceIface {
 		if debug.Enabled(debug.DebugVerbose) {
 			debug.Log(debug.DebugVerbose, "Bridged link request dropped: ingress equals egress",
-				"dest_hash", fmt.Sprintf("%x", destHash),
+				"dest_hash", debug.Hex(destHash),
 				"iface", sourceIface.GetName())
 		}
 		return true
@@ -689,7 +689,7 @@ func (t *Transport) relayBridgedLinkRequestHT1(pkt *packet.Packet, raw []byte, s
 	t.recordLinkRelay(out, sourceIface, path, int(newHops))
 
 	debug.Log(debug.DebugInfo, "Relaying bridged link request",
-		"dest_hash", fmt.Sprintf("%x", destHash),
+		"dest_hash", debug.Hex(destHash),
 		"out_iface", path.Interface.GetName(),
 		"hops", newHops,
 		"path_hops", path.HopCount,
@@ -798,7 +798,7 @@ func (t *Transport) queueDiscoveryPathRequest(destHash, tag, ext []byte, exclude
 		t.pendingDiscoveryPRMu.Unlock()
 		if debug.Enabled(debug.DebugVerbose) {
 			debug.Log(debug.DebugVerbose, "Discovery PR queue full, dropping",
-				"dest_hash", fmt.Sprintf("%x", destHash))
+				"dest_hash", debug.Hex(destHash))
 		}
 		return
 	}

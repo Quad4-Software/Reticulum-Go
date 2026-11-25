@@ -284,20 +284,14 @@ func (cc *resourceCC) stallGrace(outstandingBytes, hashmapBytes int64, waitingHm
 		// should take a handful of RTTs), bounded to stay responsive on
 		// fast links and patient on slow ones. This mirrors Python's
 		// rtt * TRAFFIC_TIMEOUT_FACTOR first-round timeout.
-		expected = max(time.Duration(6*cc.srtt*float64(time.Second)), ccUnknownExpectedMin)
-		if expected > ccUnknownExpectedMax {
-			expected = ccUnknownExpectedMax
-		}
+		expected = min(max(time.Duration(6*cc.srtt*float64(time.Second)), ccUnknownExpectedMin), ccUnknownExpectedMax)
 	}
 	margin := ccMarginFactor*expected.Seconds() + cc.srtt + ccGraceFloor.Seconds()
 	if reliable {
 		margin *= ccReliableMarginFactor
 	}
 	backoff := min(time.Duration(stalls)*ccPerStallBackoff, ccPerStallBackoffMax)
-	grace := max(time.Duration(margin*float64(time.Second))+backoff, ccGraceFloor)
-	if grace > ccGraceMax {
-		grace = ccGraceMax
-	}
+	grace := min(max(time.Duration(margin*float64(time.Second))+backoff, ccGraceFloor), ccGraceMax)
 	return grace
 }
 

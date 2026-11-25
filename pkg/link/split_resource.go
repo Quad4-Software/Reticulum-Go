@@ -294,7 +294,7 @@ func (l *Link) handleSplitSegmentInMemory(payload []byte, adv *resource.Resource
 		debug.Log(debug.DebugInfo, "Resource segment received waiting for next",
 			"segment", adv.SegmentIndex,
 			"total", adv.TotalSegments,
-			"original", fmt.Sprintf("%x", adv.OriginalHash),
+			"original", debug.Hex(adv.OriginalHash),
 			"storage", "memory")
 		return nil
 	}
@@ -388,7 +388,7 @@ func (l *Link) handleSplitSegmentOnDisk(payload []byte, adv *resource.ResourceAd
 		debug.Log(debug.DebugInfo, "Resource segment received waiting for next",
 			"segment", adv.SegmentIndex,
 			"total", adv.TotalSegments,
-			"original", fmt.Sprintf("%x", adv.OriginalHash))
+			"original", debug.Hex(adv.OriginalHash))
 		return nil
 	}
 

@@ -5,7 +5,6 @@ package transport
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"time"
 
@@ -111,7 +110,7 @@ func (t *Transport) prStampWorker() {
 			cancel()
 			if err != nil || len(stamp) == 0 {
 				debug.Log(debug.DebugWarning, "Could not generate path request stamp, emission cancelled",
-					"dest_hash", fmt.Sprintf("%x", job.destHash), "error", err)
+					"dest_hash", debug.Hex(job.destHash), "error", err)
 				continue
 			}
 			t.prStamps.put(material, stamp)
@@ -119,7 +118,7 @@ func (t *Transport) prStampWorker() {
 		ext := append([]byte{stamps.ExtPayloadMarker, 0x00}, stamp...)
 		if err := t.requestPath(job.destHash, job.ifaceName, job.tag, ext, job.recursive); err != nil {
 			debug.Log(debug.DebugVerbose, "Stamped path request send failed",
-				"dest_hash", fmt.Sprintf("%x", job.destHash), "error", err)
+				"dest_hash", debug.Hex(job.destHash), "error", err)
 		}
 	}
 }

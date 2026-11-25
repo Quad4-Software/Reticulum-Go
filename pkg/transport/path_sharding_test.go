@@ -207,6 +207,41 @@ func TestPathRemovedWithInterface(t *testing.T) {
 	}
 }
 
+// TestUnusedPathPoolCullDeferredAtStartup verifies the Python startup
+// deferment: the first pool-size cull is due only after
+// pool_size_check_interval, not on the first table cleanup.
+func TestUnusedPathPoolCullDeferredAtStartup(t *testing.T) {
+	oldMax := PathPoolUnusedMax
+	oldMin := PathPoolUnusedMin
+	PathPoolUnusedMax = 0
+	PathPoolUnusedMin = 0
+	t.Cleanup(func() {
+		PathPoolUnusedMax = oldMax
+		PathPoolUnusedMin = oldMin
+	})
+
+	tr := newShardingTransport(t)
+	iface := fastIface("pool_startup")
+	if err := tr.RegisterInterface("pool_startup", iface); err != nil {
+		t.Fatalf("RegisterInterface: %v", err)
+	}
+	dest := bytes.Repeat([]byte{0xB0}, 16)
+	tr.UpdatePath(dest, bytes.Repeat([]byte{0xB6}, 16), "pool_startup", 1)
+
+	tr.cleanupExpiredPaths()
+	if pathFor(t, tr, dest) == nil {
+		t.Fatal("startup cleanup ran the deferred unused-path pool cull")
+	}
+
+	tr.mutex.Lock()
+	tr.pathPoolLastChecked = time.Time{}
+	tr.mutex.Unlock()
+	tr.cleanupExpiredPaths()
+	if pathFor(t, tr, dest) != nil {
+		t.Fatal("unused path survived after pool cull became due")
+	}
+}
+
 // TestUnusedPathPoolCull verifies the never-used pool is culled down to
 // PATH_POOL_UNUSED_TARGET, non-slow interfaces first and oldest expiry
 // first (Python unused_paths.sort() order).

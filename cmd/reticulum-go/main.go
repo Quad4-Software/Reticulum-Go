@@ -99,6 +99,7 @@ func runDaemonCLI(args []string) int {
 
 func runDaemon(opts daemonOptions) int {
 	debug.Init()
+	common.ApplyDefaultGCPercent()
 
 	// Disable core dumps and dumpability so long-term secrets cannot leave
 	// the process through a core file. RETICULUM_DISABLE_HARDEN=1 opts out

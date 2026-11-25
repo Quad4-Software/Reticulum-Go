@@ -101,7 +101,7 @@ func loadOrCreateNetworkIdentity(path string) (*identity.Identity, error) {
 	if err := id.ToFile(path); err != nil {
 		return nil, fmt.Errorf("write network identity %s: %w", path, err)
 	}
-	debug.Log(debug.DebugInfo, "Created network identity", "path", path, "hash", fmt.Sprintf("%x", id.Hash()))
+	debug.Log(debug.DebugInfo, "Created network identity", "path", path, "hash", debug.Hex(id.Hash()))
 	return id, nil
 }
 
@@ -140,8 +140,8 @@ func (t *Transport) registerNetworkDestinations(id *identity.Identity) error {
 	t.appendMgmtDestination(instanceDest)
 
 	debug.Log(debug.DebugInfo, "Registered network destinations",
-		"network", fmt.Sprintf("%x", networkDest.GetHash()),
-		"instance", fmt.Sprintf("%x", instanceDest.GetHash()))
+		"network", debug.Hex(networkDest.GetHash()),
+		"instance", debug.Hex(instanceDest.GetHash()))
 	return nil
 }
 

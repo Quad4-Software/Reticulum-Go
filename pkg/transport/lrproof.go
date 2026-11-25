@@ -4,8 +4,6 @@
 package transport
 
 import (
-	"fmt"
-
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/common"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/debug"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/health"
@@ -50,7 +48,7 @@ func (t *Transport) validateAndForwardLRProof(pkt *packet.Packet, iface common.N
 			}
 			health.Inc(ifaceName, health.KindLRProofHopMismatch)
 			debug.Log(debug.DebugInfo, "LRPROOF hop mismatch, not transporting",
-				"link_id", fmt.Sprintf("%x", linkID),
+				"link_id", debug.Hex(linkID),
 				"accounted", accounted,
 				"remaining", entry.RemainingHops)
 			return true
@@ -62,7 +60,7 @@ func (t *Transport) validateAndForwardLRProof(pkt *packet.Packet, iface common.N
 	}
 	if iface != entry.NextHopIface {
 		debug.Log(debug.DebugInfo, "LRPROOF received on wrong interface, not transporting",
-			"link_id", fmt.Sprintf("%x", linkID))
+			"link_id", debug.Hex(linkID))
 		return true
 	}
 
@@ -71,7 +69,7 @@ func (t *Transport) validateAndForwardLRProof(pkt *packet.Packet, iface common.N
 	maxLen := minLen + lrProofMTUSize
 	if len(pkt.Data) != minLen && len(pkt.Data) != maxLen {
 		debug.Log(debug.DebugInfo, "LRPROOF data length invalid for transport",
-			"link_id", fmt.Sprintf("%x", linkID),
+			"link_id", debug.Hex(linkID),
 			"data_len", len(pkt.Data))
 		return true
 	}
@@ -79,7 +77,7 @@ func (t *Transport) validateAndForwardLRProof(pkt *packet.Packet, iface common.N
 	peerIdent, err := identity.Recall(entry.DestinationHash)
 	if err != nil || peerIdent == nil {
 		debug.Log(debug.DebugInfo, "LRPROOF cannot recall destination identity",
-			"dest_hash", fmt.Sprintf("%x", entry.DestinationHash),
+			"dest_hash", debug.Hex(entry.DestinationHash),
 			"error", err)
 		return true
 	}
@@ -105,7 +103,7 @@ func (t *Transport) validateAndForwardLRProof(pkt *packet.Packet, iface common.N
 
 	if !peerIdent.Verify(signed, signature) {
 		debug.Log(debug.DebugInfo, "Invalid LRPROOF signature in transport, dropping",
-			"link_id", fmt.Sprintf("%x", linkID))
+			"link_id", debug.Hex(linkID))
 		return true
 	}
 
@@ -118,7 +116,7 @@ func (t *Transport) validateAndForwardLRProof(pkt *packet.Packet, iface common.N
 	}
 	out := rewriteHopsOnly(pkt.Raw, accounted)
 	debug.Log(debug.DebugInfo, "LRPROOF validated for transport",
-		"link_id", fmt.Sprintf("%x", linkID),
+		"link_id", debug.Hex(linkID),
 		"out_iface", entry.ReceivedIface.GetName())
 	if err := sendOnInterface(entry.ReceivedIface, out, ""); err != nil {
 		debug.Log(debug.DebugError, "Failed to transport LRPROOF", "error", err)
@@ -169,7 +167,7 @@ func (t *Transport) tryTransitLRProofRebalance(pkt *packet.Packet, iface common.
 	signed = append(signed, signalling...)
 	if !peerIdent.Verify(signed, signature) {
 		debug.Log(debug.DebugInfo, "Aborting LRPROOF path rebalance due to invalid signature",
-			"link_id", fmt.Sprintf("%x", linkID))
+			"link_id", debug.Hex(linkID))
 		return false
 	}
 	if !t.applyPathHopRebalance(entry.DestinationHash, accounted, iface) {
@@ -179,7 +177,7 @@ func (t *Transport) tryTransitLRProofRebalance(pkt *packet.Packet, iface common.
 		return false
 	}
 	debug.Log(debug.DebugInfo, "Re-balancing path from transit link-request proof",
-		"link_id", fmt.Sprintf("%x", linkID),
+		"link_id", debug.Hex(linkID),
 		"dest", pathHex(entry.DestinationHash),
 		"to", accounted)
 	return true

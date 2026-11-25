@@ -401,13 +401,13 @@ func (t *Transport) emitAnnounceTableEntry(key hash16, entry *PathAnnounceEntry)
 	raw, err := t.buildPathResponseWire(entry)
 	if err != nil {
 		debug.Log(debug.DebugVerbose, "Failed to build path response announce",
-			"dest_hash", fmt.Sprintf("%x", entry.Packet.DestinationHash), "error", err)
+			"dest_hash", debug.Hex(entry.Packet.DestinationHash), "error", err)
 		return
 	}
 
 	if debug.Enabled(debug.DebugInfo) {
 		debug.Log(debug.DebugInfo, "Rebroadcasting announce as path response",
-			"dest_hash", fmt.Sprintf("%x", entry.Packet.DestinationHash),
+			"dest_hash", debug.Hex(entry.Packet.DestinationHash),
 			"hops", entry.AnnounceHops,
 			"iface", entry.AttachedInterface.GetName())
 	}
@@ -427,7 +427,7 @@ func (t *Transport) emitAnnounceTableEntry(key hash16, entry *PathAnnounceEntry)
 		t.announceTable[key] = held
 		if debug.Enabled(debug.DebugVerbose) {
 			debug.Log(debug.DebugVerbose, "Reinserting held announce into table",
-				"dest_hash", fmt.Sprintf("%x", entry.Packet.DestinationHash))
+				"dest_hash", debug.Hex(entry.Packet.DestinationHash))
 		}
 	} else if cur, ok := t.announceTable[key]; ok && cur == entry && entry.BlockRebroadcasts {
 		// Path responses are one-shot for the attached interface.

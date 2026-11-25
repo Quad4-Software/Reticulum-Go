@@ -4,7 +4,6 @@
 package transport
 
 import (
-	"fmt"
 	"time"
 
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/common"
@@ -33,23 +32,23 @@ func (t *Transport) handleUnvalidatedLinkExpiry(entry *LinkRelayEntry) {
 	if !t.HasPath(dest) {
 		needPR = true
 		debug.Log(debug.DebugInfo, "Rediscovering path after failed link (path missing)",
-			"dest", fmt.Sprintf("%x", dest))
+			"dest", debug.Hex(dest))
 	} else if !throttled && entry.TakenHops == 0 && t.HopsTo(dest) != 0 {
 		needPR = true
 		debug.Log(debug.DebugInfo, "Rediscovering path after failed local-client link",
-			"dest", fmt.Sprintf("%x", dest))
+			"dest", debug.Hex(dest))
 	} else if !throttled && t.HopsTo(dest) == 1 {
 		needPR = true
 		markUnresponsive = true
 		blockedIface = entry.ReceivedIface
 		debug.Log(debug.DebugInfo, "Rediscovering path after failed 1-hop link",
-			"dest", fmt.Sprintf("%x", dest))
+			"dest", debug.Hex(dest))
 	} else if !throttled && entry.TakenHops == 1 {
 		needPR = true
 		markUnresponsive = true
 		blockedIface = entry.ReceivedIface
 		debug.Log(debug.DebugInfo, "Rediscovering path after failed link with local initiator",
-			"dest", fmt.Sprintf("%x", dest))
+			"dest", debug.Hex(dest))
 	}
 
 	if markUnresponsive && t.transportEnabled() {
@@ -61,7 +60,7 @@ func (t *Transport) handleUnvalidatedLinkExpiry(entry *LinkRelayEntry) {
 	if needPR {
 		if err := t.RequestPath(dest, "", nil, true); err != nil {
 			debug.Log(debug.DebugInfo, "Path rediscovery after link expiry failed",
-				"dest", fmt.Sprintf("%x", dest), "error", err)
+				"dest", debug.Hex(dest), "error", err)
 		}
 	}
 
