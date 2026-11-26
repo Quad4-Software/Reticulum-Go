@@ -44,7 +44,7 @@ func RunSnapshot(args []string, opt ...Options) int {
 	stdout, stderr := cliIO(opt)
 	fs := flag.NewFlagSet("rgosnap", flag.ContinueOnError)
 	fs.SetOutput(stderr)
-	configDir := fs.String("config", "", "path to config directory")
+	configDir := fs.String("config", "", "path to config file or directory")
 	maxHops := fs.Int("max-hops", 0, "omit paths with more hops than this (0 means no filter)")
 	timeout := fs.Duration("timeout", 10*time.Second, "RPC timeout")
 	quiet := fs.Bool("q", false, "quiet: suppress stderr hints")
@@ -57,7 +57,7 @@ func RunSnapshot(args []string, opt ...Options) int {
 		"rgosnap",
 		"rgosnap -max-hops 8",
 	)
-	if err := fs.Parse(args); err != nil {
+	if err := parseAll(fs, args); err != nil {
 		return 2
 	}
 

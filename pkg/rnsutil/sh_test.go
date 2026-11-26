@@ -38,3 +38,28 @@ func TestRgoshAppMismatchDetectsRnsh(t *testing.T) {
 		t.Fatalf("detect rgosh: compat=%v app=%q ok=%v", compat, app, ok)
 	}
 }
+
+func TestParseAllowedIdentityHashForms(t *testing.T) {
+	const bare = "00112233445566778899aabbccddeeff"
+	for _, text := range []string{bare, "<" + bare + ">"} {
+		h, err := parseAllowedIdentityHash(text)
+		if err != nil {
+			t.Fatalf("%s: %v", text, err)
+		}
+		if len(h) != 16 {
+			t.Fatalf("%s decoded len=%d", text, len(h))
+		}
+	}
+}
+
+func TestParseAllowedIdentityHashRejectsTruncated(t *testing.T) {
+	for _, text := range []string{"001122", "<001122...>"} {
+		_, err := parseAllowedIdentityHash(text)
+		if err == nil {
+			t.Fatalf("%s accepted", text)
+		}
+		if err.Error() != "hash truncated, use full 32 hex chars" {
+			t.Fatalf("%s error=%q", text, err)
+		}
+	}
+}

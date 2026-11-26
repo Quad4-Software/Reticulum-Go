@@ -4,7 +4,7 @@
 
 description="Reticulum-Go network daemon"
 command="@BINDIR@/reticulum-go"
-command_args="daemon --config /var/lib/reticulum-go/config"
+command_args="daemon --config /var/lib/reticulum-go"
 command_background=yes
 pidfile="/run/reticulum-go.pid"
 directory="/var/lib/reticulum-go"

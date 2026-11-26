@@ -6,7 +6,7 @@
 .Nd show Reticulum interface and transport status
 .Sh SYNOPSIS
 .Nm reticulum-go Cm status
-.Op Fl config Ar dir
+.Op Fl config Ar path
 .Op Fl json
 .Op Fl a
 .Op Fl n Ar filter
@@ -24,8 +24,8 @@ integrity fail rate, and stale link closes. Python
 does not populate those fields.
 .Sh OPTIONS
 .Bl -tag -width "-timeout duration"
-.It Fl config Ar dir
-Config directory (default
+.It Fl config Ar path
+Config file or directory (default
 .Pa ~/.reticulum-go ) .
 .It Fl json
 Emit JSON.
@@ -48,6 +48,13 @@ Sort ascending (default descending).
 .It Fl timeout Ar duration
 RPC timeout (default 10s).
 .El
+.Sh FLAG PARSING
+Flags may appear before, between, or after positional arguments. A literal
+.Cm --
+ends flag parsing. The
+.Fl config
+option accepts a config file or a directory. A directory uses the file named
+config inside it.
 .Sh SEE ALSO
 .Xr reticulum-go 1
 .Sh AUTHORS

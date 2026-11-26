@@ -1,0 +1,34 @@
+.Dd November 26, 2026
+.Dt RETICULUM-GO-COMPLETION 1
+.Os
+.Sh NAME
+.Nm reticulum-go-completion
+.Nd print shell completion scripts
+.Sh SYNOPSIS
+.Nm reticulum-go Cm completion
+.Cm bash | zsh | fish
+.Sh DESCRIPTION
+Prints a shell completion script on standard output.
+The script is generated from the same flag sets used by the tools.
+It completes subcommands, flag names, and file paths for flags that take paths.
+.Pp
+Bash example:
+.Bd -literal -offset indent
+reticulum-go completion bash > ~/.local/share/bash-completion/completions/reticulum-go
+.Ed
+.Pp
+Zsh example:
+.Bd -literal -offset indent
+reticulum-go completion zsh > ~/.zsh/site-functions/_reticulum-go
+.Ed
+.Pp
+Fish example:
+.Bd -literal -offset indent
+reticulum-go completion fish > ~/.config/fish/completions/reticulum-go.fish
+.Ed
+.Pp
+Linux packages install the bash, zsh, and fish scripts under the system completion directories.
+.Sh SEE ALSO
+.Xr reticulum-go 1
+.Sh AUTHORS
+.An Quad4.io

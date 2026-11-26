@@ -6,8 +6,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"strconv"
-	"strings"
 
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/cli"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/term"
@@ -22,64 +20,32 @@ type daemonOptions struct {
 
 // parseDaemonFlags handles flags when the daemon subcommand (or bare binary) is selected.
 func parseDaemonFlags(args []string) (opts daemonOptions, run bool, exitCode int) {
-	opts.DebugLevel = -1
-	i := 0
-	for i < len(args) {
-		arg := args[i]
-		switch {
-		case arg == "-h" || arg == "--help" || arg == "-?":
-			_ = cli.Main([]string{"--help"}, cli.Options{
-				Stdout:      os.Stdout,
-				VersionLine: versionLine(),
-			})
-			return opts, false, 0
-		case arg == "-v" || arg == "--version":
-			printVersion(os.Stdout)
-			return opts, false, 0
-		case arg == "-config" || arg == "--config":
-			if i+1 >= len(args) {
-				fmt.Fprintln(os.Stderr, term.Red(os.Stderr, arg+" requires a path"))
-				return opts, false, 2
-			}
-			i++
-			opts.ConfigPath = args[i]
-		case strings.HasPrefix(arg, "-config="):
-			opts.ConfigPath = strings.TrimPrefix(arg, "-config=")
-		case strings.HasPrefix(arg, "--config="):
-			opts.ConfigPath = strings.TrimPrefix(arg, "--config=")
-		case arg == "-debug" || arg == "--debug":
-			if i+1 >= len(args) {
-				fmt.Fprintln(os.Stderr, term.Red(os.Stderr, arg+" requires a level 0-7"))
-				return opts, false, 2
-			}
-			i++
-			n, err := strconv.Atoi(args[i])
-			if err != nil || n < 0 || n > 7 {
-				fmt.Fprintln(os.Stderr, term.Red(os.Stderr, fmt.Sprintf("invalid debug level %q", args[i])))
-				return opts, false, 2
-			}
-			opts.DebugLevel = n
-		case strings.HasPrefix(arg, "-debug="):
-			n, err := strconv.Atoi(strings.TrimPrefix(arg, "-debug="))
-			if err != nil || n < 0 || n > 7 {
-				fmt.Fprintln(os.Stderr, term.Red(os.Stderr, "invalid debug level"))
-				return opts, false, 2
-			}
-			opts.DebugLevel = n
-		case strings.HasPrefix(arg, "--debug="):
-			n, err := strconv.Atoi(strings.TrimPrefix(arg, "--debug="))
-			if err != nil || n < 0 || n > 7 {
-				fmt.Fprintln(os.Stderr, term.Red(os.Stderr, "invalid debug level"))
-				return opts, false, 2
-			}
-			opts.DebugLevel = n
-		case arg == "-json-logs" || arg == "--json-logs":
-			opts.JSONLogs = true
-		default:
-			fmt.Fprintln(os.Stderr, term.Red(os.Stderr, fmt.Sprintf("unknown daemon arguments: %q", arg)))
-			return opts, false, 2
-		}
-		i++
+	fs, values := cli.NewDaemonFlagSet()
+	if err := fs.Parse(args); err != nil {
+		fmt.Fprintln(os.Stderr, term.Red(os.Stderr, err.Error()))
+		return opts, false, 2
 	}
+	if len(fs.Args()) > 0 {
+		fmt.Fprintln(os.Stderr, term.Red(os.Stderr, fmt.Sprintf("unknown daemon arguments: %q", fs.Args()[0])))
+		return opts, false, 2
+	}
+	if values.Help {
+		_ = cli.Main([]string{"--help"}, cli.Options{
+			Stdout:      os.Stdout,
+			VersionLine: versionLine(),
+		})
+		return opts, false, 0
+	}
+	if values.Version {
+		printVersion(os.Stdout)
+		return opts, false, 0
+	}
+	if values.DebugLevel < -1 || values.DebugLevel > 7 {
+		fmt.Fprintln(os.Stderr, term.Red(os.Stderr, fmt.Sprintf("invalid debug level %d", values.DebugLevel)))
+		return opts, false, 2
+	}
+	opts.ConfigPath = values.ConfigPath
+	opts.DebugLevel = values.DebugLevel
+	opts.JSONLogs = values.JSONLogs
 	return opts, true, 0
 }

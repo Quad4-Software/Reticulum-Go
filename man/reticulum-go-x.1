@@ -1,4 +1,4 @@
-.Dd July 17, 2026
+.Dd November 26, 2026
 .Dt RETICULUM-GO-X 1
 .Os
 .Sh NAME
@@ -9,32 +9,58 @@
 .Op Fl l
 .Op Fl x
 .Op Fl json
-.Op Fl config Ar dir
+.Op Fl config Ar path
 .Op Ar destination_hash command
 .Sh DESCRIPTION
 Executes commands on a remote
 .Nm rnx.execute
-listener over an established Reticulum link.
-Wire-compatible with Python
-.Nm rnx
-(request path
-.Dq command ,
-5-field request and 8-field response).
-.Pp
-Listen mode
-.Pq Fl l
-registers the handler and optionally announces.
-Execute mode takes a destination hash and command.
-.Fl json
-emits a structured result for scripting.
-.Fl m
-mirrors the remote process exit code.
-.Pp
-Run with
-.Fl h
-for the full flag list.
+listener over an established Reticulum link. The wire format is compatible with
+Python rnx.
+.Sh FLAG PARSING
+Before the first positional argument, all flags belong to rgox. After the first
+positional argument, only multi-letter rgox flags are still parsed. Single-letter
+arguments there belong to the remote command. Once remote command text begins,
+every remaining argument belongs to the remote command. A literal
+.Cm --
+ends flag parsing.
+.Sh OPTIONS
+.Bl -tag -width "--stdout"
+.It Fl config Ar path
+Config file or directory. A directory uses the file named config inside it.
+.It Fl p
+Print the full identity hash and full destination hash, then exit. With
+.Fl json ,
+print one JSON object with plain hex values and no angle brackets.
+.It Fl m
+Mirror the remote exit code as the local exit code. Without it, client failure
+codes follow the Python rnx ranges instead.
+.It Fl b
+Do not announce when listen mode starts.
+.It Fl a Ar hash
+Allowed remote identity hash. Repeatable. Bare 32-character hex and angle-bracketed
+hex are accepted. Truncated hashes are rejected.
+.It Fl n
+Accept commands from anyone in listen mode.
+.It Fl json
+Emit a structured result. With
+.Fl p ,
+emit the machine-readable identity object.
+.El
+.Sh ALLOWED IDENTITIES
+Listen mode reads
+.Pa /etc/rnx/allowed_identities ,
+.Pa ~/.config/rnx/allowed_identities ,
+.Pa ~/.rnx/allowed_identities ,
+.Pa ~/.config/rgox/allowed_identities ,
+and
+.Pa ~/.rgox/allowed_identities .
+Each line contains one full 32-character hexadecimal identity hash. Angle brackets
+are accepted. Blank lines and lines whose first non-space character is
+.Cm #
+are ignored. Invalid lines are skipped.
 .Sh SEE ALSO
 .Xr reticulum-go 1 ,
+.Xr reticulum-go-sh 1 ,
 .Xr reticulum-go-cp 1
 .Sh AUTHORS
 .An Quad4.io

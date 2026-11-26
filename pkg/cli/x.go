@@ -6,6 +6,7 @@ package cli
 import (
 	"bufio"
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -31,7 +32,7 @@ func RunX(args []string, opt ...Options) int {
 	fs := flag.NewFlagSet("rgox", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 
-	configDir := fs.String("config", "", "path to config directory")
+	configDir := fs.String("config", "", "path to config file or directory")
 	identityPath := fs.String("i", "", "path to identity file")
 	listenMode := fs.Bool("l", false, "listen for incoming commands")
 	printID := fs.Bool("p", false, "print identity and destination hash then exit")
@@ -62,7 +63,7 @@ func RunX(args []string, opt ...Options) int {
 		"rgox -l",
 	)
 
-	if err := fs.Parse(args); err != nil {
+	if err := parseInterspersed(fs, args); err != nil {
 		return 2
 	}
 
@@ -86,8 +87,15 @@ func RunX(args []string, opt ...Options) int {
 
 	if *printID {
 		destHash := destination.Hash(id, rnsutil.RNXAppName, rnsutil.RNXAspect)
-		_, _ = fmt.Fprintf(stdout, "%s : %s\n", infoMsg(stdout, "Identity"), rnsutil.PrettyHex(id.Hash()))
-		_, _ = fmt.Fprintf(stdout, "%s : %s\n", infoMsg(stdout, "Listening on"), rnsutil.PrettyHex(destHash))
+		identityHex := rnsutil.FullHex(id.Hash())
+		plainIdentityHex := hex.EncodeToString(id.Hash())
+		destHex := rnsutil.FullHex(destHash)
+		if *jsonOut {
+			_, _ = fmt.Fprintf(stdout, "{\"identity\":\"%s\",\"destination\":\"%s\"}\n", plainIdentityHex, hex.EncodeToString(destHash))
+			return 0
+		}
+		_, _ = fmt.Fprintf(stdout, "%s : %s\n", infoMsg(stdout, "Identity"), identityHex)
+		_, _ = fmt.Fprintf(stdout, "%s : %s\n", infoMsg(stdout, "Listening on"), destHex)
 		return 0
 	}
 
@@ -234,7 +242,7 @@ func runXListen(tr *transport.Transport, id *identity.Identity, opts xListenOpts
 		return rnsutil.PackRNXResult(res)
 	}, allowMode, allowList)
 
-	_, _ = fmt.Fprintln(stderr, okMsg(stderr, fmt.Sprintf("rgox listening for commands on %s", rnsutil.PrettyHex(dest.GetHash()))))
+	_, _ = fmt.Fprintln(stderr, okMsg(stderr, fmt.Sprintf("rgox listening for commands on %s", rnsutil.FullHex(dest.GetHash()))))
 	if !opts.noAnnounce {
 		_ = dest.Announce(false, nil, nil)
 	}

@@ -38,7 +38,7 @@ func RunDump(args []string, opt ...Options) int {
 		"rgodump -hex deadbeef",
 		"rgodump -pcap capture.pcap -pretty",
 	)
-	if err := fs.Parse(args); err != nil {
+	if err := parseAll(fs, args); err != nil {
 		return 2
 	}
 

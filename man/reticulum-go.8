@@ -17,7 +17,12 @@ shared-instance RPC, optional control API, and optional sandbox.
 .Pp
 Configuration is loaded from
 .Pa ~/.reticulum-go/config .
-On first run a default config is created if missing.
+On first run a default config is created if missing. The daemon
+.Fl config
+option accepts a config file or a directory. A directory uses the file named
+config inside it. The packaged init units pass
+.Pa /var/lib/reticulum-go
+as the config directory.
 .Pp
 On Unix, SIGHUP reloads interface configuration where supported.
 .Pp

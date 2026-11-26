@@ -5,4 +5,4 @@ exec 2>&1
 mkdir -p /var/lib/reticulum-go/logfile
 export HOME=/var/lib/reticulum-go
 cd /var/lib/reticulum-go || exit 1
-exec @BINDIR@/reticulum-go daemon --config /var/lib/reticulum-go/config
+exec @BINDIR@/reticulum-go daemon --config /var/lib/reticulum-go

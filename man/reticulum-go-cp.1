@@ -1,4 +1,4 @@
-.Dd July 17, 2026
+.Dd November 26, 2026
 .Dt RETICULUM-GO-CP 1
 .Os
 .Sh NAME
@@ -8,8 +8,7 @@
 .Nm reticulum-go Cm cp
 .Op Fl l
 .Op Fl f
-.Op Fl F Ar remote_path
-.Op Fl config Ar dir
+.Op Fl config Ar path
 .Op Ar ...
 .Sh DESCRIPTION
 Transfers files over established Reticulum links.
@@ -20,10 +19,39 @@ Fetch mode
 .Pq Fl f
 requests a remote path.
 Without those flags, files are sent to a destination.
-.Pp
-Run with
-.Fl h
-for the full flag list.
+.Sh FLAG PARSING
+Flags may appear before, between, or after positional arguments. A literal
+.Cm --
+ends flag parsing.
+.Sh OPTIONS
+.Bl -tag -width "--no-compress"
+.It Fl config Ar path
+Config file or directory. A directory uses the file named config inside it.
+.It Fl p
+Print the full identity hash and full destination hash, then exit. With
+.Fl json ,
+print one JSON object with plain hex values and no angle brackets.
+.It Fl b Ar seconds , Fl announce Ar seconds
+Listen announce interval. Zero announces once at startup. Negative values disable
+announces. Positive values repeat at that interval.
+.It Fl a Ar hash
+Allowed remote identity hash. Repeatable. Bare 32-character hex and angle-bracketed
+hex are accepted. Truncated hashes are rejected.
+.It Fl n , Fl no-auth
+Accept requests from anyone in listen mode.
+.El
+.Sh ALLOWED IDENTITIES
+Listen mode reads
+.Pa /etc/rncp/allowed_identities ,
+.Pa ~/.config/rncp/allowed_identities ,
+.Pa ~/.rncp/allowed_identities ,
+.Pa ~/.config/rgocp/allowed_identities ,
+and
+.Pa ~/.rgocp/allowed_identities .
+Each line contains one full 32-character hexadecimal identity hash. Angle brackets
+are accepted. Blank lines and lines whose first non-space character is
+.Cm #
+are ignored. Invalid lines are skipped.
 .Sh SEE ALSO
 .Xr reticulum-go 1
 .Sh AUTHORS

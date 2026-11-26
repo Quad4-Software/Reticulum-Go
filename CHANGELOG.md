@@ -2,8 +2,15 @@
 
 ## v1.6.2 - unreleased
 
+### Added
+
+- `reticulum-go completion bash|zsh|fish` prints shell completions generated from the live flag sets. Linux packages install the bash, zsh, and fish scripts.
+- `rgosh -p -json`, `rgocp -p -json`, and `rgox -p -json` print full identity and destination hashes as JSON without angle brackets. `rgoid -p -json` prints the identity and public key, and private key material stays gated behind `-P`.
+- The rgosh remote-exit timeout now reports whether the link is still active and whether stdout EOF, stderr EOF, and the exit message arrived.
+
 ### Changed
 
+- Reticulum tool `-config` flags accept a config file or a directory. rgosh and rgox keep parsing multi-letter tool flags immediately after the first positional argument, while single-letter arguments there belong to the remote command. Their `-a` values accept bare or angle-bracketed full hashes and reject truncated hashes with a clear error.
 - The protocols module and the msgpack, bzip2, pbt and tagparser dependencies moved to the self-hosted Forgejo at git.quad4.io. Import paths are now `git.quad4.io/reticulum/Reticulum-Go/protocols`, `git.quad4.io/libraries/msgpack/v5` v5.9.3, `git.quad4.io/libraries/bzip2` v1.0.2, `git.quad4.io/libraries/pbt` v1.0.3 and `git.quad4.io/libraries/tagparser/v2` v2.2.2, replacing the github.com/Quad4-Software paths.
 
 ### Fixed

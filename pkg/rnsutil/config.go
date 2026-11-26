@@ -21,6 +21,9 @@ func LoadConfigDir(dir string) (*common.ReticulumConfig, error) {
 		return reticulumconfig.InitConfig()
 	}
 	path := filepath.Join(dir, reticulumconfig.DefaultConfigFileName)
+	if fi, err := os.Stat(dir); err == nil && !fi.IsDir() {
+		path = dir
+	}
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		return nil, fmt.Errorf("config not found: %s", path)
 	}

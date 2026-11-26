@@ -88,7 +88,7 @@ reticulum-go --config /path/to/config-dir
 
 ### Custom config path
 
-Pass --config / -config with a config file or directory (directory uses config inside it).
+Pass --config / -config with a config file or directory (directory uses config inside it). The packaged systemd, OpenRC, runit, and dinit units pass the directory form, `/var/lib/reticulum-go`.
 
 ## Minimal configuration
 

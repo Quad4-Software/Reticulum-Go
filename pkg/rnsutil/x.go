@@ -108,7 +108,7 @@ func LoadRNXAllowedIdentities(extra []string) ([][]byte, error) {
 		}
 	}
 	for _, a := range extra {
-		h, err := ParseDestHash(strings.TrimSpace(a))
+		h, err := parseAllowedIdentityHash(a)
 		if err != nil {
 			return nil, fmt.Errorf("allowed identity %q: %w", a, err)
 		}

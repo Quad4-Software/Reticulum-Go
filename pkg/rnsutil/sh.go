@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/destination"
@@ -89,7 +88,7 @@ func LoadRgoshAllowedIdentities(extra []string) ([][]byte, error) {
 		}
 	}
 	for _, a := range extra {
-		h, err := ParseDestHash(strings.TrimSpace(a))
+		h, err := parseAllowedIdentityHash(a)
 		if err != nil {
 			return nil, fmt.Errorf("allowed identity %q: %w", a, err)
 		}
@@ -130,7 +129,18 @@ func EstablishRgoshLink(ctx context.Context, tr *transport.Transport, destHash [
 		}
 	}
 	l := link.NewLink(outDest, tr, nil, nil, nil)
-	if err := activateOutboundLink(ctx, l); err != nil {
+	err = activateOutboundLink(ctx, l)
+	if err != nil && ctx.Err() == nil {
+		// A path learned before the listener restarted can be stale until
+		// the next announce. Drop it, ask the network again, retry once.
+		tr.ExpirePath(linkHash)
+		_ = tr.RequestPath(linkHash, "", nil, false)
+		if perr := WaitPathWindow(ctx, tr, linkHash); perr == nil {
+			l = link.NewLink(outDest, tr, nil, nil, nil)
+			err = activateOutboundLink(ctx, l)
+		}
+	}
+	if err != nil {
 		return nil, fmt.Errorf("link: %w", err)
 	}
 	return l, nil

@@ -6,11 +6,18 @@
 .Nd dump effective config and RPC diagnostics
 .Sh SYNOPSIS
 .Nm reticulum-go Cm debug
-.Op Fl config Ar dir
+.Op Fl config Ar path
 .Op Fl json
 .Op Fl rates
 .Sh DESCRIPTION
 Prints config path, log level, platform, and shared-instance RPC reachability.
+.Sh FLAG PARSING
+Flags may appear before, between, or after positional arguments. A literal
+.Cm --
+ends flag parsing. The
+.Fl config
+option accepts a config file or a directory. A directory uses the file named
+config inside it.
 .Sh SEE ALSO
 .Xr reticulum-go 1 ,
 .Xr reticulum-go-status 1

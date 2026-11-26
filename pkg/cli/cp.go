@@ -31,7 +31,7 @@ func RunCP(args []string, opt ...Options) int {
 	fs := flag.NewFlagSet("rgocp", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 
-	configDir := fs.String("config", "", "path to config directory")
+	configDir := fs.String("config", "", "path to config file or directory")
 	identityPath := fs.String("identity", "", "path to identity file (default: storage/identities/rncp)")
 	fs.StringVar(identityPath, "i", "", "path to identity file (Python rncp alias)")
 	listenMode := fs.Bool("l", false, "listen for incoming transfers")
@@ -54,6 +54,7 @@ func RunCP(args []string, opt ...Options) int {
 	announceSec := fs.Float64("b", 0, "announce interval seconds (0 = once at start, <0 = never)")
 	fs.Float64Var(announceSec, "announce", 0, "announce interval seconds (0 = once at start, <0 = never)")
 	printID := fs.Bool("p", false, "print identity and destination hash then exit")
+	jsonOut := fs.Bool("json", false, "emit JSON with -p")
 	phyRates := fs.Bool("P", false, "display physical layer transfer rates")
 	fs.BoolVar(phyRates, "phy-rates", false, "display physical layer transfer rates")
 	var allowed flagStringList
@@ -73,7 +74,7 @@ func RunCP(args []string, opt ...Options) int {
 		"rgocp -f /path/on/remote <dest_hash>",
 	)
 
-	if err := fs.Parse(args); err != nil {
+	if err := parseAll(fs, args); err != nil {
 		return 2
 	}
 
@@ -96,8 +97,14 @@ func RunCP(args []string, opt ...Options) int {
 
 	if *printID {
 		destHash := destination.Hash(id, rnsutil.RNCPAppName, rnsutil.RNCPAspect)
-		_, _ = fmt.Fprintf(stdout, "%s : %s\n", infoMsg(stdout, "Identity"), hex.EncodeToString(id.Hash()))
-		_, _ = fmt.Fprintf(stdout, "%s : %s\n", infoMsg(stdout, "Listening on"), hex.EncodeToString(destHash))
+		identityHex := hex.EncodeToString(id.Hash())
+		destHex := hex.EncodeToString(destHash)
+		if *jsonOut {
+			_, _ = fmt.Fprintf(stdout, "{\"identity\":\"%s\",\"destination\":\"%s\"}\n", identityHex, destHex)
+			return 0
+		}
+		_, _ = fmt.Fprintf(stdout, "%s : %s\n", infoMsg(stdout, "Identity"), identityHex)
+		_, _ = fmt.Fprintf(stdout, "%s : %s\n", infoMsg(stdout, "Listening on"), destHex)
 		return 0
 	}
 
@@ -304,7 +311,7 @@ func runListen(tr *transport.Transport, id *identity.Identity, opts listenOpts) 
 		}, allowMode, allowList)
 	}
 
-	_, _ = fmt.Fprintln(stderr, okMsg(stderr, fmt.Sprintf("rgocp listening on %s", rnsutil.PrettyHex(dest.GetHash()))))
+	_, _ = fmt.Fprintln(stderr, okMsg(stderr, fmt.Sprintf("rgocp listening on %s", rnsutil.FullHex(dest.GetHash()))))
 
 	if opts.announceSec >= 0 {
 		_ = dest.Announce(false, nil, nil)

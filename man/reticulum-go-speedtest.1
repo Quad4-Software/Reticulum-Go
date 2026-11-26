@@ -30,6 +30,13 @@ Otherwise connect to a listening server by destination hash.
 Run with
 .Fl h
 for the full flag list.
+.Sh FLAG PARSING
+Flags may appear before, between, or after positional arguments. A literal
+.Cm --
+ends flag parsing. The
+.Fl config
+option accepts a config file or a directory. A directory uses the file named
+config inside it.
 .Sh SEE ALSO
 .Xr reticulum-go 1 ,
 .Xr reticulum-go-probe 1 ,

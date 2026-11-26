@@ -1,4 +1,4 @@
-.Dd July 17, 2026
+.Dd November 26, 2026
 .Dt RETICULUM-GO-ID 1
 .Os
 .Sh NAME
@@ -21,10 +21,24 @@ verify
 and
 .Pa .rfe
 artifacts.
-.Pp
-Run with
-.Fl h
-for the full flag list.
+.Sh FLAG PARSING
+Flags may appear before, between, or after positional arguments. A literal
+.Cm --
+ends flag parsing.
+.Sh OPTIONS
+.Bl -tag -width "--extract"
+.It Fl p
+Print the identity hash and key summary. With
+.Fl json ,
+print one JSON object containing plain hexadecimal identity and public_key fields.
+.It Fl P
+Allow private key material in output. In JSON mode, private_key is present only
+when this flag is set.
+.It Fl H Ar aspects
+Print the destination hash for a dotted aspects name.
+.It Fl w Ar path
+Write output to a path instead of standard output where the operation supports it.
+.El
 .Sh SEE ALSO
 .Xr reticulum-go 1
 .Sh AUTHORS

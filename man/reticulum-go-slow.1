@@ -6,7 +6,7 @@
 .Nd find slow interfaces, paths, and transfer bottlenecks
 .Sh SYNOPSIS
 .Nm reticulum-go Cm slow
-.Op Fl config Ar dir
+.Op Fl config Ar path
 .Op Fl json
 .Op Fl a
 .Op Fl n Ar filter
@@ -31,8 +31,8 @@ such as integrity bursts, auth pressure, link degradation, and ingress
 pressure. Counters stay on the node. This tool observes and scores only.
 .Sh OPTIONS
 .Bl -tag -width "-timeout duration"
-.It Fl config Ar dir
-Config directory (default
+.It Fl config Ar path
+Config file or directory (default
 .Pa ~/.reticulum-go ) .
 .It Fl json
 Emit JSON report.
@@ -62,6 +62,13 @@ rgoslow -config ~/.reticulum
 rgoslow -dest 06a54b505bb67b25ef3f8097e8001edc
 rgoslow -json -l
 .Ed
+.Sh FLAG PARSING
+Flags may appear before, between, or after positional arguments. A literal
+.Cm --
+ends flag parsing. The
+.Fl config
+option accepts a config file or a directory. A directory uses the file named
+config inside it.
 .Sh SEE ALSO
 .Xr reticulum-go-status 1 ,
 .Xr reticulum-go-path 1 ,

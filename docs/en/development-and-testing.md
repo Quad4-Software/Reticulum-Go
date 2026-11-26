@@ -50,9 +50,9 @@ Pinned versions: `scripts/ci/versions.env` and `scripts/ci/dev-tools.env`.
 | `make` / `make all` / `make build` | `mkdir -p bin && CGO_ENABLED=0 go build -ldflags="-s -w" -o bin/reticulum-go ./cmd/reticulum-go` |
 | `make install` | Installs binary, legacy tool symlinks, and man pages under `PREFIX` (supports `DESTDIR`) |
 | `make install-man` | Man pages only |
-| `make install-service` | `INIT=auto\|systemd\|openrc\|runit\|dinit\|all`. Sample config under `/var/lib/reticulum-go` |
+| `make install-service` | `INIT=auto\|systemd\|openrc\|runit\|dinit\|all`. Units pass `/var/lib/reticulum-go` as the config directory |
 | `make uninstall` | Removes installed binary, symlinks, and man pages |
-| `make package-deb` / `package-rpm` / `package-arch` | nfpm packages into `dist/` |
+| `make package-deb` / `package-rpm` / `package-arch` | nfpm packages into `dist/`. Packaged units use `/var/lib/reticulum-go` as the config directory |
 | `make clean` | `go clean` and remove build artifacts |
 | `make test` | `go test -v ./...` (project wrapper may use testsummary) |
 | `make test-short` | `go test -short -v ./...` |

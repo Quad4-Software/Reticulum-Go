@@ -4,6 +4,8 @@
 package cli
 
 import (
+	"encoding/hex"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
@@ -32,6 +34,7 @@ func RunID(args []string, opt ...Options) int {
 	exportPub := fs.Bool("x", false, "export public key")
 	exportPrv := fs.Bool("X", false, "export private key")
 	printID := fs.Bool("p", false, "print identity hash and keys summary")
+	jsonOut := fs.Bool("json", false, "emit JSON with -p")
 	printPriv := fs.Bool("P", false, "allow printing private key material")
 	hashAspects := fs.String("H", "", "print destination hash for dotted aspects name")
 	signPath := fs.String("s", "", "sign file to .rsg")
@@ -64,7 +67,7 @@ func RunID(args []string, opt ...Options) int {
 		"rgoid -i identity -s document.pdf",
 	)
 
-	if err := fs.Parse(args); err != nil {
+	if err := parseAll(fs, args); err != nil {
 		return 2
 	}
 
@@ -148,7 +151,7 @@ func RunID(args []string, opt ...Options) int {
 			return 1
 		}
 		didWork = true
-		printIdentity(ident, *printPriv, enc)
+		printIdentity(stdout, ident, *printPriv, enc, *jsonOut)
 	}
 	if *exportPub {
 		if ident == nil {
@@ -557,18 +560,33 @@ func bytesTrim(b []byte) []byte {
 	return []byte(strings.TrimSpace(string(b)))
 }
 
-func printIdentity(id *identity.Identity, showPriv bool, enc rnsutil.Encoding) {
-	_, _ = fmt.Fprintf(os.Stdout, "%s : %s\n", infoMsg(os.Stdout, "Identity hash"), id.GetHexHash())
-	_, _ = fmt.Fprintf(os.Stdout, "%s : %s\n", infoMsg(os.Stdout, "Public key   "), rnsutil.EncodeBytes(id.GetPublicKey(), enc))
+func printIdentity(w io.Writer, id *identity.Identity, showPriv bool, enc rnsutil.Encoding, jsonOut bool) {
+	if jsonOut {
+		out := map[string]string{
+			"identity":   id.GetHexHash(),
+			"public_key": hex.EncodeToString(id.GetPublicKey()),
+		}
+		if showPriv {
+			priv, err := id.GetPrivateKey()
+			if err == nil {
+				out["private_key"] = hex.EncodeToString(priv)
+				securemem.WipeBytes(priv)
+			}
+		}
+		_ = json.NewEncoder(w).Encode(out)
+		return
+	}
+	_, _ = fmt.Fprintf(w, "%s : %s\n", infoMsg(w, "Identity hash"), id.GetHexHash())
+	_, _ = fmt.Fprintf(w, "%s : %s\n", infoMsg(w, "Public key   "), rnsutil.EncodeBytes(id.GetPublicKey(), enc))
 	if !showPriv {
 		return
 	}
 	priv, err := id.GetPrivateKey()
 	if err != nil {
-		_, _ = fmt.Fprintf(os.Stdout, "%s : unavailable (%v)\n", warnMsg(os.Stdout, "Private key  "), err)
+		_, _ = fmt.Fprintf(w, "%s : unavailable (%v)\n", warnMsg(w, "Private key  "), err)
 		return
 	}
-	_, _ = fmt.Fprintf(os.Stdout, "%s : %s\n", infoMsg(os.Stdout, "Private key  "), rnsutil.EncodeBytes(priv, enc))
+	_, _ = fmt.Fprintf(w, "%s : %s\n", infoMsg(w, "Private key  "), rnsutil.EncodeBytes(priv, enc))
 }
 
 func writeOutput(path string, data []byte, force bool) error {

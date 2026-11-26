@@ -21,7 +21,7 @@ func RunProbe(args []string, opt ...Options) int {
 	fs := flag.NewFlagSet("rgoprobe", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 
-	configDir := fs.String("config", "", "path to config directory")
+	configDir := fs.String("config", "", "path to config file or directory")
 	size := fs.Int("s", rnsutil.DefaultProbeSize, "probe payload size in bytes")
 	timeoutSec := fs.Float64("t", 0, "per-probe timeout in seconds (0 = adaptive path wait, first-hop based probe)")
 	waitSec := fs.Float64("w", 0, "delay between probes in seconds")
@@ -37,7 +37,7 @@ func RunProbe(args []string, opt ...Options) int {
 		"rgoprobe example.app probe <dest_hash>",
 	)
 
-	if err := fs.Parse(args); err != nil {
+	if err := parseAll(fs, args); err != nil {
 		return 2
 	}
 	if fs.NArg() != 2 {

@@ -1,4 +1,4 @@
-.Dd July 27, 2026
+.Dd November 26, 2026
 .Dt RETICULUM-GO-SH 1
 .Os
 .Sh NAME
@@ -10,31 +10,96 @@
 .Op Fl compat
 .Op Fl line
 .Op Fl raw
-.Op Fl config Ar dir
+.Op Fl config Ar path
 .Op Ar destination_hash command ...
 .Sh DESCRIPTION
 Provides an SSH-like interactive shell over an encrypted Reticulum link and
-channel. The default native protocol uses destination app
+channel. The native protocol uses destination app
 .Dq rgosh .
+Connecting to a Python rnsh destination hash selects the rnsh wire protocol automatically.
 .Fl compat
-speaks the Python
-.Nm rnsh
-wire protocol (app
-.Dq rnsh ,
-umsgpack message bodies).
+forces that protocol.
 .Pp
 Listen mode
 .Pq Fl l
-accepts sessions. Initiator mode takes a destination hash and optional remote
-command. Identity allowlists use
-.Fl a
-or allowed_identities files. Forced command mode
-.Pq Fl C
-ignores remote argv.
+accepts sessions. Without
+.Fl compat
+it listens on both the rgosh and rnsh destination hashes. Initiator mode takes a
+destination hash and an optional remote command.
+.Sh FLAG PARSING
+Before the first positional argument, all flags belong to rgosh. After the first
+positional argument, only multi-letter rgosh flags are still parsed. Single-letter
+arguments there belong to the remote command. Once remote command text begins,
+every remaining argument belongs to the remote command. A literal
+.Cm --
+ends flag parsing.
 .Pp
-Run with
-.Fl h
-for the full flag list.
+For example,
+.Cm rgosh -l /bin/sh -config /etc/rns
+treats
+.Fl config
+as an rgosh flag, while
+.Cm rgosh <hash> ls -l
+passes
+.Fl l
+to the remote command.
+.Sh OPTIONS
+.Bl -tag -width "--no-announce"
+.It Fl config Ar path
+Config file or directory. A directory uses the file named config inside it.
+.It Fl i Ar path
+Identity file.
+.It Fl p
+Print the full identity hash and full listening destination hashes, then exit.
+With
+.Fl json ,
+print one JSON object with plain hex values and no angle brackets.
+.It Fl m
+Mirror the remote exit code as the local exit code. Without it, a nonzero remote
+exit does not set the local exit code.
+.It Fl b Ar seconds
+Listen announce interval. The default is 900 seconds. Zero announces only at startup.
+Startup announces are repeated about 3, 10, and 30 seconds after the first announce
+so interfaces that finish connecting late still receive one. Positive values continue
+periodic announces at that interval.
+.It Fl no-announce
+Never announce in listen mode.
+.It Fl a Ar hash
+Allowed remote identity hash. Repeatable. Bare 32-character hex and angle-bracketed
+hex are accepted. Truncated hashes are rejected.
+.It Fl n
+Accept sessions from anyone.
+.It Fl N
+Do not identify to the listener.
+.It Fl C
+Reject a remote command line and run only the listener default command.
+.It Fl A
+Append the remote command line to the listener default command.
+.It Fl w Ar seconds
+Path and link timeout. Zero uses an adaptive timeout from interface bitrate.
+.El
+.Sh ALLOWED IDENTITIES
+Listen mode reads these files:
+.Pa /etc/rgosh/allowed_identities ,
+.Pa ~/.config/rgosh/allowed_identities ,
+.Pa ~/.rgosh/allowed_identities ,
+.Pa /etc/rnsh/allowed_identities ,
+.Pa ~/.config/rnsh/allowed_identities ,
+and
+.Pa ~/.rnsh/allowed_identities .
+Files are read again for each new link.
+.Pp
+Each line contains one full 32-character hexadecimal identity hash. Angle brackets
+are accepted. Blank lines and lines whose first non-space character is
+.Cm #
+are ignored. Invalid lines are skipped. Command-line
+.Fl a
+values are checked strictly and invalid values fail startup.
+.Sh EXIT STATUS
+Client mode returns zero after a clean remote command unless an error occurs.
+Use
+.Fl m
+when the local exit status must equal the remote command status.
 .Sh SEE ALSO
 .Xr reticulum-go 1 ,
 .Xr reticulum-go-x 1

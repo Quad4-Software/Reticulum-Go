@@ -2536,6 +2536,9 @@ hopLimiterDone:
 		t.mutex.RUnlock()
 		curAff := t.pathingAffinity(curIface)
 		affKnown := existingPeek == nil || curIface != nil
+		if existingPeek != nil && curIface != nil && curIface != iface && isLocalClientInterface(iface) && isLocalClientInterface(curIface) {
+			debug.Log(debug.DebugWarning, "Conflicting announces for one destination from separate shared-instance clients", "dest_hash", debug.Hex(destinationHash), "existing_client", curIface.GetName(), "client", iface.GetName())
+		}
 
 		t.mutex.Lock()
 		existing := t.paths[destKey]

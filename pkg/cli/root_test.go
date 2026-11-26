@@ -59,6 +59,9 @@ func TestMainHelp(t *testing.T) {
 	if !strings.Contains(help, "snapshot") {
 		t.Fatalf("help missing snapshot: %s", help)
 	}
+	if !strings.Contains(help, "completion") {
+		t.Fatalf("help missing completion: %s", help)
+	}
 }
 
 func TestResolveCommandDumpAndSnapshot(t *testing.T) {

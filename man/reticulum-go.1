@@ -11,7 +11,7 @@
 .Nm
 .Cm daemon
 .Nm
-.Cm status | id | probe | path | slow | speedtest | dump | snapshot | cp | x | pageserver | debug | self-check
+.Cm status | id | probe | path | slow | speedtest | dump | snapshot | cp | x | sh | pageserver | debug | self-check | zen | completion
 .Op Ar flags
 .Sh DESCRIPTION
 .Nm
@@ -78,6 +78,12 @@ Remote command execution over links (Python
 interop).
 See
 .Xr reticulum-go-x 1 .
+.It Cm sh
+Interactive remote shell.
+See
+.Xr reticulum-go-sh 1 .
+.It Cm git
+Git-over-Reticulum node and remote helper.
 .It Cm pageserver
 NomadNet-style page and file server.
 See
@@ -90,7 +96,29 @@ See
 Host OS preflight checklist.
 See
 .Xr reticulum-go-self-check 1 .
+.It Cm zen
+Scan Go and Python sources for path and link footguns.
+.It Cm completion
+Print bash, zsh, or fish completion scripts.
+See
+.Xr reticulum-go-completion 1 .
 .El
+.Sh FLAG PARSING
+Most tools accept flags before, between, or after positional arguments. A literal
+.Cm --
+ends flag parsing. The remote command tools
+.Cm sh
+and
+.Cm x
+are different because positional text can belong to the remote command. After
+their first positional argument, only multi-letter tool flags are parsed.
+Single-letter arguments there belong to the remote command. Once remote command
+text begins, every remaining argument belongs to the remote command.
+.Pp
+Tool
+.Fl config
+options accept either a config file or a directory. A directory uses the file
+named config inside it.
 .Sh GLOBAL OPTIONS
 .Bl -tag -width "--version"
 .It Fl h , -help
@@ -117,8 +145,10 @@ Identities, path table, and related state.
 .Xr reticulum-go-snapshot 1 ,
 .Xr reticulum-go-cp 1 ,
 .Xr reticulum-go-x 1 ,
+.Xr reticulum-go-sh 1 ,
 .Xr reticulum-go-pageserver 1 ,
 .Xr reticulum-go-debug 1 ,
-.Xr reticulum-go-self-check 1
+.Xr reticulum-go-self-check 1 ,
+.Xr reticulum-go-completion 1
 .Sh AUTHORS
 .An Quad4.io

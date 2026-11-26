@@ -2,6 +2,6 @@
 # Install to /etc/dinit.d/reticulum-go
 
 type = process
-command = /usr/bin/env HOME=/var/lib/reticulum-go @BINDIR@/reticulum-go daemon --config /var/lib/reticulum-go/config
+command = /usr/bin/env HOME=/var/lib/reticulum-go @BINDIR@/reticulum-go daemon --config /var/lib/reticulum-go
 restart = true
 smooth-recovery = true

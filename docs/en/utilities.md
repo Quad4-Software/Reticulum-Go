@@ -35,14 +35,33 @@ make install also creates legacy symlinks (rgostatus, rgoid, rgoprobe, rgopath, 
 | reticulum-go speedtest (rgospeed) | Examples/Speedtest.py | Loopback smoke plus cross-host / docker daemon (-daemon, -iface) |
 | reticulum-go dump (rgodump) | (Go-only) | Decode RNS packets from hex or pcap to JSONL |
 | reticulum-go snapshot (rgosnap) | (Go-only) | Path table, links, and health drop counters as JSON |
+| reticulum-go completion | (Go-only) | Generate bash, zsh, or fish shell completions |
 
 Library code lives in pkg/rnsutil and pkg/cli. Pageserver logic lives in pkg/pageserver.
+
+Shell completions are generated from the live flag sets:
+
+```bash
+reticulum-go completion bash
+reticulum-go completion zsh
+reticulum-go completion fish
+```
+
+Linux packages install them under the system bash, zsh, and fish completion directories.
+
+## Flag parsing and config paths
+
+Most tools accept flags before, between, or after positional arguments. A literal `--` ends flag parsing.
+
+rgosh and rgox are different because positional text can belong to the remote command. Before the first positional argument, all flags belong to the tool. Immediately after that positional, only multi-letter tool flags are parsed. Single-letter arguments there belong to the remote command. Once remote command text begins, every remaining argument belongs to the remote command. A literal `--` still ends flag parsing.
+
+Tool `-config` values accept either a config file or a directory. A directory uses the file named `config` inside it. Python rnsd normally uses `~/.reticulum`. reticulum-go normally uses `~/.reticulum-go`.
 
 Packet capture and Wireshark docs live in [packet-debug.md](packet-debug.md). The cross-stack INTEROP_EVENT timeline is in [interop-timeline.md](interop-timeline.md).
 
 ## Mixed Python and Go tools
 
-Python utilities and Go subcommands speak the same destinations, shared-instance RPC, and identity files. Use either tool against either daemon. Point -config at that daemon's config directory (~/.reticulum for Python rnsd, ~/.reticulum-go for reticulum-go unless you aligned them). Align rpc_key / instance_name / shared_instance_type when querying a shared instance.
+Python utilities and Go subcommands speak the same destinations, shared-instance RPC, and identity files. Use either tool against either daemon. Point -config at that daemon's config file or directory (~/.reticulum for Python rnsd, ~/.reticulum-go for reticulum-go unless you aligned them). Align rpc_key / instance_name / shared_instance_type when querying a shared instance.
 
 | Task | Python tool | Go tool | Against rnsd | Against reticulum-go |
 |------|-------------|--------|:------------:|:--------------------:|
@@ -77,7 +96,7 @@ Go implements both server and client for TCP and Unix. When the type is unset, u
 
 Issues that usually stack:
 
-1. Wrong config directory. Python uses ~/.reticulum. Go defaults to ~/.reticulum-go. Point -config at the directory of the daemon you are querying.
+1. Wrong config path. Python uses ~/.reticulum. Go defaults to ~/.reticulum-go. Point -config at the config file or directory of the daemon you are querying.
 2. Explicit transport mismatch. If one side sets shared_instance_type = tcp and the other unix, dials miss. Leave the key unset on Linux, or set the same value on both.
 3. Daemon not sharing. The process that owns interfaces must have share_instance = yes and be running.
 4. Auth key mismatch. Align rpc_key, or share the same derived transport_identity.
@@ -154,7 +173,7 @@ rgostatus [flags] [filter]
 
 | Flag | Meaning |
 |------|---------|
-| -config dir | Config directory (default: ~/.reticulum-go) |
+| -config path | Config file or directory (default: ~/.reticulum-go) |
 | -json | Emit JSON (bytes as hex, same field names as Python where populated) |
 | -a | Include all interfaces (less filtering of local/client peers) |
 | -n substr | Filter interface names (positional filter also accepted) |
@@ -207,7 +226,7 @@ Ranks congestion and local health signals that commonly explain stalled transfer
 
 | Flag | Meaning |
 |------|---------|
-| -config dir | Config directory (default: ~/.reticulum-go) |
+| -config path | Config file or directory (default: ~/.reticulum-go) |
 | -json | Emit full JSON report |
 | -a | Include all interfaces |
 | -n substr | Filter interface names |
@@ -262,8 +281,8 @@ Use a real config with UDP/TCP (or a shared path). share_instance is forced off 
 | -daemon | Listen forever (implies -l -m, default announce every 120s) |
 | -m | Listen: serve multiple clients |
 | -iface | all (default) or comma-separated config section names |
-| -p | Print identity / destination hash and exit |
-| -config dir | Config directory (default ~/.reticulum-go) |
+| -p | Print full identity and destination hashes and exit |
+| -config path | Config file or directory (default ~/.reticulum-go) |
 | -identity path | Persistent identity for listen mode |
 | -bytes n | Plaintext bytes to transfer (default 2 MiB) |
 | -min-bps n | Fail below this rate (0 disables, loopback defaults to 1e6) |
@@ -326,7 +345,7 @@ Examples:
 ./bin/reticulum-go id -i id.rid -d secret.txt.rfe -f
 ```
 
--S @path reads the message body from a file (needed for large tree inventories). -extract prints only the embedded RSM message after a successful verify. -i may be a 32-character identity hash when verifying (no private key required).
+-S @path reads the message body from a file (needed for large tree inventories). -extract prints only the embedded RSM message after a successful verify. -i may be a 32-character identity hash when verifying (no private key required). `-p -json` prints `identity` and `public_key` as plain hex. `private_key` is included only when -P is also set.
 
 Go-signed .rsg / .rsm / .rfe validate with Python rnid, and the reverse also works.
 
@@ -352,7 +371,7 @@ rgopath [flags] [destination_hash]
 
 | Flag | Meaning |
 |------|---------|
-| -config dir | Config directory |
+| -config path | Config file or directory |
 | -t | Show path table (optional hash filter) |
 | -r | Show announce rate info |
 | -a | Show in-use paths only (RNS 1.6.1) |
@@ -398,7 +417,7 @@ rgocp -f [flags] <remote_path> <hash>       # fetch
 
 | Flag | Meaning |
 |------|---------|
-| -config dir | Config directory |
+| -config path | Config file or directory |
 | -i / -identity path | Identity file (default storage/identities/rncp) |
 | -l | Listen for pushes |
 | -f | Fetch remote file (`-f <remote_path> <dest>`) |
@@ -413,11 +432,11 @@ rgocp -f [flags] <remote_path> <hash>       # fetch
 | -w sec | Path/link timeout (0 = adaptive, default) |
 | -S / -silent | Silent progress |
 | -P / -phy-rates | Show physical-layer style rates in progress |
-| -p | Print identity and destination hash |
+| -p | Print full identity and destination hashes. With -json, print `{"identity":"...","destination":"..."}` as plain hex |
 
-Allow lists are loaded from /etc/rncp/allowed_identities, ~/.config/rncp/, ~/.rncp/, plus Go-specific ~/.config/rgocp/ and ~/.rgocp/.
+Allow lists are loaded from /etc/rncp/allowed_identities, ~/.config/rncp/allowed_identities, ~/.rncp/allowed_identities, ~/.config/rgocp/allowed_identities, and ~/.rgocp/allowed_identities. Each line is one full 32-character hex hash. Angle brackets are accepted. Blank lines and lines whose first non-space character is # are ignored. Invalid lines are skipped. `-a` accepts bare or angle-bracketed hex and rejects truncated hashes.
 
-Go extras: cleaner progress lines on stderr, -json is not used (transfer is binary), unique .N rename when not overwriting.
+Go extras: cleaner progress lines on stderr and unique .N rename when not overwriting.
 
 ## rgox / rnx
 
@@ -431,7 +450,7 @@ reticulum-go x -x [flags] <destination_hash>      # interactive
 
 | Flag | Meaning |
 |------|---------|
-| -config dir | Config directory |
+| -config path | Config file or directory |
 | -i path | Identity file (default storage/identities/rnx) |
 | -l | Listen for commands |
 | -x | Interactive REPL |
@@ -439,18 +458,20 @@ reticulum-go x -x [flags] <destination_hash>      # interactive
 | -n | Accept from anyone (listen) |
 | -N | Do not identify to listener |
 | -b | Skip announce on listen start |
-| -m | Mirror remote exit code |
+| -m | Mirror remote exit code as the local exit code |
 | -d | Detailed timing/size summary |
 | -w sec | Path/link/command timeout (0 = adaptive path and link) |
 | -W sec | Max result download time |
 | --stdin str | Remote stdin |
 | --stdout N / --stderr N | Max returned bytes |
 | -json | Structured JSON result (Go) |
-| -p | Print identity and destination hash |
+| -p | Print full identity and destination hashes. With -json, print `{"identity":"...","destination":"..."}` as plain hex |
 
-Allow lists: /etc/rnx/, ~/.config/rnx/, ~/.rnx/, plus ~/.config/rgox/ and ~/.rgox/.
+Immediately after the destination hash, only multi-letter rgox flags are parsed. Single-letter arguments belong to the remote command. Once remote command text begins, every remaining argument belongs to it. Use `--` before a remote command that needs multi-letter arguments untouched.
 
-Exit codes match Python rnx (241-249 for client failures, -m mirrors remote).
+Allow lists: /etc/rnx/allowed_identities, ~/.config/rnx/allowed_identities, ~/.rnx/allowed_identities, ~/.config/rgox/allowed_identities, and ~/.rgox/allowed_identities. Each line is one full 32-character hex hash. Angle brackets are accepted. Blank lines and lines whose first non-space character is # are ignored. Invalid lines are skipped. `-a` accepts bare or angle-bracketed hex and rejects truncated hashes.
+
+Exit codes match Python rnx (241-249 for client failures). Use -m when the local exit status must equal the remote command status.
 
 ## rgosh
 
@@ -468,24 +489,28 @@ reticulum-go sh --compat -l                             # rnsh dest only
 
 | Flag | Meaning |
 |------|---------|
-| -config dir | Config directory |
+| -config path | Config file or directory |
 | -i path | Identity file |
 | -s name | Service name (identity file suffix) |
 | -l | Listen for sessions |
 | -a hash | Allowed identity (repeatable, listen) |
 | -n | Accept from anyone (listen) |
 | -N | Do not identify to listener |
-| -b PERIOD | Announce interval seconds (default 900, 0 once at start) |
+| -b PERIOD | Announce interval seconds (default 900, 0 startup announces only) |
 | --no-announce | Never announce (listen) |
 | -A | Append remote cmdline to the default command |
 | -C | Reject a remote cmdline. Empty cmdline still runs the default command |
 | --compat | Force Python rnsh dest and wire protocol |
 | --line / --raw | Force line-buffered or raw stdin |
-| -m | Mirror remote exit code |
+| -m | Mirror remote exit code as the local exit code |
 | -w sec | Path/link handshake timeout (0 = adaptive, default) |
-| -p | Print identity and destination hash |
+| -p | Print full identity and destination hashes. With -json, print `identity` plus `destinations.rgosh` and `destinations.rnsh` as plain hex |
 
-Allow lists: /etc/rgosh/, ~/.config/rgosh/, ~/.rgosh/, plus Python rnsh paths. Files are re-read on each new link. Auto line mode engages when link RTT is high unless --raw. Stream sends wait for the channel window and compress to MDU so slow links do not flood.
+Immediately after the destination hash, only multi-letter rgosh flags are parsed. Single-letter arguments belong to the remote command. Once remote command text begins, every remaining argument belongs to it. Use `--` before a remote command that needs multi-letter arguments untouched.
+
+Allow lists: /etc/rgosh/allowed_identities, ~/.config/rgosh/allowed_identities, ~/.rgosh/allowed_identities, /etc/rnsh/allowed_identities, ~/.config/rnsh/allowed_identities, and ~/.rnsh/allowed_identities. Files are re-read on each new link. Each line is one full 32-character hex hash. Angle brackets are accepted. Blank lines and lines whose first non-space character is # are ignored. Invalid lines are skipped. `-a` accepts bare or angle-bracketed hex and rejects truncated hashes.
+
+A listener announces at startup, then repeats the startup announce about 3, 10, and 30 seconds later so interfaces that finish connecting late still receive one. `-b` controls periodic announces after startup. The default is 900 seconds, zero disables periodic announces, and `--no-announce` disables all announces. Auto line mode engages when link RTT is high unless --raw. Stream sends wait for the channel window and compress to MDU so slow links do not flood.
 
 Live interop:
 
@@ -564,7 +589,7 @@ Deliberate differences from the Python reference:
 
 | Symptom | Fix |
 |---------|-----|
-| dial tcp 127.0.0.1:37429: connection refused | Start the daemon. If type is explicit tcp, the daemon must also be TCP. With unset type, utilities also try Unix. Use -config for that daemon's config dir. |
+| dial tcp 127.0.0.1:37429: connection refused | Start the daemon. If type is explicit tcp, the daemon must also be TCP. With unset type, utilities also try Unix. Use -config for that daemon's config file or directory. |
 | dial unix @rns/...: connection refused | Daemon is on TCP only, or instance_name differs. Align shared_instance_type and instance_name, or leave type unset so tools try both. |
 | rpc auth failure | Align rpc_key, or use the same storage/transport_identity when keys are derived. |
 | Empty or missing announce rates from Python | Field is present but may be 0 until traffic accumulates. Sorting and JSON keys still work. |

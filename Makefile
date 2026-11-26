@@ -147,6 +147,7 @@ install-man:
 	install -m 644 man/reticulum-go-snapshot.1 $(INSTALL_MANDIR)/man1/reticulum-go-snapshot.1
 	install -m 644 man/reticulum-go-speedtest.1 $(INSTALL_MANDIR)/man1/reticulum-go-speedtest.1
 	install -m 644 man/reticulum-go-self-check.1 $(INSTALL_MANDIR)/man1/reticulum-go-self-check.1
+	install -m 644 man/reticulum-go-completion.1 $(INSTALL_MANDIR)/man1/reticulum-go-completion.1
 	install -m 644 man/reticulum-go.8 $(INSTALL_MANDIR)/man8/reticulum-go.8
 	ln -sfn reticulum-go-status.1 $(INSTALL_MANDIR)/man1/rgostatus.1
 	ln -sfn reticulum-go-id.1 $(INSTALL_MANDIR)/man1/rgoid.1
@@ -393,7 +394,7 @@ man:
 
 package: package-deb package-rpm package-arch
 
-stage-nfpm:
+stage-nfpm: build
 	sh scripts/stage-nfpm-units.sh
 
 package-deb: build stage-nfpm

@@ -6,7 +6,7 @@
 .Nd send Reticulum probe packets and report RTT
 .Sh SYNOPSIS
 .Nm reticulum-go Cm probe
-.Op Fl config Ar dir
+.Op Fl config Ar path
 .Op Fl s Ar size
 .Op Fl t Ar seconds
 .Op Fl w Ar seconds
@@ -17,6 +17,13 @@
 Sends encrypted probe packets to a destination and prints round-trip timing.
 .Ar destination_hash
 must be 32 hex characters (16 bytes).
+.Sh FLAG PARSING
+Flags may appear before, between, or after positional arguments. A literal
+.Cm --
+ends flag parsing. The
+.Fl config
+option accepts a config file or a directory. A directory uses the file named
+config inside it.
 .Sh SEE ALSO
 .Xr reticulum-go 1
 .Sh AUTHORS

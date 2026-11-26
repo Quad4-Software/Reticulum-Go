@@ -127,6 +127,10 @@ contents:
     dst: /usr/share/man/man1/reticulum-go-self-check.1
     file_info:
       mode: 0644
+  - src: man/reticulum-go-completion.1
+    dst: /usr/share/man/man1/reticulum-go-completion.1
+    file_info:
+      mode: 0644
   - src: man/reticulum-go.8
     dst: /usr/share/man/man8/reticulum-go.8
     file_info:
@@ -181,6 +185,102 @@ contents:
     dst: /usr/share/doc/reticulum-go/reticulum-go.user.conf.example
     file_info:
       mode: 0644
+  - src: dist/nfpm-units/completions/reticulum-go
+    dst: /usr/share/bash-completion/completions/reticulum-go
+    file_info:
+      mode: 0644
+  - src: dist/nfpm-units/completions/_reticulum-go
+    dst: /usr/share/zsh/site-functions/_reticulum-go
+    file_info:
+      mode: 0644
+  - src: dist/nfpm-units/completions/reticulum-go.fish
+    dst: /usr/share/fish/vendor_completions.d/reticulum-go.fish
+    file_info:
+      mode: 0644
+  - src: /usr/share/bash-completion/completions/reticulum-go
+    dst: /usr/share/bash-completion/completions/rgostatus
+    type: symlink
+  - src: /usr/share/bash-completion/completions/reticulum-go
+    dst: /usr/share/bash-completion/completions/rgoid
+    type: symlink
+  - src: /usr/share/bash-completion/completions/reticulum-go
+    dst: /usr/share/bash-completion/completions/rgoprobe
+    type: symlink
+  - src: /usr/share/bash-completion/completions/reticulum-go
+    dst: /usr/share/bash-completion/completions/rgopath
+    type: symlink
+  - src: /usr/share/bash-completion/completions/reticulum-go
+    dst: /usr/share/bash-completion/completions/rgocp
+    type: symlink
+  - src: /usr/share/bash-completion/completions/reticulum-go
+    dst: /usr/share/bash-completion/completions/rgox
+    type: symlink
+  - src: /usr/share/bash-completion/completions/reticulum-go
+    dst: /usr/share/bash-completion/completions/rnx
+    type: symlink
+  - src: /usr/share/bash-completion/completions/reticulum-go
+    dst: /usr/share/bash-completion/completions/rgosh
+    type: symlink
+  - src: /usr/share/bash-completion/completions/reticulum-go
+    dst: /usr/share/bash-completion/completions/rgopageserver
+    type: symlink
+  - src: /usr/share/bash-completion/completions/reticulum-go
+    dst: /usr/share/bash-completion/completions/rgoslow
+    type: symlink
+  - src: /usr/share/bash-completion/completions/reticulum-go
+    dst: /usr/share/bash-completion/completions/rgoselfcheck
+    type: symlink
+  - src: /usr/share/bash-completion/completions/reticulum-go
+    dst: /usr/share/bash-completion/completions/rgospeed
+    type: symlink
+  - src: /usr/share/bash-completion/completions/reticulum-go
+    dst: /usr/share/bash-completion/completions/rgodump
+    type: symlink
+  - src: /usr/share/bash-completion/completions/reticulum-go
+    dst: /usr/share/bash-completion/completions/rgosnap
+    type: symlink
+  - src: /usr/share/fish/vendor_completions.d/reticulum-go.fish
+    dst: /usr/share/fish/vendor_completions.d/rgostatus.fish
+    type: symlink
+  - src: /usr/share/fish/vendor_completions.d/reticulum-go.fish
+    dst: /usr/share/fish/vendor_completions.d/rgoid.fish
+    type: symlink
+  - src: /usr/share/fish/vendor_completions.d/reticulum-go.fish
+    dst: /usr/share/fish/vendor_completions.d/rgoprobe.fish
+    type: symlink
+  - src: /usr/share/fish/vendor_completions.d/reticulum-go.fish
+    dst: /usr/share/fish/vendor_completions.d/rgopath.fish
+    type: symlink
+  - src: /usr/share/fish/vendor_completions.d/reticulum-go.fish
+    dst: /usr/share/fish/vendor_completions.d/rgocp.fish
+    type: symlink
+  - src: /usr/share/fish/vendor_completions.d/reticulum-go.fish
+    dst: /usr/share/fish/vendor_completions.d/rgox.fish
+    type: symlink
+  - src: /usr/share/fish/vendor_completions.d/reticulum-go.fish
+    dst: /usr/share/fish/vendor_completions.d/rnx.fish
+    type: symlink
+  - src: /usr/share/fish/vendor_completions.d/reticulum-go.fish
+    dst: /usr/share/fish/vendor_completions.d/rgosh.fish
+    type: symlink
+  - src: /usr/share/fish/vendor_completions.d/reticulum-go.fish
+    dst: /usr/share/fish/vendor_completions.d/rgopageserver.fish
+    type: symlink
+  - src: /usr/share/fish/vendor_completions.d/reticulum-go.fish
+    dst: /usr/share/fish/vendor_completions.d/rgoslow.fish
+    type: symlink
+  - src: /usr/share/fish/vendor_completions.d/reticulum-go.fish
+    dst: /usr/share/fish/vendor_completions.d/rgoselfcheck.fish
+    type: symlink
+  - src: /usr/share/fish/vendor_completions.d/reticulum-go.fish
+    dst: /usr/share/fish/vendor_completions.d/rgospeed.fish
+    type: symlink
+  - src: /usr/share/fish/vendor_completions.d/reticulum-go.fish
+    dst: /usr/share/fish/vendor_completions.d/rgodump.fish
+    type: symlink
+  - src: /usr/share/fish/vendor_completions.d/reticulum-go.fish
+    dst: /usr/share/fish/vendor_completions.d/rgosnap.fish
+    type: symlink
   - src: dist/nfpm-units/openrc/reticulum-go
     dst: /etc/init.d/reticulum-go
     file_info:

@@ -35,7 +35,7 @@ func RunSelfCheck(args []string, opt ...Options) int {
 		"reticulum-go self-check -json",
 		"reticulum-go self-check -full -strict",
 	)
-	if err := fs.Parse(args); err != nil {
+	if err := parseAll(fs, args); err != nil {
 		return 2
 	}
 

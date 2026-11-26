@@ -25,7 +25,7 @@ func RunStatus(args []string, opt ...Options) int {
 	stdout, stderr := cliIO(opt)
 	fs := flag.NewFlagSet("rgostatus", flag.ContinueOnError)
 	fs.SetOutput(stderr)
-	configDir := fs.String("config", "", "path to config directory")
+	configDir := fs.String("config", "", "path to config file or directory")
 	jsonOut := fs.Bool("json", false, "emit JSON")
 	all := fs.Bool("a", false, "include all interfaces")
 	nameFilter := fs.String("n", "", "filter interfaces by name substring")
@@ -72,7 +72,7 @@ func RunStatus(args []string, opt ...Options) int {
 		"rgostatus -m -I 2",
 		"rgostatus -R <transport_hash> -i identity",
 	)
-	if err := fs.Parse(args); err != nil {
+	if err := parseAll(fs, args); err != nil {
 		return 2
 	}
 

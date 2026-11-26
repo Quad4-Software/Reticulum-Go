@@ -11,6 +11,9 @@ reticulum-go dump, rgodump \- decode Reticulum packets from hex or pcap
 .SH DESCRIPTION
 Decode Reticulum wire frames to JSON lines. Input may be a hex string, hex
 lines on stdin or in a file, or UDP payloads extracted from a classic pcap.
+.SH FLAG PARSING
+Flags may appear before, between, or after positional arguments. A literal
+\-\- ends flag parsing.
 .SH SEE ALSO
 .BR reticulum-go (1),
 .BR tshark (1)

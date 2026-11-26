@@ -40,7 +40,7 @@ sandbox_profile = router omits /bin, /usr/bin, and /usr/local/bin from Linux Lan
 
 sandbox_extra_paths adds operator paths (serial devices, custom binaries, TLS files already inferred from interface config). Landlock also allowlists interface Device, pipe command, discovery location_cmd, and QUIC cert paths automatically. Writable Landlock rules do not grant execute permission. Configured command executables keep execute permission through their own read-only rules.
 
-Packaged systemd units add ProtectSystem, ProtectKernel*, LockPersonality, SystemCallArchitectures=native, RestrictRealtime, RestrictSUIDSGID, and UMask=0077. They do not switch to a dedicated user. An optional drop-in example lives at /usr/share/doc/reticulum-go/reticulum-go.user.conf.example.
+Packaged systemd units pass /var/lib/reticulum-go as the config directory and add ProtectSystem, ProtectKernel*, LockPersonality, SystemCallArchitectures=native, RestrictRealtime, RestrictSUIDSGID, and UMask=0077. They do not switch to a dedicated user. An optional drop-in example lives at /usr/share/doc/reticulum-go/reticulum-go.user.conf.example.
 
 | OS | Mechanism | Effect |
 |----|-----------|--------|
