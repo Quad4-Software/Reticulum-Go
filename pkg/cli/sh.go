@@ -637,6 +637,15 @@ afterAuth:
 			}
 			if err != nil {
 				coal.Close()
+				if compat {
+					// Python rnsh can lose the Exit message when stdin EOF
+					// lands while the child is still starting or exiting.
+					select {
+					case <-done:
+						return
+					case <-time.After(compatStdinEOFGrace):
+					}
+				}
 				_ = sess.SendStream(rgosh.StreamStdin, nil, true)
 				return
 			}
@@ -719,6 +728,9 @@ afterAuth:
 		return finish(1, true)
 	}
 }
+
+// compatStdinEOFGrace delays a local stdin EOF toward a Python rnsh listener.
+const compatStdinEOFGrace = 2 * time.Second
 
 func fileFD(f *os.File) int {
 	// #nosec G115 -- kernel fds are small integers well below MaxInt on all supported OSes

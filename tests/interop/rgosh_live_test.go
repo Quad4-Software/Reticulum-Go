@@ -253,6 +253,14 @@ func TestLiveGoForcedCommand(t *testing.T) {
 }
 
 func TestLiveGoCompatToPythonRnsh(t *testing.T) {
+	runGoCompatToPythonRnsh(t, false)
+}
+
+func TestLiveGoCompatToPythonRnshNullStdin(t *testing.T) {
+	runGoCompatToPythonRnsh(t, true)
+}
+
+func runGoCompatToPythonRnsh(t *testing.T, nullStdin bool) {
 	liveOrSkip(t)
 	script := filepath.Join(repoRoot(t), "tests", "interop", "py", "rnsh_listen.py")
 	if _, err := os.Stat(script); err != nil {
@@ -303,19 +311,19 @@ func TestLiveGoCompatToPythonRnsh(t *testing.T) {
 
 	rgoshBin := ensureRgosh(t)
 	cmd := exec.CommandContext(ctx, rgoshBin, "-config", cfgDirB, "--compat", "-N", "-m", "-v", "-w", "20", destHex, "/bin/echo", "py-rnsh-ok")
-	// Hold stdin open for the session: with a null stdin rgosh sends an
-	// immediate stdin EOF, which makes Python's listener close the child
-	// stdin and race its own reaper. In RNS 1.5.x that path reaps the child
-	// in terminate() without recording the exit status, so the listener
-	// never emits CommandExitedMessage. Python-to-Python rnsh hits the same
-	// upstream bug, so the interop test keeps stdin open like an
-	// interactive session would.
 	stdinR, stdinW, err := os.Pipe()
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer func() { _ = stdinR.Close(); _ = stdinW.Close() }()
-	cmd.Stdin = stdinR
+	// An immediate stdin EOF makes Python's listener close the child stdin and
+	// race its own reaper, so it never emits CommandExitedMessage. rgosh now
+	// delays that EOF in compat mode; the null stdin case covers it.
+	if nullStdin {
+		cmd.Stdin = bytes.NewReader(nil)
+	} else {
+		cmd.Stdin = stdinR
+	}
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		if logBytes, rerr := os.ReadFile(filepath.Join(cfgDirA, "logfile")); rerr == nil && len(logBytes) > 0 {
