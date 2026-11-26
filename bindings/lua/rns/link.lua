@@ -37,6 +37,18 @@ function Link.open(node, dest_hash)
 	return wrap(h)
 end
 
+function Link.from_id(node, link_id)
+	if type(link_id) ~= "string" or link_id == "" then
+		errors.raise(errors.Error.INVALID_ARG)
+	end
+	local idbuf, n = ffi_mod.to_uint8(link_id)
+	local h = lib.rns_link_from_id(node:handle(), idbuf, n)
+	if h == 0 then
+		errors.raise(errors.Error.NOT_FOUND)
+	end
+	return wrap(h)
+end
+
 function Link:send(data)
 	local buf, n = ffi_mod.to_uint8(data)
 	if n == 0 then
@@ -115,6 +127,7 @@ end
 
 return {
 	Link = Link,
+	link_from_id = Link.from_id,
 	request_respond = request_respond,
 	request_respond_file = request_respond_file,
 }

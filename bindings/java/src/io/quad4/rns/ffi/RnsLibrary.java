@@ -3,6 +3,7 @@
 
 package io.quad4.rns.ffi;
 
+import com.sun.jna.Callback;
 import com.sun.jna.Library;
 import com.sun.jna.Native;
 import com.sun.jna.Pointer;
@@ -62,6 +63,8 @@ public interface RnsLibrary extends Library {
 
     int rns_node_pause(long node);
 
+    int rns_node_refresh_paths(long node, byte[] destHashes, long count);
+
     long rns_identity_generate();
 
     long rns_identity_load(String path);
@@ -100,6 +103,10 @@ public interface RnsLibrary extends Library {
             byte[] requiredSignerHash,
             long requiredSignerHashLen);
 
+    int rns_rsg_sign_file(long identity, String path, byte[] out, long outLen, LongByReference written);
+
+    int rns_rsg_verify_file(byte[] rsg, long rsgLen, String path, byte[] requiredSignerHash, long requiredSignerHashLen);
+
     int rns_rsm_verify(
             byte[] rsm,
             long rsmLen,
@@ -124,6 +131,8 @@ public interface RnsLibrary extends Library {
 
     int rns_destination_register_request_handler(long destination, String path);
 
+    int rns_destination_set_proof_strategy(long destination, int strategy);
+
     int rns_destination_encrypt(
             byte[] destHash, byte[] plaintext, long plaintextLen, byte[] out, long outLen, LongByReference written);
 
@@ -145,6 +154,8 @@ public interface RnsLibrary extends Library {
 
     int rns_link_id(long link, byte[] idOut, long idOutLen, LongByReference written);
 
+    long rns_link_from_id(long node, byte[] linkId, long linkIdLen);
+
     int rns_link_request(
             long node,
             long link,
@@ -162,6 +173,12 @@ public interface RnsLibrary extends Library {
             long node, byte[] requestId, long requestIdLen, String filename, byte[] data, long dataLen);
 
     int rns_event_poll(long node, RnsEvent event, int timeoutMs);
+
+    interface RnsEventCallback extends Callback {
+        void invoke(RnsEvent event, Pointer userData);
+    }
+
+    int rns_set_event_callback(long node, RnsEventCallback callback, Pointer userData);
 
     @Structure.FieldOrder({
         "kind",

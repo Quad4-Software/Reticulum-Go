@@ -284,6 +284,7 @@ make test-cpp
 make test-dart
 make test-rust
 make test-python
+task check-bindings-abi
 ```
 
 ## Odin bindings
@@ -301,12 +302,12 @@ import rns "rns:rns"
 | Area | Odin surface |
 |------|----------------|
 | Version and errors | version, last_error, error_string, Error |
-| Node lifecycle | node_create, node_start, node_stop, node_destroy, node_pause, node_resume, node_set_identity, node_refresh_paths |
+| Node lifecycle | node_create, node_start, node_stop, node_destroy, node_reload_config, node_pause, node_resume, node_set_identity, node_refresh_paths |
 | Identity | identity_generate, identity_load, identity_save, identity_destroy, identity_hash, identity_hash_bytes, identity_public_key, identity_from_public_key, identity_sign, identity_verify |
 | RSG / RSM | rsg_create, rsg_validate, rsg_sign_file, rsg_verify_file, rsm_verify |
-| Destination | destination_create, destination_announce, destination_hash, destroy, request handler register |
+| Destination | destination_create, destination_announce, destination_hash, destroy, proof strategy, encrypt, request handler register |
 | Path / interfaces | path_request, path_table, interfaces_list |
-| Link and requests | link_open, link_send, link_close, link_id, link_request, request_respond |
+| Link and requests | link_open, link_send, link_close, link_id, link_from_id, link_request, request_respond |
 | Events | event_poll, set_event_callback, Destination_Data, helpers for app data and hashes |
 | Raw ABI | foreign rns_* procs in bindings/odin/rns/foreign.odin |
 
@@ -341,12 +342,12 @@ const rns = @import("rns");
 | Area | Zig surface |
 |------|-------------|
 | Version and errors | version, lastError, errorString, Error |
-| Node lifecycle | nodeCreate, nodeStart, nodeStop, nodeDestroy, nodePause, nodeResume, nodeSetIdentity, nodeRefreshPaths |
+| Node lifecycle | nodeCreate, nodeStart, nodeStop, nodeDestroy, nodeReloadConfig, nodePause, nodeResume, nodeSetIdentity, nodeRefreshPaths |
 | Identity | identityGenerate, identityLoad, identitySave, identityDestroy, identityHash, identityHashBytes, identityPublicKey, identityFromPublicKey, identitySign, identityVerify |
 | RSG / RSM | rsgCreate, rsgValidate, rsgSignFile, rsgVerifyFile, rsmVerify |
-| Destination | destinationCreate, destinationAnnounce, destinationHash, destroy, request handler register |
+| Destination | destinationCreate, destinationAnnounce, destinationHash, destroy, proof strategy, encrypt, request handler register |
 | Path / interfaces | pathRequest, pathTable, interfacesList |
-| Link and requests | linkOpen, linkSend, linkClose, linkId, linkRequest, requestRespond |
+| Link and requests | linkOpen, linkSend, linkClose, linkId, linkFromId, linkRequest, requestRespond |
 | Events | eventPoll, setEventCallback, destination_data, helpers for app data and hashes |
 | Raw ABI | c.rns_* in bindings/zig/src/c.zig |
 
@@ -386,12 +387,12 @@ auto node = std::move(node_r).value();
 | Area | C++ surface |
 |------|-------------|
 | Version and errors | version, last_error, error_string, Error, Result |
-| Node lifecycle | Node::create, start, stop, pause, resume, set_identity, refresh_paths |
+| Node lifecycle | Node::create, start, stop, reload_config, pause, resume, set_identity, refresh_paths |
 | Identity | Identity::generate, load, save, hash, hash_bytes, public_key, from_public_key, sign, verify |
 | RSG / RSM | rsg_create, rsg_validate, rsg_sign_file, rsg_verify_file, rsm_verify |
-| Destination | Destination::create, announce, hash, register_request_handler |
+| Destination | Destination::create, announce, hash, proof strategy, destination_encrypt, register_request_handler |
 | Path / interfaces | path_request, path_table, interfaces_list |
-| Link and requests | Link::open, send, close, id, request, request_respond |
+| Link and requests | Link::open, from_id, send, close, id, request, request_respond |
 | Events | Node::poll, set_event_callback, DestinationData, Event accessors |
 
 Linux only (matches librns.so). Requires CMake and a C++17 compiler, plus a built shared library.
@@ -457,9 +458,9 @@ assert_eq!(version(), API_VERSION);
 | Area | Rust surface |
 |------|--------------|
 | Version and errors | version, last_error, Error, Result |
-| Node lifecycle | Node::create, start, stop, set_identity, pause, resume, event_poll |
+| Node lifecycle | Node::create, start, stop, reload_config, packet_send, set_identity, pause, resume, refresh_paths, event_poll, set_event_callback |
 | Identity | generate, load, save, hash_hex, hash_bytes, public_key, from_public_key, sign, verify |
-| RSG / RSM | rsg_create, rsg_validate, rsm_verify |
+| RSG / RSM | rsg_create, rsg_validate, rsg_sign_file, rsg_verify_file, rsm_verify |
 | Interfaces | interfaces_list |
 
 ```bash
@@ -485,9 +486,9 @@ assert rns.version() == rns.API_VERSION
 | Area | Python surface |
 |------|----------------|
 | Version and errors | version, last_error, Error, map_code |
-| Node lifecycle | Node.create, start, stop, set_identity, pause, resume, event_poll |
+| Node lifecycle | Node.create, start, stop, reload_config, packet_send, set_identity, pause, resume, refresh_paths, event_poll, event callback |
 | Identity | generate, load, save, hash_hex, hash_bytes, public_key, from_public_key, sign, verify |
-| RSG / RSM | rsg_create, rsg_validate, rsm_verify |
+| RSG / RSM | rsg_create, rsg_validate, rsg_sign_file, rsg_verify_file, rsm_verify |
 | Interfaces | interfaces_list |
 
 ```bash
@@ -550,6 +551,10 @@ make test-java
 # or
 make -C bindings/java test
 ```
+
+## Android use
+
+Android apps use the Java or Kotlin binding with the Android `librns.so` artifacts listed above. `bindings/android` provides host byte transports for USB serial, Nordic UART BLE, and classic RFCOMM RNode radios. It is support code, not a separate librns binding. `RNodeTcpBridge` binds loopback TCP on an ephemeral port and relays bytes to one of those transports, allowing the app to configure Go RNode as `tcp://127.0.0.1:<port>`. Apps can also register a host pipe through `RegisterRNodePortOpener` and JNI or FFI, as documented in the Android transport classes.
 
 ## Kotlin bindings
 

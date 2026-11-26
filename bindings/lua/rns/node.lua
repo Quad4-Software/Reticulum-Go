@@ -53,6 +53,33 @@ function Node:resume()
 	errors.map_code(lib.rns_node_resume(self._box.h))
 end
 
+function Node:reload_config()
+	errors.map_code(lib.rns_node_reload_config(self._box.h))
+end
+
+function Node:packet_send(dest_hash, plaintext)
+	if type(dest_hash) ~= "string" or #dest_hash ~= ffi_mod.HASH_LEN or type(plaintext) ~= "string" or plaintext == "" then
+		errors.raise(errors.Error.INVALID_ARG)
+	end
+	local dest = ffi.new("uint8_t[?]", ffi_mod.HASH_LEN)
+	ffi.copy(dest, dest_hash, ffi_mod.HASH_LEN)
+	local data, n = ffi_mod.to_uint8(plaintext)
+	errors.map_code(lib.rns_packet_send(self._box.h, dest, data, n))
+end
+
+function Node:set_event_callback(callback)
+	if callback == nil then
+		errors.map_code(lib.rns_set_event_callback(self._box.h, nil, nil))
+		self._event_callback = nil
+		return
+	end
+	local cb = ffi.cast("rns_event_callback", function(ev, _user)
+		callback(ev)
+	end)
+	self._event_callback = cb
+	errors.map_code(lib.rns_set_event_callback(self._box.h, cb, nil))
+end
+
 function Node:event_poll(timeout_ms, app_data_cap)
 	local Event = require("rns.event").Event
 	return Event.poll(self, timeout_ms, app_data_cap or 65536)
@@ -64,6 +91,8 @@ end
 
 function Node:close()
 	if self._box.h ~= 0 then
+		lib.rns_set_event_callback(self._box.h, nil, nil)
+		self._event_callback = nil
 		lib.rns_node_destroy(self._box.h)
 		self._box.h = 0
 	end

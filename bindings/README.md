@@ -45,7 +45,15 @@ task test-odin      # or test-zig, test-cpp, test-dart, test-rust, test-python, 
 make -C bindings/<lang> examples
 ```
 
-CI runs package tests and example builds per language. See [development-and-testing](../docs/en/development-and-testing.md).
+CI runs package tests and example builds per language. `task check-bindings-abi` compares `include/rns.h` with the checked wrappers so newly exported ABI functions cannot drift unnoticed. Kotlin is covered through the Java binding. See [development-and-testing](../docs/en/development-and-testing.md).
+
+## Android
+
+Android apps embed `bin/android/<abi>/librns.so` through the Java or Kotlin binding. `bindings/android` is not another language binding. It contains Android host byte transports for USB serial, Nordic UART BLE, and classic RFCOMM RNode radios. `RNodeTcpBridge` accepts one loopback TCP client and relays bytes to the opened transport, so the app can configure Go RNode as `tcp://127.0.0.1:<port>`. The sources also document direct JNI or FFI registration through `RegisterRNodePortOpener` and `RNodeHostPipe` for apps that do not want the TCP bridge.
+
+## Other embedding targets
+
+`cmd/reticulum-wasm` is the browser WebAssembly target. It is a separate embedding path with the JavaScript API documented in [embedding-and-wasm.md](../docs/en/embedding-and-wasm.md), not a librns language binding.
 
 ## Adding or updating a binding
 

@@ -85,6 +85,7 @@ pub extern fn rns_node_create(config_path: ?[*:0]const u8) u64;
 pub extern fn rns_node_start(node: u64) c_int;
 pub extern fn rns_node_stop(node: u64) c_int;
 pub extern fn rns_node_destroy(node: u64) c_int;
+pub extern fn rns_node_reload_config(node: u64) c_int;
 pub extern fn rns_node_set_identity(node: u64, identity: u64) c_int;
 pub extern fn rns_node_resume(node: u64) c_int;
 pub extern fn rns_node_pause(node: u64) c_int;
@@ -168,7 +169,10 @@ pub extern fn rns_destination_enforce_ratchets(destination: u64) c_int;
 pub extern fn rns_destination_announce(destination: u64, app_data: ?[*]const u8, app_data_len: usize) c_int;
 pub extern fn rns_destination_hash(destination: u64, hash_out: ?[*]u8, hash_out_len: usize, written: ?*usize) c_int;
 pub extern fn rns_destination_destroy(destination: u64) c_int;
+pub extern fn rns_destination_set_proof_strategy(destination: u64, strategy: c_int) c_int;
 pub extern fn rns_destination_register_request_handler(destination: u64, path: [*:0]const u8) c_int;
+pub extern fn rns_destination_encrypt(dest_hash: [*]const u8, plaintext: ?[*]const u8, plaintext_len: usize, out: ?[*]u8, out_len: usize, written: ?*usize) c_int;
+pub extern fn rns_packet_send(node: u64, dest_hash: [*]const u8, plaintext: ?[*]const u8, plaintext_len: usize) c_int;
 
 pub extern fn rns_path_request(node: u64, dest_hash: [*]const u8) c_int;
 pub extern fn rns_path_table(node: u64, out: ?[*]PathEntry, out_cap: usize, written: ?*usize, max_hops: c_int) c_int;
@@ -179,6 +183,7 @@ pub extern fn rns_link_send(link: u64, data: [*]const u8, data_len: usize) c_int
 pub extern fn rns_link_send_resource(link: u64, data: ?[*]const u8, data_len: usize, name: ?[*:0]const u8) c_int;
 pub extern fn rns_link_close(link: u64) c_int;
 pub extern fn rns_link_id(link: u64, id_out: ?[*]u8, id_out_len: usize, written: ?*usize) c_int;
+pub extern fn rns_link_from_id(node: u64, link_id: ?[*]const u8, link_id_len: usize) u64;
 pub extern fn rns_link_request(
     node: u64,
     link: u64,

@@ -119,6 +119,23 @@ class Rns {
       _api.rns_node_set_identity(node, identity);
   int nodePause(int node) => _api.rns_node_pause(node);
   int nodeResume(int node) => _api.rns_node_resume(node);
+  int nodeReloadConfig(int node) => _api.rns_node_reload_config(node);
+
+  int packetSend(int node, List<int> destHash, List<int> plaintext) {
+    if (destHash.length != rnsHashLen || plaintext.isEmpty) {
+      return RnsError.invalidArg;
+    }
+    final dest = calloc<Uint8>(rnsHashLen);
+    final data = calloc<Uint8>(plaintext.length);
+    try {
+      dest.asTypedList(rnsHashLen).setAll(0, destHash);
+      data.asTypedList(plaintext.length).setAll(0, plaintext);
+      return _api.rns_packet_send(node, dest, data, plaintext.length);
+    } finally {
+      calloc.free(dest);
+      calloc.free(data);
+    }
+  }
 
   int nodeRefreshPaths(int node, [List<List<int>> destHashes = const []]) {
     if (destHashes.isEmpty) {
@@ -469,6 +486,62 @@ class Rns {
   int destinationDestroy(int destination) =>
       _api.rns_destination_destroy(destination);
 
+  int destinationSetProofStrategy(int destination, int strategy) =>
+      _api.rns_destination_set_proof_strategy(destination, strategy);
+
+  ({List<int>? ciphertext, int code}) destinationEncrypt(
+    List<int> destHash,
+    List<int> plaintext,
+  ) {
+    if (destHash.length != rnsHashLen || plaintext.isEmpty) {
+      return (ciphertext: null, code: RnsError.invalidArg);
+    }
+    final dest = calloc<Uint8>(rnsHashLen);
+    final data = calloc<Uint8>(plaintext.length);
+    final needed = calloc<Size>();
+    try {
+      dest.asTypedList(rnsHashLen).setAll(0, destHash);
+      data.asTypedList(plaintext.length).setAll(0, plaintext);
+      var code = _api.rns_destination_encrypt(
+        dest,
+        data,
+        plaintext.length,
+        nullptr,
+        0,
+        needed,
+      );
+      if (code != RnsError.ok && code != RnsError.truncated) {
+        return (ciphertext: null, code: code);
+      }
+      final out = calloc<Uint8>(needed.value);
+      final written = calloc<Size>();
+      try {
+        code = _api.rns_destination_encrypt(
+          dest,
+          data,
+          plaintext.length,
+          out,
+          needed.value,
+          written,
+        );
+        if (code != RnsError.ok) {
+          return (ciphertext: null, code: code);
+        }
+        return (
+          ciphertext: List<int>.from(out.asTypedList(written.value)),
+          code: code,
+        );
+      } finally {
+        calloc.free(out);
+        calloc.free(written);
+      }
+    } finally {
+      calloc.free(dest);
+      calloc.free(data);
+      calloc.free(needed);
+    }
+  }
+
   int destinationRegisterRequestHandler(int destination, String path) {
     final p = path.toNativeUtf8();
     try {
@@ -502,8 +575,7 @@ class Rns {
     final out = calloc<RnsPathEntryNative>(capacity);
     final written = calloc<Size>();
     try {
-      final code =
-          _api.rns_path_table(node, out, capacity, written, maxHops);
+      final code = _api.rns_path_table(node, out, capacity, written, maxHops);
       if (code != RnsError.ok) {
         return (entries: const [], code: code);
       }
@@ -589,6 +661,19 @@ class Rns {
   }
 
   int linkClose(int link) => _api.rns_link_close(link);
+
+  int linkFromId(int node, List<int> linkIdBytes) {
+    if (linkIdBytes.isEmpty) {
+      return 0;
+    }
+    final buf = calloc<Uint8>(linkIdBytes.length);
+    try {
+      buf.asTypedList(linkIdBytes.length).setAll(0, linkIdBytes);
+      return _api.rns_link_from_id(node, buf, linkIdBytes.length);
+    } finally {
+      calloc.free(buf);
+    }
+  }
 
   List<int>? linkId(int link) {
     final out = calloc<Uint8>(rnsHashLen);

@@ -52,6 +52,17 @@ class Link {
 		return open(node, span<const std::uint8_t>(dest_hash.data(), dest_hash.size()));
 	}
 
+	static Result<Link> from_id(Node &node, span<const std::uint8_t> link_id) {
+		if (link_id.empty()) {
+			return Result<Link>(Error::InvalidArg);
+		}
+		std::uint64_t h = rns_link_from_id(node.handle(), link_id.data(), link_id.size());
+		if (h == 0) {
+			return Result<Link>(Error::NotFound);
+		}
+		return Result<Link>(Link(h));
+	}
+
 	Error send(const std::uint8_t *data, std::size_t len) {
 		if (data == nullptr || len == 0) {
 			return Error::InvalidArg;

@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: LicenseRef-Reticulum
 // Copyright (c) 2024-2026 Quad4.io
 
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex, OnceLock};
+
 use crate::error::{map_code, Result};
 use crate::ffi::{self, EventKind, HASH_LEN};
 use crate::node::Node;
@@ -13,7 +16,46 @@ pub struct Event {
     error_message: String,
 }
 
+type Callback = Arc<Mutex<dyn FnMut(Event) + Send + 'static>>;
+
+static CALLBACKS: OnceLock<Mutex<HashMap<u64, Callback>>> = OnceLock::new();
+
+fn callbacks() -> &'static Mutex<HashMap<u64, Callback>> {
+    CALLBACKS.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+unsafe extern "C" fn callback_bridge(raw: *const ffi::Event, user_data: *mut std::ffi::c_void) {
+    if raw.is_null() || user_data.is_null() {
+        return;
+    }
+    let node = user_data as usize as u64;
+    let event = unsafe { Event::from_raw(&*raw) };
+    let callback = callbacks()
+        .lock()
+        .ok()
+        .and_then(|all| all.get(&node).cloned());
+    if let Some(callback) = callback {
+        if let Ok(mut callback) = callback.lock() {
+            callback(event);
+        }
+    }
+}
+
 impl Event {
+    fn from_raw(raw: &ffi::Event) -> Self {
+        let app_data = if raw.app_data.is_null() || raw.app_data_len == 0 {
+            Vec::new()
+        } else {
+            unsafe { std::slice::from_raw_parts(raw.app_data, raw.app_data_len).to_vec() }
+        };
+        Self {
+            path: util::cstr_field(&raw.path),
+            error_message: util::cstr_field(&raw.error_message),
+            raw: *raw,
+            app_data,
+        }
+    }
+
     pub fn poll(node: &Node, timeout_ms: i32, app_data_buf: &mut [u8]) -> Result<Self> {
         let mut raw = unsafe { std::mem::zeroed::<ffi::Event>() };
         if !app_data_buf.is_empty() {
@@ -99,4 +141,43 @@ impl Event {
 
 pub fn hash_eq(a: &[u8], b: &[u8; HASH_LEN]) -> bool {
     a.len() == HASH_LEN && a == b.as_slice()
+}
+
+pub fn set_event_callback<F>(node: &Node, callback: Option<F>) -> Result<()>
+where
+    F: FnMut(Event) + Send + 'static,
+{
+    if callback.is_none() {
+        clear_event_callback(node)
+    } else {
+        let mut all = callbacks()
+            .lock()
+            .map_err(|_| crate::error::Error::Internal)?;
+        all.insert(node.handle(), Arc::new(Mutex::new(callback.unwrap())));
+        drop(all);
+        let result = map_code(unsafe {
+            ffi::rns_set_event_callback(
+                node.handle(),
+                Some(callback_bridge),
+                node.handle() as usize as *mut std::ffi::c_void,
+            )
+        });
+        if result.is_err() {
+            if let Ok(mut all) = callbacks().lock() {
+                all.remove(&node.handle());
+            }
+        }
+        result
+    }
+}
+
+pub(crate) fn clear_event_callback(node: &Node) -> Result<()> {
+    let result =
+        map_code(unsafe { ffi::rns_set_event_callback(node.handle(), None, std::ptr::null_mut()) });
+    if result.is_ok() {
+        if let Ok(mut all) = callbacks().lock() {
+            all.remove(&node.handle());
+        }
+    }
+    result
 }

@@ -17,6 +17,17 @@ link_open :: proc(node: Node, dest_hash: []u8) -> (link: Link, err: Error) {
 	return Link(h), .Ok
 }
 
+link_from_id :: proc(node: Node, link_id: []u8) -> (link: Link, err: Error) {
+	if len(link_id) == 0 {
+		return 0, .Invalid_Arg
+	}
+	h := rns_link_from_id(u64(node), raw_data(link_id), c.size_t(len(link_id)))
+	if h == 0 {
+		return 0, .Not_Found
+	}
+	return Link(h), .Ok
+}
+
 link_send :: proc(link: Link, data: []u8) -> Error {
 	if len(data) == 0 {
 		return .Invalid_Arg

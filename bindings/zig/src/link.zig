@@ -66,6 +66,13 @@ pub fn request(
     return request_id;
 }
 
+pub fn fromId(node: types.Node, link_id: []const u8) types.Error!types.Link {
+    if (link_id.len == 0) return error.InvalidArg;
+    const h = c.rns_link_from_id(types.asU64(node), link_id.ptr, link_id.len);
+    if (h == 0) return error.NotFound;
+    return @enumFromInt(h);
+}
+
 pub fn respond(node: types.Node, request_id: []const u8, data: []const u8) types.Error!void {
     if (request_id.len == 0) return error.InvalidArg;
     try types.mapCode(c.rns_request_respond(

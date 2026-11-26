@@ -7,6 +7,7 @@
 - `reticulum-go completion bash|zsh|fish` prints shell completions generated from the live flag sets. Linux packages install the bash, zsh, and fish scripts.
 - `rgosh -p -json`, `rgocp -p -json`, and `rgox -p -json` print full identity and destination hashes as JSON without angle brackets. `rgoid -p -json` prints the identity and public key, and private key material stays gated behind `-P`.
 - The rgosh remote-exit timeout now reports whether the link is still active and whether stdout EOF, stderr EOF, and the exit message arrived.
+- librns bindings now cover the ABI 1.6 functions for config reload, path refresh, packet send, destination encryption and proof strategy, link lookup, RSG file signing, and event callbacks where the language exposes them. `task check-bindings-abi` checks the wrappers against `include/rns.h`.
 
 ### Changed
 

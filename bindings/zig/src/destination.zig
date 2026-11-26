@@ -76,3 +76,26 @@ pub fn registerRequestHandler(destination: types.Destination, path: []const u8) 
     const path_z = try util.requireCString(path, &path_buf);
     try types.mapCode(c.rns_destination_register_request_handler(types.asU64(destination), path_z));
 }
+
+pub fn setProofStrategy(destination: types.Destination, strategy: c_int) types.Error!void {
+    try types.mapCode(c.rns_destination_set_proof_strategy(types.asU64(destination), strategy));
+}
+
+pub fn encrypt(dest_hash: []const u8, plaintext: []const u8, allocator: std.mem.Allocator) types.Error![]u8 {
+    if (dest_hash.len != types.hash_len or plaintext.len == 0) return error.InvalidArg;
+    var needed: usize = 0;
+    const probe = c.rns_destination_encrypt(dest_hash.ptr, plaintext.ptr, plaintext.len, null, 0, &needed);
+    if (probe != c.RNS_OK and probe != c.RNS_ERR_TRUNCATED) try types.mapCode(probe);
+    if (needed == 0) return error.Internal;
+    const out = allocator.alloc(u8, needed) catch return error.Internal;
+    errdefer allocator.free(out);
+    var written: usize = 0;
+    try types.mapCode(c.rns_destination_encrypt(dest_hash.ptr, plaintext.ptr, plaintext.len, out.ptr, out.len, &written));
+    if (written == out.len) return out;
+    const trimmed = allocator.dupe(u8, out[0..written]) catch {
+        allocator.free(out);
+        return error.Internal;
+    };
+    allocator.free(out);
+    return trimmed;
+}

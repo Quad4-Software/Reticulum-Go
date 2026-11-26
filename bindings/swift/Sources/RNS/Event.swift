@@ -33,6 +33,29 @@ public struct Event {
     public let errorMessageTruncated: Bool
     public let appDataTruncated: Bool
 
+    static func fromC(_ event: rns_event) -> Event {
+        let appData: Data
+        if let ptr = event.app_data, event.app_data_len > 0 {
+            appData = Data(bytes: ptr, count: event.app_data_len)
+        } else {
+            appData = Data()
+        }
+        return Event(
+            kind: EventKind(rawValue: event.kind) ?? .none,
+            hops: event.hops,
+            linkId: withUnsafeBytes(of: event.link_id) { Data($0.prefix(event.link_id_len)) },
+            destinationHash: withUnsafeBytes(of: event.destination_hash) { Data($0.prefix(event.destination_hash_len)) },
+            identityHash: withUnsafeBytes(of: event.identity_hash) { Data($0.prefix(event.identity_hash_len)) },
+            requestId: withUnsafeBytes(of: event.request_id) { Data($0.prefix(event.request_id_len)) },
+            path: withUnsafeBytes(of: event.path) { String(cString: $0.bindMemory(to: CChar.self).baseAddress!) },
+            errorMessage: withUnsafeBytes(of: event.error_message) { String(cString: $0.bindMemory(to: CChar.self).baseAddress!) },
+            appData: appData,
+            pathTruncated: event.path_truncated != 0,
+            errorMessageTruncated: event.error_message_truncated != 0,
+            appDataTruncated: event.app_data_truncated != 0
+        )
+    }
+
     public static func poll(node: Node, timeoutMs: Int32, appDataCapacity: Int = 0) throws -> Event {
         var event = rns_event()
         var storage = [UInt8](repeating: 0, count: max(appDataCapacity, 0))

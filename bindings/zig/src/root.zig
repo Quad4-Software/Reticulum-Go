@@ -43,6 +43,8 @@ pub const node = struct {
     pub const pause = node_mod.pause;
     pub const resumeNode = node_mod.resumeNode;
     pub const refreshPaths = node_mod.refreshPaths;
+    pub const reloadConfig = node_mod.reloadConfig;
+    pub const packetSend = node_mod.packetSend;
 };
 
 pub const identity = struct {
@@ -64,6 +66,8 @@ pub const destination = struct {
     pub const hash = destination_mod.hash;
     pub const destroy = destination_mod.destroy;
     pub const registerRequestHandler = destination_mod.registerRequestHandler;
+    pub const setProofStrategy = destination_mod.setProofStrategy;
+    pub const encrypt = destination_mod.encrypt;
 };
 
 pub const path = struct {
@@ -83,6 +87,7 @@ pub const link = struct {
     pub const sendResource = link_mod.sendResource;
     pub const close = link_mod.close;
     pub const id = link_mod.id;
+    pub const fromId = link_mod.fromId;
     pub const request = link_mod.request;
     pub const respond = link_mod.respond;
     pub const respondFile = link_mod.respondFile;
@@ -122,6 +127,8 @@ pub const nodeSetIdentity = node.setIdentity;
 pub const nodePause = node.pause;
 pub const nodeResume = node.resumeNode;
 pub const nodeRefreshPaths = node.refreshPaths;
+pub const nodeReloadConfig = node.reloadConfig;
+pub const packetSend = node.packetSend;
 
 pub const identityGenerate = identity.generate;
 pub const identityLoad = identity.load;
@@ -139,6 +146,8 @@ pub const destinationAnnounce = destination.announce;
 pub const destinationHash = destination.hash;
 pub const destinationDestroy = destination.destroy;
 pub const destinationRegisterRequestHandler = destination.registerRequestHandler;
+pub const destinationSetProofStrategy = destination.setProofStrategy;
+pub const destinationEncrypt = destination.encrypt;
 
 pub const pathRequest = path.request;
 pub const pathTable = path.table;
@@ -149,6 +158,7 @@ pub const linkSend = link.send;
 pub const linkSendResource = link.sendResource;
 pub const linkClose = link.close;
 pub const linkId = link.id;
+pub const linkFromId = link.fromId;
 pub const linkRequest = link.request;
 pub const requestRespond = link.respond;
 pub const requestRespondFile = link.respondFile;

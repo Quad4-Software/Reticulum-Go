@@ -56,6 +56,44 @@ public func rsgValidate(rsg: Data, message: Data, requiredSignerHash: Data = Dat
     }
 }
 
+private func validPath(_ path: String) -> Bool {
+    !path.isEmpty && !path.contains("\0")
+}
+
+public func rsgSignFile(identity: Identity, path: String) throws -> Data {
+    guard validPath(path) else { throw RNSError.invalidArgument }
+    var needed: Int = 0
+    let probe: Int32 = path.withCString { rns_rsg_sign_file(identity.rawHandle, $0, nil, 0, &needed) }
+    if probe != RNS_OK && probe != RNS_ERR_TRUNCATED {
+        try check(probe)
+    }
+    var out = [UInt8](repeating: 0, count: needed)
+    var written: Int = 0
+    try path.withCString { cPath in
+        try out.withUnsafeMutableBufferPointer { buf in
+            try check(rns_rsg_sign_file(identity.rawHandle, cPath, buf.baseAddress, needed, &written))
+        }
+    }
+    return Data(out.prefix(written))
+}
+
+public func rsgVerifyFile(rsg: Data, path: String, requiredSignerHash: Data = Data()) throws {
+    guard !rsg.isEmpty, validPath(path) else { throw RNSError.invalidArgument }
+    try path.withCString { cPath in
+        try rsg.withUnsafeBytes { rRaw in
+            try requiredSignerHash.withUnsafeBytes { sRaw in
+                try check(rns_rsg_verify_file(
+                    rRaw.bindMemory(to: UInt8.self).baseAddress,
+                    rsg.count,
+                    cPath,
+                    sRaw.bindMemory(to: UInt8.self).baseAddress,
+                    requiredSignerHash.count
+                ))
+            }
+        }
+    }
+}
+
 public func rsmVerify(rsm: Data, requiredSignerHash: Data = Data()) throws -> Data {
     var needed: Int = 0
     let probe: Int32 = rsm.withUnsafeBytes { rRaw in

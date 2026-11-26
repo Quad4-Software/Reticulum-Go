@@ -46,6 +46,24 @@ impl Node {
         map_code(unsafe { ffi::rns_node_resume(self.handle) })
     }
 
+    pub fn reload_config(&self) -> Result<()> {
+        map_code(unsafe { ffi::rns_node_reload_config(self.handle) })
+    }
+
+    pub fn packet_send(&self, dest_hash: &[u8; HASH_LEN], plaintext: &[u8]) -> Result<()> {
+        if plaintext.is_empty() {
+            return Err(Error::InvalidArg);
+        }
+        map_code(unsafe {
+            ffi::rns_packet_send(
+                self.handle,
+                dest_hash.as_ptr(),
+                plaintext.as_ptr(),
+                plaintext.len(),
+            )
+        })
+    }
+
     pub fn event_poll(&self, timeout_ms: i32) -> Result<crate::event::Event> {
         let mut buf = vec![0u8; 65536];
         crate::event::Event::poll(self, timeout_ms, &mut buf)
@@ -59,6 +77,7 @@ impl Node {
 impl Drop for Node {
     fn drop(&mut self) {
         if self.handle != 0 {
+            let _ = crate::event::clear_event_callback(self);
             unsafe {
                 let _ = ffi::rns_node_destroy(self.handle);
             }

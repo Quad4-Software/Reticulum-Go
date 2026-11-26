@@ -98,6 +98,10 @@ class Destination {
 
 	Error enforce_ratchets() { return map_code(rns_destination_enforce_ratchets(handle_)); }
 
+	Error set_proof_strategy(int strategy) {
+		return map_code(rns_destination_set_proof_strategy(handle_, strategy));
+	}
+
 	Error announce(const std::uint8_t *data, std::size_t len) {
 		if (data == nullptr || len == 0) {
 			return map_code(rns_destination_announce(handle_, nullptr, 0));
@@ -155,6 +159,29 @@ class Destination {
 
 	std::uint64_t handle_;
 };
+
+inline Result<std::vector<std::uint8_t>> destination_encrypt(const Hash &dest_hash,
+							       span<const std::uint8_t> plaintext) {
+	if (plaintext.empty()) {
+		return Result<std::vector<std::uint8_t>>(Error::InvalidArg);
+	}
+	std::size_t needed = 0;
+	int probe = rns_destination_encrypt(dest_hash.data(), plaintext.data(), plaintext.size(),
+					    nullptr, 0, &needed);
+	if (probe != RNS_OK && probe != RNS_ERR_TRUNCATED) {
+		return Result<std::vector<std::uint8_t>>(map_code(probe));
+	}
+	std::vector<std::uint8_t> out(needed);
+	std::size_t written = 0;
+	Error err = map_code(rns_destination_encrypt(dest_hash.data(), plaintext.data(),
+						       plaintext.size(), out.data(), out.size(),
+						       &written));
+	if (err != Error::Ok) {
+		return Result<std::vector<std::uint8_t>>(err);
+	}
+	out.resize(written);
+	return Result<std::vector<std::uint8_t>>(std::move(out));
+}
 
 } // namespace rns
 

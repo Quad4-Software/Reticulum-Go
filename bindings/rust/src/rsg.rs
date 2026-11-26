@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: LicenseRef-Reticulum
 // Copyright (c) 2024-2026 Quad4.io
 
+use std::ffi::CString;
 use std::ptr;
 
 use crate::error::{map_code, Error, Result};
@@ -126,4 +127,60 @@ pub fn rsm_verify(rsm: &[u8], required_signer_hash: &[u8]) -> Result<Vec<u8>> {
     })?;
     out.truncate(written);
     Ok(out)
+}
+
+pub fn rsg_sign_file(identity: &Identity, path: &str) -> Result<Vec<u8>> {
+    if path.is_empty() {
+        return Err(Error::InvalidArg);
+    }
+    let c_path = CString::new(path).map_err(|_| Error::InvalidArg)?;
+    let mut needed = 0usize;
+    let probe = unsafe {
+        ffi::rns_rsg_sign_file(
+            identity.handle(),
+            c_path.as_ptr(),
+            ptr::null_mut(),
+            0,
+            &mut needed,
+        )
+    };
+    if probe != 0 && probe != 8 {
+        map_code(probe)?;
+    }
+    if needed == 0 {
+        return Err(Error::Internal);
+    }
+    let mut out = vec![0u8; needed];
+    let mut written = 0usize;
+    map_code(unsafe {
+        ffi::rns_rsg_sign_file(
+            identity.handle(),
+            c_path.as_ptr(),
+            out.as_mut_ptr(),
+            out.len(),
+            &mut written,
+        )
+    })?;
+    out.truncate(written);
+    Ok(out)
+}
+
+pub fn rsg_verify_file(rsg: &[u8], path: &str, required_signer_hash: &[u8]) -> Result<()> {
+    if rsg.is_empty() || path.is_empty() {
+        return Err(Error::InvalidArg);
+    }
+    let c_path = CString::new(path).map_err(|_| Error::InvalidArg)?;
+    map_code(unsafe {
+        ffi::rns_rsg_verify_file(
+            rsg.as_ptr(),
+            rsg.len(),
+            c_path.as_ptr(),
+            if required_signer_hash.is_empty() {
+                ptr::null()
+            } else {
+                required_signer_hash.as_ptr()
+            },
+            required_signer_hash.len(),
+        )
+    })
 }

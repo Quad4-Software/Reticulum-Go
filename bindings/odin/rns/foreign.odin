@@ -23,6 +23,7 @@ foreign lib {
 	rns_node_start          :: proc(node: u64) -> c.int ---
 	rns_node_stop           :: proc(node: u64) -> c.int ---
 	rns_node_destroy        :: proc(node: u64) -> c.int ---
+	rns_node_reload_config  :: proc(node: u64) -> c.int ---
 	rns_node_set_identity   :: proc(node: u64, identity: u64) -> c.int ---
 	rns_node_resume         :: proc(node: u64) -> c.int ---
 	rns_node_pause          :: proc(node: u64) -> c.int ---
@@ -149,6 +150,7 @@ foreign lib {
 	rns_link_send_resource :: proc(link: u64, data: [^]u8, data_len: c.size_t, name: cstring) -> c.int ---
 	rns_link_close :: proc(link: u64) -> c.int ---
 	rns_link_id :: proc(link: u64, id_out: [^]u8, id_out_len: c.size_t, written: ^c.size_t) -> c.int ---
+	rns_link_from_id :: proc(node: u64, link_id: [^]u8, link_id_len: c.size_t) -> u64 ---
 	rns_link_request :: proc(
 		node: u64,
 		link: u64,

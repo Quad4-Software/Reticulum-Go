@@ -64,6 +64,10 @@ function Destination:enforce_ratchets()
 	errors.map_code(lib.rns_destination_enforce_ratchets(self._box.h))
 end
 
+function Destination:set_proof_strategy(strategy)
+	errors.map_code(lib.rns_destination_set_proof_strategy(self._box.h, strategy or 0))
+end
+
 function Destination:announce(app_data)
 	local buf, n = ffi_mod.to_uint8(app_data or "")
 	errors.map_code(lib.rns_destination_announce(self._box.h, buf, n))
@@ -97,4 +101,23 @@ function Destination:close()
 	end
 end
 
+local function destination_encrypt(dest_hash, plaintext)
+	if type(dest_hash) ~= "string" or #dest_hash ~= ffi_mod.HASH_LEN or type(plaintext) ~= "string" or plaintext == "" then
+		errors.raise(errors.Error.INVALID_ARG)
+	end
+	local dest = ffi.new("uint8_t[?]", ffi_mod.HASH_LEN)
+	ffi.copy(dest, dest_hash, ffi_mod.HASH_LEN)
+	local data, n = ffi_mod.to_uint8(plaintext)
+	local needed = ffi.new("size_t[1]", 0)
+	local code = lib.rns_destination_encrypt(dest, data, n, nil, 0, needed)
+	if code ~= errors.Error.OK and code ~= errors.Error.TRUNCATED then
+		errors.map_code(code)
+	end
+	local out = ffi.new("uint8_t[?]", needed[0])
+	local written = ffi.new("size_t[1]", 0)
+	errors.map_code(lib.rns_destination_encrypt(dest, data, n, out, needed[0], written))
+	return ffi.string(out, written[0])
+end
+
+Destination.destination_encrypt = destination_encrypt
 return Destination

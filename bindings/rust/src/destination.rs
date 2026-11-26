@@ -54,7 +54,9 @@ impl Destination {
 
     pub fn enable_ratchets(&self, path: Option<&str>) -> Result<()> {
         match path {
-            None => map_code(unsafe { ffi::rns_destination_enable_ratchets(self.handle, ptr::null()) }),
+            None => {
+                map_code(unsafe { ffi::rns_destination_enable_ratchets(self.handle, ptr::null()) })
+            }
             Some(p) => {
                 let c = CString::new(p).map_err(|_| Error::InvalidArg)?;
                 map_code(unsafe { ffi::rns_destination_enable_ratchets(self.handle, c.as_ptr()) })
@@ -64,6 +66,10 @@ impl Destination {
 
     pub fn enforce_ratchets(&self) -> Result<()> {
         map_code(unsafe { ffi::rns_destination_enforce_ratchets(self.handle) })
+    }
+
+    pub fn set_proof_strategy(&self, strategy: i32) -> Result<()> {
+        map_code(unsafe { ffi::rns_destination_set_proof_strategy(self.handle, strategy) })
     }
 
     pub fn announce(&self, app_data: &[u8]) -> Result<()> {
@@ -97,7 +103,9 @@ impl Destination {
             return Err(Error::InvalidArg);
         }
         let path = CString::new(path).map_err(|_| Error::InvalidArg)?;
-        map_code(unsafe { ffi::rns_destination_register_request_handler(self.handle, path.as_ptr()) })
+        map_code(unsafe {
+            ffi::rns_destination_register_request_handler(self.handle, path.as_ptr())
+        })
     }
 
     pub fn handle(&self) -> u64 {
@@ -114,4 +122,38 @@ impl Drop for Destination {
             self.handle = 0;
         }
     }
+}
+
+pub fn encrypt(dest_hash: &[u8; HASH_LEN], plaintext: &[u8]) -> Result<Vec<u8>> {
+    if plaintext.is_empty() {
+        return Err(Error::InvalidArg);
+    }
+    let mut needed = 0usize;
+    let probe = unsafe {
+        ffi::rns_destination_encrypt(
+            dest_hash.as_ptr(),
+            plaintext.as_ptr(),
+            plaintext.len(),
+            ptr::null_mut(),
+            0,
+            &mut needed,
+        )
+    };
+    if probe != 0 && probe != 8 {
+        map_code(probe)?;
+    }
+    let mut out = vec![0u8; needed];
+    let mut written = 0usize;
+    map_code(unsafe {
+        ffi::rns_destination_encrypt(
+            dest_hash.as_ptr(),
+            plaintext.as_ptr(),
+            plaintext.len(),
+            out.as_mut_ptr(),
+            out.len(),
+            &mut written,
+        )
+    })?;
+    out.truncate(written);
+    Ok(out)
 }

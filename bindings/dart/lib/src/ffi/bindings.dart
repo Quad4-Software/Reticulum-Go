@@ -270,6 +270,45 @@ typedef _DestinationRegisterRequestHandlerDart = int Function(
   Pointer<Char> path,
 );
 
+typedef _DestinationSetProofStrategyC = Int32 Function(
+  Uint64 destination,
+  Int32 strategy,
+);
+typedef _DestinationSetProofStrategyDart = int Function(
+  int destination,
+  int strategy,
+);
+
+typedef _DestinationEncryptC = Int32 Function(
+  Pointer<Uint8> destHash,
+  Pointer<Uint8> plaintext,
+  Size plaintextLen,
+  Pointer<Uint8> out,
+  Size outLen,
+  Pointer<Size> written,
+);
+typedef _DestinationEncryptDart = int Function(
+  Pointer<Uint8> destHash,
+  Pointer<Uint8> plaintext,
+  int plaintextLen,
+  Pointer<Uint8> out,
+  int outLen,
+  Pointer<Size> written,
+);
+
+typedef _PacketSendC = Int32 Function(
+  Uint64 node,
+  Pointer<Uint8> destHash,
+  Pointer<Uint8> plaintext,
+  Size plaintextLen,
+);
+typedef _PacketSendDart = int Function(
+  int node,
+  Pointer<Uint8> destHash,
+  Pointer<Uint8> plaintext,
+  int plaintextLen,
+);
+
 typedef _PathRequestC = Int32 Function(Uint64 node, Pointer<Uint8> destHash);
 typedef _PathRequestDart = int Function(int node, Pointer<Uint8> destHash);
 
@@ -329,6 +368,17 @@ typedef _LinkIdDart = int Function(
   Pointer<Uint8> idOut,
   int idOutLen,
   Pointer<Size> written,
+);
+
+typedef _LinkFromIdC = Uint64 Function(
+  Uint64 node,
+  Pointer<Uint8> linkId,
+  Size linkIdLen,
+);
+typedef _LinkFromIdDart = int Function(
+  int node,
+  Pointer<Uint8> linkId,
+  int linkIdLen,
 );
 
 typedef _LinkRequestC = Int32 Function(
@@ -427,152 +477,178 @@ typedef _SetEventCallbackDart = int Function(
 
 class RnsBindings {
   RnsBindings(DynamicLibrary lib)
-      : rns_version = lib.lookupFunction<_VersionC, _VersionDart>('rns_version'),
-        rns_last_error =
-            lib.lookupFunction<_LastErrorC, _LastErrorDart>('rns_last_error'),
-        rns_node_create =
-            lib.lookupFunction<_NodeCreateC, _NodeCreateDart>('rns_node_create'),
-        rns_node_start =
-            lib.lookupFunction<_NodeOpC, _NodeOpDart>('rns_node_start'),
-        rns_node_stop =
-            lib.lookupFunction<_NodeOpC, _NodeOpDart>('rns_node_stop'),
-        rns_node_destroy =
-            lib.lookupFunction<_NodeOpC, _NodeOpDart>('rns_node_destroy'),
-        rns_node_set_identity =
-            lib.lookupFunction<_NodeSetIdentityC, _NodeSetIdentityDart>(
-          'rns_node_set_identity',
-        ),
-        rns_node_resume =
-            lib.lookupFunction<_NodeOpC, _NodeOpDart>('rns_node_resume'),
-        rns_node_pause =
-            lib.lookupFunction<_NodeOpC, _NodeOpDart>('rns_node_pause'),
-        rns_node_refresh_paths =
-            lib.lookupFunction<_NodeRefreshPathsC, _NodeRefreshPathsDart>(
-          'rns_node_refresh_paths',
-        ),
-        rns_identity_generate =
-            lib.lookupFunction<_IdentityGenerateC, _IdentityGenerateDart>(
-          'rns_identity_generate',
-        ),
-        rns_identity_load =
-            lib.lookupFunction<_IdentityLoadC, _IdentityLoadDart>(
-          'rns_identity_load',
-        ),
-        rns_identity_save =
-            lib.lookupFunction<_IdentitySaveC, _IdentitySaveDart>(
-          'rns_identity_save',
-        ),
-        rns_identity_destroy =
-            lib.lookupFunction<_IdentityDestroyC, _IdentityDestroyDart>(
-          'rns_identity_destroy',
-        ),
-        rns_identity_hash =
-            lib.lookupFunction<_IdentityHashC, _IdentityHashDart>(
-          'rns_identity_hash',
-        ),
-        rns_identity_hash_bytes =
-            lib.lookupFunction<_IdentityBytesC, _IdentityBytesDart>(
-          'rns_identity_hash_bytes',
-        ),
-        rns_identity_public_key =
-            lib.lookupFunction<_IdentityBytesC, _IdentityBytesDart>(
-          'rns_identity_public_key',
-        ),
-        rns_identity_from_public_key = lib.lookupFunction<
-            _IdentityFromPublicKeyC, _IdentityFromPublicKeyDart>(
-          'rns_identity_from_public_key',
-        ),
-        rns_identity_sign =
-            lib.lookupFunction<_IdentitySignC, _IdentitySignDart>(
-          'rns_identity_sign',
-        ),
-        rns_identity_verify =
-            lib.lookupFunction<_IdentityVerifyC, _IdentityVerifyDart>(
-          'rns_identity_verify',
-        ),
-        rns_rsg_create =
-            lib.lookupFunction<_RsgCreateC, _RsgCreateDart>('rns_rsg_create'),
-        rns_rsg_validate =
-            lib.lookupFunction<_RsgValidateC, _RsgValidateDart>(
-          'rns_rsg_validate',
-        ),
-        rns_rsg_sign_file =
-            lib.lookupFunction<_RsgSignFileC, _RsgSignFileDart>(
-          'rns_rsg_sign_file',
-        ),
-        rns_rsg_verify_file =
-            lib.lookupFunction<_RsgVerifyFileC, _RsgVerifyFileDart>(
-          'rns_rsg_verify_file',
-        ),
-        rns_rsm_verify =
-            lib.lookupFunction<_RsmVerifyC, _RsmVerifyDart>('rns_rsm_verify'),
-        rns_destination_create =
-            lib.lookupFunction<_DestinationCreateC, _DestinationCreateDart>(
-          'rns_destination_create',
-        ),
-        rns_destination_enable_ratchets = lib.lookupFunction<
-            _DestinationEnableRatchetsC, _DestinationEnableRatchetsDart>(
-          'rns_destination_enable_ratchets',
-        ),
-        rns_destination_enforce_ratchets = lib.lookupFunction<
-            _DestinationEnforceRatchetsC, _DestinationEnforceRatchetsDart>(
-          'rns_destination_enforce_ratchets',
-        ),
-        rns_destination_announce =
-            lib.lookupFunction<_DestinationAnnounceC, _DestinationAnnounceDart>(
-          'rns_destination_announce',
-        ),
-        rns_destination_hash =
-            lib.lookupFunction<_DestinationHashC, _DestinationHashDart>(
-          'rns_destination_hash',
-        ),
-        rns_destination_destroy =
-            lib.lookupFunction<_DestinationDestroyC, _DestinationDestroyDart>(
-          'rns_destination_destroy',
-        ),
-        rns_destination_register_request_handler = lib.lookupFunction<
+    : rns_version = lib.lookupFunction<_VersionC, _VersionDart>('rns_version'),
+      rns_last_error = lib.lookupFunction<_LastErrorC, _LastErrorDart>(
+        'rns_last_error',
+      ),
+      rns_node_create = lib.lookupFunction<_NodeCreateC, _NodeCreateDart>(
+        'rns_node_create',
+      ),
+      rns_node_start = lib.lookupFunction<_NodeOpC, _NodeOpDart>(
+        'rns_node_start',
+      ),
+      rns_node_stop = lib.lookupFunction<_NodeOpC, _NodeOpDart>(
+        'rns_node_stop',
+      ),
+      rns_node_destroy = lib.lookupFunction<_NodeOpC, _NodeOpDart>(
+        'rns_node_destroy',
+      ),
+      rns_node_reload_config = lib.lookupFunction<_NodeOpC, _NodeOpDart>(
+        'rns_node_reload_config',
+      ),
+      rns_node_set_identity = lib
+          .lookupFunction<_NodeSetIdentityC, _NodeSetIdentityDart>(
+            'rns_node_set_identity',
+          ),
+      rns_node_resume = lib.lookupFunction<_NodeOpC, _NodeOpDart>(
+        'rns_node_resume',
+      ),
+      rns_node_pause = lib.lookupFunction<_NodeOpC, _NodeOpDart>(
+        'rns_node_pause',
+      ),
+      rns_node_refresh_paths = lib
+          .lookupFunction<_NodeRefreshPathsC, _NodeRefreshPathsDart>(
+            'rns_node_refresh_paths',
+          ),
+      rns_identity_generate = lib
+          .lookupFunction<_IdentityGenerateC, _IdentityGenerateDart>(
+            'rns_identity_generate',
+          ),
+      rns_identity_load = lib.lookupFunction<_IdentityLoadC, _IdentityLoadDart>(
+        'rns_identity_load',
+      ),
+      rns_identity_save = lib.lookupFunction<_IdentitySaveC, _IdentitySaveDart>(
+        'rns_identity_save',
+      ),
+      rns_identity_destroy = lib
+          .lookupFunction<_IdentityDestroyC, _IdentityDestroyDart>(
+            'rns_identity_destroy',
+          ),
+      rns_identity_hash = lib.lookupFunction<_IdentityHashC, _IdentityHashDart>(
+        'rns_identity_hash',
+      ),
+      rns_identity_hash_bytes = lib
+          .lookupFunction<_IdentityBytesC, _IdentityBytesDart>(
+            'rns_identity_hash_bytes',
+          ),
+      rns_identity_public_key = lib
+          .lookupFunction<_IdentityBytesC, _IdentityBytesDart>(
+            'rns_identity_public_key',
+          ),
+      rns_identity_from_public_key = lib
+          .lookupFunction<_IdentityFromPublicKeyC, _IdentityFromPublicKeyDart>(
+            'rns_identity_from_public_key',
+          ),
+      rns_identity_sign = lib.lookupFunction<_IdentitySignC, _IdentitySignDart>(
+        'rns_identity_sign',
+      ),
+      rns_identity_verify = lib
+          .lookupFunction<_IdentityVerifyC, _IdentityVerifyDart>(
+            'rns_identity_verify',
+          ),
+      rns_rsg_create = lib.lookupFunction<_RsgCreateC, _RsgCreateDart>(
+        'rns_rsg_create',
+      ),
+      rns_rsg_validate = lib.lookupFunction<_RsgValidateC, _RsgValidateDart>(
+        'rns_rsg_validate',
+      ),
+      rns_rsg_sign_file = lib.lookupFunction<_RsgSignFileC, _RsgSignFileDart>(
+        'rns_rsg_sign_file',
+      ),
+      rns_rsg_verify_file = lib
+          .lookupFunction<_RsgVerifyFileC, _RsgVerifyFileDart>(
+            'rns_rsg_verify_file',
+          ),
+      rns_rsm_verify = lib.lookupFunction<_RsmVerifyC, _RsmVerifyDart>(
+        'rns_rsm_verify',
+      ),
+      rns_destination_create = lib
+          .lookupFunction<_DestinationCreateC, _DestinationCreateDart>(
+            'rns_destination_create',
+          ),
+      rns_destination_enable_ratchets = lib
+          .lookupFunction<
+            _DestinationEnableRatchetsC,
+            _DestinationEnableRatchetsDart
+          >('rns_destination_enable_ratchets'),
+      rns_destination_enforce_ratchets = lib
+          .lookupFunction<
+            _DestinationEnforceRatchetsC,
+            _DestinationEnforceRatchetsDart
+          >('rns_destination_enforce_ratchets'),
+      rns_destination_announce = lib
+          .lookupFunction<_DestinationAnnounceC, _DestinationAnnounceDart>(
+            'rns_destination_announce',
+          ),
+      rns_destination_hash = lib
+          .lookupFunction<_DestinationHashC, _DestinationHashDart>(
+            'rns_destination_hash',
+          ),
+      rns_destination_destroy = lib
+          .lookupFunction<_DestinationDestroyC, _DestinationDestroyDart>(
+            'rns_destination_destroy',
+          ),
+      rns_destination_register_request_handler = lib
+          .lookupFunction<
             _DestinationRegisterRequestHandlerC,
-            _DestinationRegisterRequestHandlerDart>(
-          'rns_destination_register_request_handler',
-        ),
-        rns_path_request =
-            lib.lookupFunction<_PathRequestC, _PathRequestDart>(
-          'rns_path_request',
-        ),
-        rns_path_table =
-            lib.lookupFunction<_PathTableC, _PathTableDart>('rns_path_table'),
-        rns_interfaces =
-            lib.lookupFunction<_InterfacesC, _InterfacesDart>('rns_interfaces'),
-        rns_link_open =
-            lib.lookupFunction<_LinkOpenC, _LinkOpenDart>('rns_link_open'),
-        rns_link_send =
-            lib.lookupFunction<_LinkSendC, _LinkSendDart>('rns_link_send'),
-        rns_link_send_resource =
-            lib.lookupFunction<_LinkSendResourceC, _LinkSendResourceDart>(
-          'rns_link_send_resource',
-        ),
-        rns_link_close =
-            lib.lookupFunction<_LinkCloseC, _LinkCloseDart>('rns_link_close'),
-        rns_link_id =
-            lib.lookupFunction<_LinkIdC, _LinkIdDart>('rns_link_id'),
-        rns_link_request =
-            lib.lookupFunction<_LinkRequestC, _LinkRequestDart>(
-          'rns_link_request',
-        ),
-        rns_request_respond =
-            lib.lookupFunction<_RequestRespondC, _RequestRespondDart>(
-          'rns_request_respond',
-        ),
-        rns_request_respond_file =
-            lib.lookupFunction<_RequestRespondFileC, _RequestRespondFileDart>(
-          'rns_request_respond_file',
-        ),
-        rns_event_poll =
-            lib.lookupFunction<_EventPollC, _EventPollDart>('rns_event_poll'),
-        rns_set_event_callback =
-            lib.lookupFunction<_SetEventCallbackC, _SetEventCallbackDart>(
-          'rns_set_event_callback',
-        );
+            _DestinationRegisterRequestHandlerDart
+          >('rns_destination_register_request_handler'),
+      rns_destination_set_proof_strategy = lib
+          .lookupFunction<
+            _DestinationSetProofStrategyC,
+            _DestinationSetProofStrategyDart
+          >('rns_destination_set_proof_strategy'),
+      rns_destination_encrypt = lib
+          .lookupFunction<_DestinationEncryptC, _DestinationEncryptDart>(
+            'rns_destination_encrypt',
+          ),
+      rns_packet_send = lib.lookupFunction<_PacketSendC, _PacketSendDart>(
+        'rns_packet_send',
+      ),
+      rns_path_request = lib.lookupFunction<_PathRequestC, _PathRequestDart>(
+        'rns_path_request',
+      ),
+      rns_path_table = lib.lookupFunction<_PathTableC, _PathTableDart>(
+        'rns_path_table',
+      ),
+      rns_interfaces = lib.lookupFunction<_InterfacesC, _InterfacesDart>(
+        'rns_interfaces',
+      ),
+      rns_link_open = lib.lookupFunction<_LinkOpenC, _LinkOpenDart>(
+        'rns_link_open',
+      ),
+      rns_link_send = lib.lookupFunction<_LinkSendC, _LinkSendDart>(
+        'rns_link_send',
+      ),
+      rns_link_send_resource = lib
+          .lookupFunction<_LinkSendResourceC, _LinkSendResourceDart>(
+            'rns_link_send_resource',
+          ),
+      rns_link_close = lib.lookupFunction<_LinkCloseC, _LinkCloseDart>(
+        'rns_link_close',
+      ),
+      rns_link_id = lib.lookupFunction<_LinkIdC, _LinkIdDart>('rns_link_id'),
+      rns_link_from_id = lib.lookupFunction<_LinkFromIdC, _LinkFromIdDart>(
+        'rns_link_from_id',
+      ),
+      rns_link_request = lib.lookupFunction<_LinkRequestC, _LinkRequestDart>(
+        'rns_link_request',
+      ),
+      rns_request_respond = lib
+          .lookupFunction<_RequestRespondC, _RequestRespondDart>(
+            'rns_request_respond',
+          ),
+      rns_request_respond_file = lib
+          .lookupFunction<_RequestRespondFileC, _RequestRespondFileDart>(
+            'rns_request_respond_file',
+          ),
+      rns_event_poll = lib.lookupFunction<_EventPollC, _EventPollDart>(
+        'rns_event_poll',
+      ),
+      rns_set_event_callback = lib
+          .lookupFunction<_SetEventCallbackC, _SetEventCallbackDart>(
+            'rns_set_event_callback',
+          );
 
   final _VersionDart rns_version;
   final _LastErrorDart rns_last_error;
@@ -580,6 +656,7 @@ class RnsBindings {
   final _NodeOpDart rns_node_start;
   final _NodeOpDart rns_node_stop;
   final _NodeOpDart rns_node_destroy;
+  final _NodeOpDart rns_node_reload_config;
   final _NodeSetIdentityDart rns_node_set_identity;
   final _NodeOpDart rns_node_resume;
   final _NodeOpDart rns_node_pause;
@@ -606,7 +683,10 @@ class RnsBindings {
   final _DestinationHashDart rns_destination_hash;
   final _DestinationDestroyDart rns_destination_destroy;
   final _DestinationRegisterRequestHandlerDart
-      rns_destination_register_request_handler;
+  rns_destination_register_request_handler;
+  final _DestinationSetProofStrategyDart rns_destination_set_proof_strategy;
+  final _DestinationEncryptDart rns_destination_encrypt;
+  final _PacketSendDart rns_packet_send;
   final _PathRequestDart rns_path_request;
   final _PathTableDart rns_path_table;
   final _InterfacesDart rns_interfaces;
@@ -615,6 +695,7 @@ class RnsBindings {
   final _LinkSendResourceDart rns_link_send_resource;
   final _LinkCloseDart rns_link_close;
   final _LinkIdDart rns_link_id;
+  final _LinkFromIdDart rns_link_from_id;
   final _LinkRequestDart rns_link_request;
   final _RequestRespondDart rns_request_respond;
   final _RequestRespondFileDart rns_request_respond_file;

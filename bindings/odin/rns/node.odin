@@ -44,6 +44,10 @@ node_resume :: proc(node: Node) -> Error {
 	return Error(rns_node_resume(u64(node)))
 }
 
+node_reload_config :: proc(node: Node) -> Error {
+	return Error(rns_node_reload_config(u64(node)))
+}
+
 node_refresh_paths :: proc(node: Node, dest_hashes: [][HASH_LEN]u8 = nil) -> Error {
 	if len(dest_hashes) == 0 {
 		return Error(rns_node_refresh_paths(u64(node), nil, 0))

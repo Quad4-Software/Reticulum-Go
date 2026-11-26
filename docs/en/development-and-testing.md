@@ -538,6 +538,8 @@ See [Embedding and WebAssembly](embedding-and-wasm.md).
 
 ## librns shared library
 
+`task check-bindings-abi` checks that the odin, zig, cpp, rust, dart, python, lua, swift, and java wrappers reference every `rns_*` function exported by `include/rns.h`. Kotlin is covered through Java.
+
 ```bash
 make build-librns
 make -C `bindings/c/examples`/smoke
@@ -626,6 +628,10 @@ make test-java
 ```
 
 Requires javac on PATH (CI uses Temurin 17, job Java bindings). Package and examples live under bindings/java. JNA is fetched on first build.
+
+## Android binding support
+
+Android apps use the Java or Kotlin binding with `bin/android/<abi>/librns.so`. `bindings/android` contains USB serial, Nordic UART BLE, and RFCOMM byte transports plus `RNodeTcpBridge`, which bridges one radio transport to `tcp://127.0.0.1:<port>` for the Go RNode interface. These helper classes are not compiled by the host Java binding tests because they require the Android SDK.
 
 ## Kotlin bindings
 

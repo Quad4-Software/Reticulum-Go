@@ -75,6 +75,10 @@ public final class Destination {
         try check(rns_destination_enforce_ratchets(handle))
     }
 
+    public func setProofStrategy(_ strategy: Int32) throws {
+        try check(rns_destination_set_proof_strategy(handle, strategy))
+    }
+
     public func announce(appData: Data = Data()) throws {
         try appData.withUnsafeBytes { raw in
             try check(rns_destination_announce(
@@ -106,4 +110,41 @@ public final class Destination {
             handle = 0
         }
     }
+}
+
+public func destinationEncrypt(destHash: Data, plaintext: Data) throws -> Data {
+    guard destHash.count == HASH_LEN, !plaintext.isEmpty else { throw RNSError.invalidArgument }
+    var needed: Int = 0
+    let probe: Int32 = destHash.withUnsafeBytes { dest in
+        plaintext.withUnsafeBytes { payload in
+            rns_destination_encrypt(
+                dest.bindMemory(to: UInt8.self).baseAddress,
+                payload.bindMemory(to: UInt8.self).baseAddress,
+                plaintext.count,
+                nil,
+                0,
+                &needed
+            )
+        }
+    }
+    if probe != RNS_OK && probe != RNS_ERR_TRUNCATED {
+        try check(probe)
+    }
+    var out = [UInt8](repeating: 0, count: needed)
+    var written: Int = 0
+    try destHash.withUnsafeBytes { dest in
+        try plaintext.withUnsafeBytes { payload in
+            try out.withUnsafeMutableBufferPointer { buf in
+                try check(rns_destination_encrypt(
+                    dest.bindMemory(to: UInt8.self).baseAddress,
+                    payload.bindMemory(to: UInt8.self).baseAddress,
+                    plaintext.count,
+                    buf.baseAddress,
+                    needed,
+                    &written
+                ))
+            }
+        }
+    }
+    return Data(out.prefix(written))
 }

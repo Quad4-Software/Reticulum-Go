@@ -34,6 +34,25 @@ class Node:
     def resume(self) -> None:
         map_code(ffi.lib.rns_node_resume(self._handle))
 
+    def reload_config(self) -> None:
+        map_code(ffi.lib.rns_node_reload_config(self._handle))
+
+    def packet_send(self, dest_hash: bytes | bytearray | memoryview, plaintext: bytes | bytearray | memoryview) -> None:
+        import ctypes
+
+        dest = bytes(dest_hash)
+        payload = bytes(plaintext)
+        if len(dest) != ffi.HASH_LEN or not payload:
+            raise Error(Error.INVALID_ARG)
+        dest_ptr = (ctypes.c_uint8 * ffi.HASH_LEN).from_buffer_copy(dest)
+        data_ptr = (ctypes.c_uint8 * len(payload)).from_buffer_copy(payload)
+        map_code(ffi.lib.rns_packet_send(self._handle, dest_ptr, data_ptr, len(payload)))
+
+    def set_event_callback(self, callback) -> None:
+        from .event import set_event_callback
+
+        set_event_callback(self, callback)
+
     def event_poll(self, timeout_ms: int = 0, app_data_cap: int = 65536):
         from .event import Event
 

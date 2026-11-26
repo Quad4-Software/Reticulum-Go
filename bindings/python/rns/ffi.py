@@ -313,6 +313,25 @@ _lib.rns_request_respond_file.argtypes = [
 ]
 _lib.rns_request_respond_file.restype = ctypes.c_int
 
+RnsEventCallback = ctypes.CFUNCTYPE(None, ctypes.POINTER(RnsEvent), ctypes.c_void_p)
+
+_lib.rns_node_reload_config.argtypes = [ctypes.c_uint64]
+_lib.rns_node_reload_config.restype = ctypes.c_int
+_lib.rns_destination_set_proof_strategy.argtypes = [ctypes.c_uint64, ctypes.c_int]
+_lib.rns_destination_set_proof_strategy.restype = ctypes.c_int
+_lib.rns_destination_encrypt.argtypes = [ctypes.POINTER(ctypes.c_uint8), ctypes.POINTER(ctypes.c_uint8), ctypes.c_size_t, ctypes.POINTER(ctypes.c_uint8), ctypes.c_size_t, ctypes.POINTER(ctypes.c_size_t)]
+_lib.rns_destination_encrypt.restype = ctypes.c_int
+_lib.rns_packet_send.argtypes = [ctypes.c_uint64, ctypes.POINTER(ctypes.c_uint8), ctypes.POINTER(ctypes.c_uint8), ctypes.c_size_t]
+_lib.rns_packet_send.restype = ctypes.c_int
+_lib.rns_link_from_id.argtypes = [ctypes.c_uint64, ctypes.POINTER(ctypes.c_uint8), ctypes.c_size_t]
+_lib.rns_link_from_id.restype = ctypes.c_uint64
+_lib.rns_rsg_sign_file.argtypes = [ctypes.c_uint64, ctypes.c_char_p, ctypes.POINTER(ctypes.c_uint8), ctypes.c_size_t, ctypes.POINTER(ctypes.c_size_t)]
+_lib.rns_rsg_sign_file.restype = ctypes.c_int
+_lib.rns_rsg_verify_file.argtypes = [ctypes.POINTER(ctypes.c_uint8), ctypes.c_size_t, ctypes.c_char_p, ctypes.POINTER(ctypes.c_uint8), ctypes.c_size_t]
+_lib.rns_rsg_verify_file.restype = ctypes.c_int
+_lib.rns_set_event_callback.argtypes = [ctypes.c_uint64, RnsEventCallback, ctypes.c_void_p]
+_lib.rns_set_event_callback.restype = ctypes.c_int
+
 
 def cstr_field(buf) -> str:
     raw = bytes(buf)

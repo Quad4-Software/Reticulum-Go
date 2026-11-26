@@ -70,6 +70,16 @@ class Node {
 
 	Error resume() { return map_code(rns_node_resume(handle_)); }
 
+	Error reload_config() { return map_code(rns_node_reload_config(handle_)); }
+
+	Error packet_send(const Hash &dest_hash, span<const std::uint8_t> plaintext) {
+		if (plaintext.empty()) {
+			return Error::InvalidArg;
+		}
+		return map_code(
+		    rns_packet_send(handle_, dest_hash.data(), plaintext.data(), plaintext.size()));
+	}
+
 	Error set_identity(Identity &identity) {
 		return map_code(rns_node_set_identity(handle_, identity.handle()));
 	}

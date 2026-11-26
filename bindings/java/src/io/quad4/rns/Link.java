@@ -14,6 +14,17 @@ public final class Link implements AutoCloseable {
         this.handle = handle;
     }
 
+    public static Link fromId(Node node, byte[] linkId) {
+        if (linkId == null || linkId.length == 0) {
+            throw new RnsException(RnsException.INVALID_ARG);
+        }
+        long h = RnsLibrary.INSTANCE.rns_link_from_id(node.handle(), linkId, linkId.length);
+        if (h == 0) {
+            throw new RnsException(RnsException.NOT_FOUND);
+        }
+        return new Link(h);
+    }
+
     public static Link open(Node node, byte[] destHash) {
         if (destHash == null || destHash.length != Rns.HASH_LEN) {
             throw new RnsException(RnsException.INVALID_ARG);

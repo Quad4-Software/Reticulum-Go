@@ -66,6 +66,29 @@ def rsg_validate(
     )
 
 
+def rsg_sign_file(identity: Identity, path: str) -> bytes:
+    if not path or "\x00" in path:
+        raise Error(Error.INVALID_ARG)
+    needed = ctypes.c_size_t(0)
+    code = ffi.lib.rns_rsg_sign_file(identity.handle, path.encode(), None, 0, ctypes.byref(needed))
+    if code not in (Error.OK, Error.TRUNCATED):
+        map_code(code)
+    out = (ctypes.c_uint8 * needed.value)()
+    written = ctypes.c_size_t(0)
+    map_code(ffi.lib.rns_rsg_sign_file(identity.handle, path.encode(), out, needed.value, ctypes.byref(written)))
+    return bytes(out[: written.value])
+
+
+def rsg_verify_file(rsg: bytes | bytearray | memoryview, path: str, required_signer_hash: bytes | bytearray | memoryview = b"") -> None:
+    blob = bytes(rsg)
+    req = bytes(required_signer_hash)
+    if not blob or not path or "\x00" in path:
+        raise Error(Error.INVALID_ARG)
+    blob_ptr = (ctypes.c_uint8 * len(blob)).from_buffer_copy(blob)
+    req_ptr = (ctypes.c_uint8 * len(req)).from_buffer_copy(req) if req else None
+    map_code(ffi.lib.rns_rsg_verify_file(blob_ptr, len(blob), path.encode(), req_ptr, len(req)))
+
+
 def rsm_verify(
     rsm: bytes | bytearray | memoryview,
     required_signer_hash: bytes | bytearray | memoryview = b"",

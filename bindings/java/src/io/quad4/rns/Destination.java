@@ -65,6 +65,10 @@ public final class Destination implements AutoCloseable {
         return out;
     }
 
+    public void setProofStrategy(int strategy) {
+        Rns.check(RnsLibrary.INSTANCE.rns_destination_set_proof_strategy(handle, strategy));
+    }
+
     public void registerRequestHandler(String path) {
         if (path == null || path.isEmpty()) {
             throw new RnsException(RnsException.INVALID_ARG);

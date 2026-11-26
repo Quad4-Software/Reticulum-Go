@@ -78,6 +78,9 @@ public final class Rns {
             throw new RnsException(RnsException.INVALID_ARG);
         }
         byte[] payload = plaintext == null ? new byte[0] : plaintext;
+        if (payload.length == 0) {
+            throw new RnsException(RnsException.INVALID_ARG);
+        }
         check(RnsLibrary.INSTANCE.rns_packet_send(node.handle(), destHash, payload, payload.length));
     }
 
@@ -86,7 +89,16 @@ public final class Rns {
             throw new RnsException(RnsException.INVALID_ARG);
         }
         byte[] payload = plaintext == null ? new byte[0] : plaintext;
-        byte[] out = new byte[Math.max(4096, payload.length + 256)];
+        if (payload.length == 0) {
+            throw new RnsException(RnsException.INVALID_ARG);
+        }
+        LongByReference needed = new LongByReference();
+        int probe = RnsLibrary.INSTANCE.rns_destination_encrypt(
+                destHash, payload, payload.length, null, 0, needed);
+        if (probe != RnsLibrary.RNS_OK && probe != RnsLibrary.RNS_ERR_TRUNCATED) {
+            check(probe);
+        }
+        byte[] out = new byte[(int) needed.getValue()];
         LongByReference written = new LongByReference();
         check(RnsLibrary.INSTANCE.rns_destination_encrypt(
                 destHash, payload, payload.length, out, out.length, written));

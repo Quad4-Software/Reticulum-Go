@@ -781,6 +781,29 @@ jobs:
       - name: Verify workspace clean
         uses: $/.github/actions/verify-workspace-clean
 
+  check-bindings-abi:
+    name: Binding ABI drift
+    needs: changes
+    if: needs.changes.outputs.bindings == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
+        with:
+          egress-policy: block
+          allowed-endpoints: ${{ env.HR_ENDPOINTS }}
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Check binding ABI coverage
+        run: sh scripts/check-bindings-abi.sh
+
+      - name: Verify workspace clean
+        uses: $/.github/actions/verify-workspace-clean
+
   test-odin:
     name: Odin bindings
     needs: changes

@@ -7,7 +7,7 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    const librns_dir = b.pathFromRoot("../../bin");
+    const librns_dir = "../../bin";
 
     const rns_mod = b.addModule("rns", .{
         .root_source_file = b.path("src/root.zig"),

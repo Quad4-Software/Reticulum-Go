@@ -83,6 +83,24 @@ public final class Event {
                 raw.app_data_truncated != 0);
     }
 
+    static Event fromRaw(RnsLibrary.RnsEvent raw) {
+        byte[] data = new byte[0];
+        if (raw.app_data != null && raw.app_data_len > 0) {
+            data = raw.app_data.getByteArray(0, (int) raw.app_data_len);
+        }
+        return new Event(
+                raw.kind,
+                raw.hops & 0xff,
+                RnsLibrary.copyHash(raw.link_id, raw.link_id_len),
+                RnsLibrary.copyHash(raw.destination_hash, raw.destination_hash_len),
+                RnsLibrary.copyHash(raw.identity_hash, raw.identity_hash_len),
+                RnsLibrary.copyHash(raw.request_id, raw.request_id_len),
+                RnsLibrary.cstr(raw.path),
+                RnsLibrary.cstr(raw.error_message),
+                data,
+                raw.app_data_truncated != 0);
+    }
+
     public int kind() {
         return kind;
     }

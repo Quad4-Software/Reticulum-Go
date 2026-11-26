@@ -87,3 +87,18 @@ class Event:
 
 def hash_eq(a: bytes, b: bytes) -> bool:
     return len(a) == ffi.HASH_LEN and len(b) == ffi.HASH_LEN and a == b
+
+
+def set_event_callback(node: Node, callback) -> None:
+    if callback is None:
+        map_code(ffi.lib.rns_set_event_callback(node.handle, ffi.RnsEventCallback(), None))
+        node._event_callback = None
+        return
+
+    def bridge(raw, _user):
+        ev = Event(raw.contents, bytes(raw.contents.app_data[: raw.contents.app_data_len]) if raw.contents.app_data and raw.contents.app_data_len else b"")
+        callback(ev)
+
+    cb = ffi.RnsEventCallback(bridge)
+    node._event_callback = cb
+    map_code(ffi.lib.rns_set_event_callback(node.handle, cb, None))

@@ -50,6 +50,9 @@ class Destination:
     def enforce_ratchets(self) -> None:
         map_code(ffi.lib.rns_destination_enforce_ratchets(self._handle))
 
+    def set_proof_strategy(self, strategy: int) -> None:
+        map_code(ffi.lib.rns_destination_set_proof_strategy(self._handle, int(strategy)))
+
     def announce(self, app_data: bytes | bytearray | memoryview = b"") -> None:
         payload = bytes(app_data)
         data_ptr = (ctypes.c_uint8 * len(payload)).from_buffer_copy(payload) if payload else None
@@ -96,3 +99,20 @@ class Destination:
             self.close()
         except Exception:
             pass
+
+
+def destination_encrypt(dest_hash: bytes | bytearray | memoryview, plaintext: bytes | bytearray | memoryview) -> bytes:
+    dest = bytes(dest_hash)
+    payload = bytes(plaintext)
+    if len(dest) != ffi.HASH_LEN or not payload:
+        raise Error(Error.INVALID_ARG)
+    dest_ptr = (ctypes.c_uint8 * ffi.HASH_LEN).from_buffer_copy(dest)
+    data_ptr = (ctypes.c_uint8 * len(payload)).from_buffer_copy(payload)
+    needed = ctypes.c_size_t(0)
+    code = ffi.lib.rns_destination_encrypt(dest_ptr, data_ptr, len(payload), None, 0, ctypes.byref(needed))
+    if code not in (Error.OK, Error.TRUNCATED):
+        map_code(code)
+    out = (ctypes.c_uint8 * needed.value)()
+    written = ctypes.c_size_t(0)
+    map_code(ffi.lib.rns_destination_encrypt(dest_ptr, data_ptr, len(payload), out, needed.value, ctypes.byref(written)))
+    return bytes(out[: written.value])

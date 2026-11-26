@@ -54,3 +54,12 @@ pub fn refreshPaths(node: types.Node, dest_hashes: []const [types.hash_len]u8) t
         dest_hashes.len,
     ));
 }
+
+pub fn reloadConfig(node: types.Node) types.Error!void {
+    try types.mapCode(c.rns_node_reload_config(types.asU64(node)));
+}
+
+pub fn packetSend(node: types.Node, dest_hash: []const u8, plaintext: []const u8) types.Error!void {
+    if (dest_hash.len != types.hash_len or plaintext.len == 0) return error.InvalidArg;
+    try types.mapCode(c.rns_packet_send(types.asU64(node), dest_hash.ptr, plaintext.ptr, plaintext.len));
+}

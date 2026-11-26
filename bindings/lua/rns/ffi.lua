@@ -56,6 +56,7 @@ uint64_t rns_node_create(const char *config_path);
 int rns_node_start(uint64_t node);
 int rns_node_stop(uint64_t node);
 int rns_node_destroy(uint64_t node);
+int rns_node_reload_config(uint64_t node);
 int rns_node_set_identity(uint64_t node, uint64_t identity);
 int rns_node_resume(uint64_t node);
 int rns_node_pause(uint64_t node);
@@ -79,6 +80,8 @@ int rns_rsg_create(uint64_t identity, const uint8_t *message, size_t message_len
 int rns_rsg_validate(const uint8_t *rsg, size_t rsg_len,
 	const uint8_t *message, size_t message_len,
 	const uint8_t *required_signer_hash, size_t required_signer_hash_len);
+int rns_rsg_sign_file(uint64_t identity, const char *path, uint8_t *out, size_t out_len, size_t *written);
+int rns_rsg_verify_file(const uint8_t *rsg, size_t rsg_len, const char *path, const uint8_t *required_signer_hash, size_t required_signer_hash_len);
 int rns_rsm_verify(const uint8_t *rsm, size_t rsm_len,
 	const uint8_t *required_signer_hash, size_t required_signer_hash_len,
 	uint8_t *message_out, size_t message_out_len, size_t *written);
@@ -91,6 +94,9 @@ int rns_destination_announce(uint64_t destination, const uint8_t *app_data, size
 int rns_destination_hash(uint64_t destination, uint8_t *hash_out, size_t hash_out_len, size_t *written);
 int rns_destination_destroy(uint64_t destination);
 int rns_destination_register_request_handler(uint64_t destination, const char *path);
+int rns_destination_set_proof_strategy(uint64_t destination, int strategy);
+int rns_destination_encrypt(const uint8_t *dest_hash, const uint8_t *plaintext, size_t plaintext_len, uint8_t *out, size_t out_len, size_t *written);
+int rns_packet_send(uint64_t node, const uint8_t *dest_hash, const uint8_t *plaintext, size_t plaintext_len);
 
 int rns_path_request(uint64_t node, const uint8_t *dest_hash);
 int rns_path_table(uint64_t node, rns_path_entry *out, size_t out_cap, size_t *written, int max_hops);
@@ -101,6 +107,7 @@ int rns_link_send(uint64_t link, const uint8_t *data, size_t data_len);
 int rns_link_send_resource(uint64_t link, const uint8_t *data, size_t data_len, const char *name);
 int rns_link_close(uint64_t link);
 int rns_link_id(uint64_t link, uint8_t *id_out, size_t id_out_len, size_t *written);
+uint64_t rns_link_from_id(uint64_t node, const uint8_t *link_id, size_t link_id_len);
 int rns_link_request(uint64_t node, uint64_t link, const char *path,
 	const uint8_t *data, size_t data_len, int timeout_ms,
 	uint8_t *request_id_out, size_t request_id_out_len, size_t *written);
@@ -111,6 +118,8 @@ int rns_request_respond_file(uint64_t node, const uint8_t *request_id, size_t re
 	const char *filename, const uint8_t *data, size_t data_len);
 
 int rns_event_poll(uint64_t node, rns_event *event, int timeout_ms);
+typedef void (*rns_event_callback)(const rns_event *event, void *user_data);
+int rns_set_event_callback(uint64_t node, rns_event_callback callback, void *user_data);
 ]]
 
 local function candidates()

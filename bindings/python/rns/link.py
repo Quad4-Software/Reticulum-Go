@@ -105,6 +105,17 @@ class Link:
             pass
 
 
+def link_from_id(node: Node, link_id: bytes | bytearray | memoryview) -> Link:
+    ident = bytes(link_id)
+    if not ident:
+        raise Error(Error.INVALID_ARG)
+    ident_ptr = (ctypes.c_uint8 * len(ident)).from_buffer_copy(ident)
+    h = ffi.lib.rns_link_from_id(node.handle, ident_ptr, len(ident))
+    if h == 0:
+        raise Error(Error.NOT_FOUND)
+    return Link(h)
+
+
 def request_respond(node: Node, request_id: bytes | bytearray | memoryview, data: bytes | bytearray | memoryview) -> None:
     req = bytes(request_id)
     if not req:

@@ -17,6 +17,15 @@ public final class Link {
 
     public var rawHandle: UInt64 { handle }
 
+    public static func fromId(node: Node, linkId: Data) throws -> Link {
+        guard !linkId.isEmpty else { throw RNSError.invalidArgument }
+        let h = linkId.withUnsafeBytes { raw in
+            rns_link_from_id(node.rawHandle, raw.bindMemory(to: UInt8.self).baseAddress, linkId.count)
+        }
+        guard h != 0 else { throw RNSError.notFound }
+        return Link(handle: h)
+    }
+
     public static func open(node: Node, destHash: Data) throws -> Link {
         guard destHash.count == HASH_LEN else { throw RNSError.invalidArgument }
         let h = destHash.withUnsafeBytes { raw in

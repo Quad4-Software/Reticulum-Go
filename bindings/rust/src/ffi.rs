@@ -81,6 +81,7 @@ unsafe extern "C" {
     pub fn rns_node_start(node: u64) -> c_int;
     pub fn rns_node_stop(node: u64) -> c_int;
     pub fn rns_node_destroy(node: u64) -> c_int;
+    pub fn rns_node_reload_config(node: u64) -> c_int;
     pub fn rns_node_set_identity(node: u64, identity: u64) -> c_int;
     pub fn rns_node_resume(node: u64) -> c_int;
     pub fn rns_node_pause(node: u64) -> c_int;
@@ -188,9 +189,22 @@ unsafe extern "C" {
         written: *mut usize,
     ) -> c_int;
     pub fn rns_destination_destroy(destination: u64) -> c_int;
-    pub fn rns_destination_register_request_handler(
-        destination: u64,
-        path: *const c_char,
+    pub fn rns_destination_register_request_handler(destination: u64, path: *const c_char)
+        -> c_int;
+    pub fn rns_destination_set_proof_strategy(destination: u64, strategy: c_int) -> c_int;
+    pub fn rns_destination_encrypt(
+        dest_hash: *const u8,
+        plaintext: *const u8,
+        plaintext_len: usize,
+        out: *mut u8,
+        out_len: usize,
+        written: *mut usize,
+    ) -> c_int;
+    pub fn rns_packet_send(
+        node: u64,
+        dest_hash: *const u8,
+        plaintext: *const u8,
+        plaintext_len: usize,
     ) -> c_int;
 
     pub fn rns_path_request(node: u64, dest_hash: *const u8) -> c_int;
@@ -219,6 +233,7 @@ unsafe extern "C" {
     pub fn rns_link_close(link: u64) -> c_int;
     pub fn rns_link_id(link: u64, id_out: *mut u8, id_out_len: usize, written: *mut usize)
         -> c_int;
+    pub fn rns_link_from_id(node: u64, link_id: *const u8, link_id_len: usize) -> u64;
     pub fn rns_link_request(
         node: u64,
         link: u64,

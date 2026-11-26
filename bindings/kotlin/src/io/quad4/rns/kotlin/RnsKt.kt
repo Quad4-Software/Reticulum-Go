@@ -28,6 +28,34 @@ object RnsKt {
     fun hexToHash(text: String): ByteArray = Rns.hexToHash(text)
 
     fun hashEq(a: ByteArray, b: ByteArray): Boolean = Rns.hashEq(a, b)
+
+    fun nodeReloadConfig(node: Node) = node.reloadConfig()
+
+    fun nodeRefreshPaths(node: Node, destHashes: Array<ByteArray>) = node.refreshPaths(destHashes)
+
+    fun packetSend(node: Node, destHash: ByteArray, plaintext: ByteArray) =
+        Rns.packetSend(node, destHash, plaintext)
+
+    fun destinationEncrypt(destHash: ByteArray, plaintext: ByteArray): ByteArray =
+        Rns.destinationEncrypt(destHash, plaintext)
+
+    fun nodeSetEventCallback(node: Node, handler: ((Event) -> Unit)?) {
+        if (handler == null) {
+            node.setEventCallback(null)
+        } else {
+            node.setEventCallback { event -> handler(event) }
+        }
+    }
+
+    fun destinationSetProofStrategy(destination: Destination, strategy: Int) =
+        destination.setProofStrategy(strategy)
+
+    fun linkFromId(node: Node, linkId: ByteArray): Link = Link.fromId(node, linkId)
+
+    fun rsgSignFile(identity: Identity, path: String): ByteArray = Rsg.signFile(identity, path)
+
+    fun rsgVerifyFile(rsg: ByteArray, path: String, requiredSignerHash: ByteArray = ByteArray(0)) =
+        Rsg.verifyFile(rsg, path, requiredSignerHash)
 }
 
 typealias RnsNode = Node

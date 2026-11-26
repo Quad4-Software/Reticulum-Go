@@ -103,6 +103,17 @@ impl Link {
     pub fn handle(&self) -> u64 {
         self.handle
     }
+
+    pub fn from_id(node: &Node, link_id: &[u8]) -> Result<Self> {
+        if link_id.is_empty() {
+            return Err(Error::InvalidArg);
+        }
+        let h = unsafe { ffi::rns_link_from_id(node.handle(), link_id.as_ptr(), link_id.len()) };
+        if h == 0 {
+            return Err(Error::NotFound);
+        }
+        Ok(Self { handle: h })
+    }
 }
 
 impl Drop for Link {

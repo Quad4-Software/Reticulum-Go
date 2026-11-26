@@ -232,6 +232,11 @@ tasks:
       - PATH="$PATH:{{.ROOT_DIR}}/misc/wasm" TESTSUMMARY_GOOS=js TESTSUMMARY_GOARCH=wasm {{.GOCMD}} run ./scripts/ci/testsummary -v ./pkg/wasm/ ./cmd/reticulum-wasm/
       - PATH="$PATH:{{.ROOT_DIR}}/misc/wasm" TESTSUMMARY_GOOS=js TESTSUMMARY_GOARCH=wasm {{.GOCMD}} run ./scripts/ci/testsummary -C examples/wasm -v .
 
+  check-bindings-abi:
+    desc: Check binding wrappers cover every librns ABI function
+    cmds:
+      - sh scripts/check-bindings-abi.sh
+
   test-odin:
     desc: Build librns and run Odin bindings tests (requires odin on PATH)
     cmds:

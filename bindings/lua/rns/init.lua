@@ -37,6 +37,10 @@ local M = {
 	rsg_create = rsg_mod.rsg_create,
 	rsg_validate = rsg_mod.rsg_validate,
 	rsm_verify = rsg_mod.rsm_verify,
+	rsg_sign_file = rsg_mod.rsg_sign_file,
+	rsg_verify_file = rsg_mod.rsg_verify_file,
+	destination_encrypt = Destination.destination_encrypt,
+	link_from_id = link_mod.link_from_id,
 }
 
 return M
