@@ -34,15 +34,17 @@ On Linux, enable_seccomp defaults to yes when the sandbox is enabled. Set enable
 
 sandbox_strict = yes makes Landlock, seccomp, OpenBSD unveil lock, and FreeBSD CapEnter failures fatal. Default is no. WASM and other stub platforms still start.
 
+Linux seccomp denies kernel keyring syscalls unless identity_backend = keyring.
+
 sandbox_profile = router omits /bin, /usr/bin, and /usr/local/bin from Linux Landlock. Default full keeps those trees so PipeInterface, discovery scripts, dynamic .mu pages, and rgosh can exec. Do not pair router with those features. The profile is never inferred from node_profile.
 
-sandbox_extra_paths adds operator paths (serial devices, custom binaries, TLS files already inferred from interface config). Landlock also allowlists interface Device, pipe command, discovery location_cmd, and QUIC cert paths automatically.
+sandbox_extra_paths adds operator paths (serial devices, custom binaries, TLS files already inferred from interface config). Landlock also allowlists interface Device, pipe command, discovery location_cmd, and QUIC cert paths automatically. Writable Landlock rules do not grant execute permission. Configured command executables keep execute permission through their own read-only rules.
 
-Packaged systemd units add ProtectSystem, ProtectKernel*, LockPersonality, RestrictRealtime, RestrictSUIDSGID, and UMask=0077. They do not switch to a dedicated user. An optional drop-in example lives at /usr/share/doc/reticulum-go/reticulum-go.user.conf.example.
+Packaged systemd units add ProtectSystem, ProtectKernel*, LockPersonality, SystemCallArchitectures=native, RestrictRealtime, RestrictSUIDSGID, and UMask=0077. They do not switch to a dedicated user. An optional drop-in example lives at /usr/share/doc/reticulum-go/reticulum-go.user.conf.example.
 
 | OS | Mechanism | Effect |
 |----|-----------|--------|
-| Linux | Landlock, seccomp-bpf, PR_SET_NO_NEW_PRIVS, rlimits | Whitelists config and storage paths (including $XDG_RUNTIME_DIR for Secret Service), denies high-risk syscalls such as ptrace/mount/module load, limits caps |
+| Linux | Landlock, seccomp-bpf, PR_SET_NO_NEW_PRIVS, rlimits | Whitelists config and storage paths (including $XDG_RUNTIME_DIR for Secret Service), removes execute permission from writable paths, denies syscalls such as ptrace, mount, module load, io_uring, and cross-process fd access, limits caps |
 | OpenBSD | unveil, pledge | Restricts visible paths and syscalls |
 | FreeBSD | cap_enter, rlimits | Capability mode after resource limits |
 | Darwin | rlimits | Memory, FD, core dump, stack, process limits |

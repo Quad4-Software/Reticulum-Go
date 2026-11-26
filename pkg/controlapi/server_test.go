@@ -25,6 +25,19 @@ import (
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/transport"
 )
 
+func TestIsLoopbackHost(t *testing.T) {
+	for _, host := range []string{"localhost", "LOCALHOST", "127.0.0.1", "::1", "[::1]"} {
+		if !isLoopbackHost(host) {
+			t.Errorf("%q should be loopback", host)
+		}
+	}
+	for _, host := range []string{"", "0.0.0.0", "::", "192.0.2.1", "example.com"} {
+		if isLoopbackHost(host) {
+			t.Errorf("%q should not be loopback", host)
+		}
+	}
+}
+
 // newTestServer builds a Server bound to a real, otherwise-idle Transport.
 // No network interfaces are registered, so nothing on these tests ever
 // touches the network.

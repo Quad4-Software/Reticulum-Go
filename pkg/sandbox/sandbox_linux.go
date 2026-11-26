@@ -15,6 +15,7 @@ import (
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/common"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/debug"
 	"github.com/landlock-lsm/go-landlock/landlock"
+	llsyscall "github.com/landlock-lsm/go-landlock/landlock/syscall"
 	"golang.org/x/sys/unix"
 )
 
@@ -115,6 +116,31 @@ func shouldRestrictScoped(cfg *common.ReticulumConfig) bool {
 	return cfg == nil || !cfg.SandboxSkipScoped
 }
 
+const accessFSReadWriteNoExec = llsyscall.AccessFSWriteFile |
+	llsyscall.AccessFSReadFile |
+	llsyscall.AccessFSReadDir |
+	llsyscall.AccessFSRemoveDir |
+	llsyscall.AccessFSRemoveFile |
+	llsyscall.AccessFSMakeChar |
+	llsyscall.AccessFSMakeDir |
+	llsyscall.AccessFSMakeReg |
+	llsyscall.AccessFSMakeSock |
+	llsyscall.AccessFSMakeFifo |
+	llsyscall.AccessFSMakeBlock |
+	llsyscall.AccessFSMakeSym |
+	llsyscall.AccessFSTruncate
+
+func rwDirsNoExec(paths ...string) landlock.FSRule {
+	return landlock.PathAccess(landlock.AccessFSSet(accessFSReadWriteNoExec), paths...)
+}
+
+func rwFilesNoExec(paths ...string) landlock.FSRule {
+	const accessFileNoExec = llsyscall.AccessFSWriteFile |
+		llsyscall.AccessFSReadFile |
+		llsyscall.AccessFSTruncate
+	return landlock.PathAccess(landlock.AccessFSSet(accessFileNoExec), paths...)
+}
+
 func probeLandlock() error {
 	_, _, errno := unix.Syscall(unix.SYS_LANDLOCK_CREATE_RULESET,
 		0, 0, unix.LANDLOCK_CREATE_RULESET_VERSION)
@@ -143,7 +169,7 @@ func landlockPathRules(cfg *common.ReticulumConfig) ([]landlock.Rule, error) {
 		runtimeDir = fmt.Sprintf("/run/user/%d", os.Getuid())
 	}
 	// ResolveUnix covers pathname session bus under XDG_RUNTIME_DIR (V9).
-	runtimeRule := landlock.RWDirs(runtimeDir).WithResolveUnix().IgnoreIfMissing()
+	runtimeRule := rwDirsNoExec(runtimeDir).WithResolveUnix().IgnoreIfMissing()
 
 	if cfg != nil && cfg.ConfigPath != "" {
 		parent := filepath.Dir(cfg.ConfigPath)
@@ -159,7 +185,7 @@ func landlockPathRules(cfg *common.ReticulumConfig) ([]landlock.Rule, error) {
 	}
 
 	rules := []landlock.Rule{
-		landlock.RWDirs(rwDirs...).IgnoreIfMissing(),
+		rwDirsNoExec(rwDirs...).IgnoreIfMissing(),
 		runtimeRule,
 		// Journald pathname socket (V9 resolve unix). Read-only tree.
 		landlock.RODirs("/run/systemd").WithResolveUnix().IgnoreIfMissing(),
@@ -199,13 +225,13 @@ func extraLandlockRules(cfg *common.ReticulumConfig) []landlock.Rule {
 	for _, p := range collectExtraPaths(cfg) {
 		switch p.kind {
 		case pathRWDir:
-			rules = append(rules, landlock.RWDirs(p.path).IgnoreIfMissing())
+			rules = append(rules, rwDirsNoExec(p.path).IgnoreIfMissing())
 		case pathRODir:
 			rules = append(rules, landlock.RODirs(p.path).IgnoreIfMissing())
 		case pathROFile:
 			rules = append(rules, landlock.ROFiles(p.path).IgnoreIfMissing())
 		default:
-			rules = append(rules, landlock.RWFiles(p.path).WithIoctlDev().IgnoreIfMissing())
+			rules = append(rules, rwFilesNoExec(p.path).WithIoctlDev().IgnoreIfMissing())
 		}
 	}
 	return rules

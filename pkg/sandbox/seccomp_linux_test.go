@@ -19,7 +19,7 @@ import (
 )
 
 func TestSeccompPolicyBuilds(t *testing.T) {
-	arch, denied, err := seccompPolicy()
+	arch, denied, err := seccompPolicy(nil)
 	if err != nil {
 		t.Fatalf("seccompPolicy: %v", err)
 	}
@@ -63,6 +63,33 @@ func TestSeccompEnabledConfig(t *testing.T) {
 	}
 }
 
+func TestSeccompKeyringPolicyFollowsIdentityBackend(t *testing.T) {
+	contains := func(denied []int, nr int) bool {
+		for _, v := range denied {
+			if v == nr {
+				return true
+			}
+		}
+		return false
+	}
+
+	_, denied, err := seccompPolicy(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !contains(denied, unix.SYS_KEYCTL) || !contains(denied, unix.SYS_ADD_KEY) || !contains(denied, unix.SYS_REQUEST_KEY) {
+		t.Fatal("keyring syscalls should be denied for the file identity backend")
+	}
+
+	_, denied, err = seccompPolicy(&common.ReticulumConfig{IdentityBackend: "keyring"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if contains(denied, unix.SYS_KEYCTL) || contains(denied, unix.SYS_ADD_KEY) || contains(denied, unix.SYS_REQUEST_KEY) {
+		t.Fatal("keyring syscalls must remain available for identity_backend=keyring")
+	}
+}
+
 func TestSeccompFunctional(t *testing.T) {
 	if os.Getenv("RETICULUM_QEMU_USER") == "1" {
 		t.Skip("seccomp filter install is unreliable under qemu-user")
@@ -98,7 +125,7 @@ func TestSeccompHelper(t *testing.T) {
 	if err := unix.Prctl(unix.PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0); err != nil {
 		t.Fatalf("PR_SET_NO_NEW_PRIVS failed: %v", err)
 	}
-	mode, err := installSeccompFilter()
+	mode, err := installSeccompFilter(nil)
 	if err != nil {
 		t.Skipf("seccomp install: %v", err)
 	}
@@ -134,6 +161,16 @@ func TestSeccompHelper(t *testing.T) {
 		t.Fatalf("unshare expected EPERM, got %v", errno)
 	}
 
+	_, _, errno = unix.Syscall(unix.SYS_IO_URING_SETUP, 0, 0, 0)
+	if errno != unix.EPERM {
+		t.Fatalf("io_uring_setup expected EPERM, got %v", errno)
+	}
+
+	_, _, errno = unix.Syscall(unix.SYS_PIDFD_GETFD, 0, 0, 0)
+	if errno != unix.EPERM {
+		t.Fatalf("pidfd_getfd expected EPERM, got %v", errno)
+	}
+
 	c, err := net.ListenPacket("udp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("udp after seccomp: %v", err)
@@ -146,7 +183,7 @@ func TestSeccompHelper(t *testing.T) {
 }
 
 func TestSeccompBuildProg(t *testing.T) {
-	prog, err := buildSeccompProg()
+	prog, err := buildSeccompProg(nil)
 	if err != nil {
 		t.Fatalf("buildSeccompProg: %v", err)
 	}
@@ -158,7 +195,7 @@ func TestSeccompBuildProg(t *testing.T) {
 func TestSeccompInstallSoftFailUnsupportedArch(t *testing.T) {
 	// installSeccompFilter soft-fails via applySeccomp. Policy error path is covered
 	// by seccompPolicy on supported arches returning a usable denylist.
-	arch, denied, err := seccompPolicy()
+	arch, denied, err := seccompPolicy(nil)
 	if err != nil {
 		t.Fatalf("seccompPolicy: %v", err)
 	}

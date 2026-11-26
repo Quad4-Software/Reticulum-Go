@@ -56,11 +56,25 @@ func TestLandlockFunctional(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	allowedExec := filepath.Join(allowedDir, "copied-true")
+	truePath, err := exec.LookPath("true")
+	if err != nil {
+		t.Fatal(err)
+	}
+	trueData, err := os.ReadFile(truePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(allowedExec, trueData, 0o700); err != nil {
+		t.Fatal(err)
+	}
+
 	cmd := exec.Command(os.Args[0], "-test.run=TestLandlockHelper", "-test.v")
 	cmd.Env = append(os.Environ(),
 		"SANDBOX_LANDLOCK_TEST=1",
 		"SANDBOX_ALLOWED_DIR="+allowedDir,
 		"SANDBOX_BLOCKED_DIR="+blockedDir,
+		"SANDBOX_ALLOWED_EXEC="+allowedExec,
 	)
 	out, err := cmd.CombinedOutput()
 	requireLandlockHelperOK(t, out, err)
@@ -74,8 +88,9 @@ func TestLandlockHelper(t *testing.T) {
 
 	allowedDir := os.Getenv("SANDBOX_ALLOWED_DIR")
 	blockedDir := os.Getenv("SANDBOX_BLOCKED_DIR")
-	if allowedDir == "" || blockedDir == "" {
-		t.Fatal("SANDBOX_ALLOWED_DIR and SANDBOX_BLOCKED_DIR must be set")
+	allowedExec := os.Getenv("SANDBOX_ALLOWED_EXEC")
+	if allowedDir == "" || blockedDir == "" || allowedExec == "" {
+		t.Fatal("SANDBOX_ALLOWED_DIR, SANDBOX_BLOCKED_DIR, and SANDBOX_ALLOWED_EXEC must be set")
 	}
 
 	allowedFile := filepath.Join(allowedDir, "allowed.txt")
@@ -114,6 +129,10 @@ func TestLandlockHelper(t *testing.T) {
 	_, err = os.ReadDir(blockedDir)
 	if err == nil {
 		t.Fatal("expected blocked directory listing to fail, but it succeeded")
+	}
+
+	if err := exec.Command(allowedExec).Run(); err == nil {
+		t.Fatal("expected executable in writable directory to be denied")
 	}
 }
 

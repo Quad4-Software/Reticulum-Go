@@ -124,12 +124,23 @@ func (s *Server) Listen() error {
 	}
 	s.listener = ln
 	debug.Log(debug.DebugInfo, "Control API listening", "addr", addr)
+	if !isLoopbackHost(s.host) {
+		debug.Log(debug.DebugWarning, "Control API TCP listener is not loopback. Use a Unix socket or an authenticating TLS proxy", "addr", addr)
+	}
 	if err := s.listenUnix(); err != nil {
 		_ = ln.Close()
 		s.listener = nil
 		return err
 	}
 	return nil
+}
+
+func isLoopbackHost(host string) bool {
+	if strings.EqualFold(host, "localhost") {
+		return true
+	}
+	ip := net.ParseIP(strings.Trim(host, "[]"))
+	return ip != nil && ip.IsLoopback()
 }
 
 func (s *Server) listenUnix() error {

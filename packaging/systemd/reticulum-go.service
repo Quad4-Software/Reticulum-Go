@@ -23,6 +23,7 @@ ProtectKernelModules=true
 ProtectControlGroups=true
 ProtectClock=true
 LockPersonality=true
+SystemCallArchitectures=native
 RestrictRealtime=true
 RestrictSUIDSGID=true
 UMask=0077
