@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"slices"
 	"strings"
 	"syscall"
 	"testing"
@@ -65,12 +66,7 @@ func TestSeccompEnabledConfig(t *testing.T) {
 
 func TestSeccompKeyringPolicyFollowsIdentityBackend(t *testing.T) {
 	contains := func(denied []int, nr int) bool {
-		for _, v := range denied {
-			if v == nr {
-				return true
-			}
-		}
-		return false
+		return slices.Contains(denied, nr)
 	}
 
 	_, denied, err := seccompPolicy(nil)

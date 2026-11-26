@@ -332,17 +332,15 @@ type impairedPipe struct {
 func newImpairedPair(nameA, nameB string, opts impairedOptions) *impairedPipe {
 	makeOne := func(name string) *impairedPipe {
 		return &impairedPipe{
-			BaseInterface: common.BaseInterface{
-				Name:    name,
-				Type:    common.IFTypeUDP,
-				Enabled: true,
-				Online:  true,
-			},
-			online: true,
-			opts:   opts,
-			queue:  make(chan []byte, 1024),
-			closed: make(chan struct{}),
-			rng:    rand.New(rand.NewPCG(rand.Uint64(), rand.Uint64())),
+			Name:    name,
+			Type:    common.IFTypeUDP,
+			Enabled: true,
+			Online:  true,
+			online:  true,
+			opts:    opts,
+			queue:   make(chan []byte, 1024),
+			closed:  make(chan struct{}),
+			rng:     rand.New(rand.NewPCG(rand.Uint64(), rand.Uint64())),
 		}
 	}
 	a, b := makeOne(nameA), makeOne(nameB)

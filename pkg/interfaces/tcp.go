@@ -585,18 +585,16 @@ type TCPServerInterface struct {
 
 func NewTCPServerInterface(name string, bindAddr string, bindPort int, kissFraming bool, i2pTunneled bool, preferIPv6 bool) (*TCPServerInterface, error) {
 	ts := &TCPServerInterface{
-		BaseInterface: BaseInterface{
-			Name:     name,
-			Mode:     common.IFModeFull,
-			Type:     common.IFTypeTCP,
-			Online:   false,
-			MTU:      common.DefaultMTU,
-			Enabled:  true,
-			Detached: false,
-			// Upstream assigns BITRATE_GUESS to TCP server interfaces; a
-			// zero bitrate would make the announce queue never drain.
-			Bitrate: BitrateGuess,
-		},
+		Name:     name,
+		Mode:     common.IFModeFull,
+		Type:     common.IFTypeTCP,
+		Online:   false,
+		MTU:      common.DefaultMTU,
+		Enabled:  true,
+		Detached: false,
+		// Upstream assigns BITRATE_GUESS to TCP server interfaces; a
+		// zero bitrate would make the announce queue never drain.
+		Bitrate:     BitrateGuess,
 		connections: make(map[string]net.Conn),
 		spawned:     make(map[string]*TCPServerClientInterface),
 		bindAddr:    bindAddr,
@@ -973,17 +971,15 @@ type TCPServerClientInterface struct {
 
 func newTCPServerClient(conn net.Conn, ts *TCPServerInterface, peerKey string) *TCPServerClientInterface {
 	c := &TCPServerClientInterface{
-		BaseInterface: BaseInterface{
-			Name:    "Client on " + ts.Name + "@" + peerKey,
-			Mode:    ts.Mode,
-			Type:    common.IFTypeTCP,
-			Online:  true,
-			Enabled: true,
-			MTU:     ts.MTU,
-			Bitrate: ts.Bitrate,
-			In:      true,
-			Out:     true,
-		},
+		Name:        "Client on " + ts.Name + "@" + peerKey,
+		Mode:        ts.Mode,
+		Type:        common.IFTypeTCP,
+		Online:      true,
+		Enabled:     true,
+		MTU:         ts.MTU,
+		Bitrate:     ts.Bitrate,
+		In:          true,
+		Out:         true,
 		conn:        conn,
 		peerKey:     peerKey,
 		parent:      ts,

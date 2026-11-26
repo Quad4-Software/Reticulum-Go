@@ -29,28 +29,24 @@ type asyncPipePair struct {
 func newAsyncPipe(nameA, nameB string) *asyncPipePair {
 	wg := &sync.WaitGroup{}
 	a := &asyncPipeInterface{
-		BaseInterface: common.BaseInterface{
-			Name:    nameA,
-			Type:    common.IFTypeUDP,
-			Enabled: true,
-			Online:  true,
-		},
-		online: true,
-		wg:     wg,
-		queue:  make(chan []byte, 256),
-		closed: make(chan struct{}),
+		Name:    nameA,
+		Type:    common.IFTypeUDP,
+		Enabled: true,
+		Online:  true,
+		online:  true,
+		wg:      wg,
+		queue:   make(chan []byte, 256),
+		closed:  make(chan struct{}),
 	}
 	b := &asyncPipeInterface{
-		BaseInterface: common.BaseInterface{
-			Name:    nameB,
-			Type:    common.IFTypeUDP,
-			Enabled: true,
-			Online:  true,
-		},
-		online: true,
-		wg:     wg,
-		queue:  make(chan []byte, 256),
-		closed: make(chan struct{}),
+		Name:    nameB,
+		Type:    common.IFTypeUDP,
+		Enabled: true,
+		Online:  true,
+		online:  true,
+		wg:      wg,
+		queue:   make(chan []byte, 256),
+		closed:  make(chan struct{}),
 	}
 	a.peer = b
 	b.peer = a

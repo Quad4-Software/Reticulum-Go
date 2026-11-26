@@ -209,15 +209,13 @@ const pipeTestBitrate = 1_000_000
 
 func newPipeInterface(name string) *pipeInterface {
 	return &pipeInterface{
-		BaseInterface: common.BaseInterface{
-			Name:    name,
-			Type:    common.IFTypeUDP,
-			Mode:    common.IFModeFull,
-			Enabled: true,
-			Online:  true,
-			MTU:     common.DefaultMTU,
-			Bitrate: pipeTestBitrate,
-		},
+		Name:    name,
+		Type:    common.IFTypeUDP,
+		Mode:    common.IFModeFull,
+		Enabled: true,
+		Online:  true,
+		MTU:     common.DefaultMTU,
+		Bitrate: pipeTestBitrate,
 	}
 }
 
