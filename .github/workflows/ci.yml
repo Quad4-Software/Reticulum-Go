@@ -555,13 +555,18 @@ jobs:
 
       # -p 1: stamp generation saturates all cores per test, so parallel
       # packages starve each other and produce false path-resolution timeouts.
+      # Python lxmd waits only 5 s for a path and generates its own stamp
+      # first, so a slow runner can still lose that window. The testsummary
+      # runner reruns failed tests up to TESTSUMMARY_RERUN_FAILS times.
       - name: Run protocols live interop suite
         working-directory: protocols
         env:
           RUN_LIVE_INTEROP: "1"
           LXMF_PYTHON: ${{ github.workspace }}/.venv/bin/python
           PYTHON_INTEROP: ${{ github.workspace }}/.venv/bin/python
-        run: go test -p 1 -count=1 -timeout 35m -run 'Interop_Live' ./pkg/lxmf/...
+        run: |
+          go build -C .. -o "$RUNNER_TEMP/testsummary" ./scripts/ci/testsummary
+          "$RUNNER_TEMP/testsummary" -p 1 -count=1 -timeout 35m -run 'Interop_Live' ./pkg/lxmf/...
 
       - name: Verify workspace clean
         uses: $/.github/actions/verify-workspace-clean
