@@ -107,11 +107,7 @@ func TestInterop_Live_GoPropagationGoGolxmd(t *testing.T) {
 	}
 
 	env := append(os.Environ(), "GOLXMD_HOME="+home)
-	first := exec.Command(bin)
-	first.Env = env
-	if out, err := first.CombinedOutput(); err != nil {
-		t.Fatalf("golxmd first run: %v\n%s", err, out)
-	}
+	prepareGolxmdHome(t, home)
 
 	readyPath := filepath.Join(home, "ready.json")
 	daemon := exec.Command(bin,
@@ -214,7 +210,7 @@ func TestInterop_Live_GoPropagationGoGolxmd(t *testing.T) {
 		t.Fatalf("SendPropagated: %v log=%s", err, stderr.String())
 	}
 
-	storeDir := filepath.Join(home, "storage", "messagestore")
+	storeDir := filepath.Join(home, "storage", "lxmf", "messagestore")
 	found := false
 	for time.Now().Before(deadline) {
 		entries, err := os.ReadDir(storeDir)
@@ -277,7 +273,7 @@ func TestInterop_Live_PythonPropagationGoGolxmd(t *testing.T) {
 		t.Fatalf("python propagation send failed: %+v log=%s", resp, stderr.String())
 	}
 
-	storeDir := filepath.Join(home, "storage", "messagestore")
+	storeDir := filepath.Join(home, "storage", "lxmf", "messagestore")
 	found := false
 	deadline := time.Now().Add(30 * time.Second)
 	for time.Now().Before(deadline) {
@@ -384,6 +380,23 @@ func TestInterop_Live_GoDeliveryGolxmd(t *testing.T) {
 	}
 }
 
+func prepareGolxmdHome(t *testing.T, home string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Join(home, "storage", "messages"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(home, "config"), []byte(DefaultConfigText), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	id, err := identity.NewIdentity()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := id.ToFile(filepath.Join(home, "identity")); err != nil {
+		t.Fatal(err)
+	}
+}
+
 type golxmdDaemonOpts struct {
 	listenPort      int
 	forwardPort     int
@@ -402,11 +415,7 @@ func startGolxmdDaemon(t *testing.T, root, home string, opts golxmdDaemonOpts) (
 	}
 
 	env := append(os.Environ(), "GOLXMD_HOME="+home)
-	first := exec.Command(bin)
-	first.Env = env
-	if out, err := first.CombinedOutput(); err != nil {
-		t.Fatalf("golxmd first run: %v\n%s", err, out)
-	}
+	prepareGolxmdHome(t, home)
 
 	if opts.announceAtStart {
 		cfgPath := filepath.Join(home, "config")

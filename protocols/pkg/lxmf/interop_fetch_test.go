@@ -30,7 +30,12 @@ func startInteropProcess(t *testing.T, req map[string]any) (wait func() (map[str
 	if err != nil {
 		t.Fatal(err)
 	}
-	cmd := exec.Command("uv", "run", "python", "harness.py")
+	var cmd *exec.Cmd
+	if py := interopPythonPath(); py != "" {
+		cmd = exec.Command(py, "harness.py")
+	} else {
+		cmd = exec.Command("uv", "run", "python", "harness.py")
+	}
 	cmd.Dir = interopDir
 	cmd.Stdin = bytes.NewReader(payload)
 	var out bytes.Buffer

@@ -350,6 +350,30 @@ def _write_rns_config(configdir: Path, listen_port: int, forward_port: int, logl
     (configdir / "config").write_text(cfg, encoding="utf-8")
 
 
+def _write_rns_config_tcp(configdir: Path, hub_port: int, loglevel: int = 0) -> None:
+    configdir.mkdir(parents=True, exist_ok=True)
+    (configdir / "storage").mkdir(exist_ok=True)
+    (configdir / "storage" / "identities").mkdir(exist_ok=True)
+    cfg = f"""[reticulum]
+  enable_transport = Yes
+  share_instance = No
+  shared_instance_port = 0
+  instance_name = lxmf-interop-tcp-{hub_port}
+
+[logging]
+  loglevel = {loglevel}
+
+[interfaces]
+
+  [[Hub]]
+    type = TCPClientInterface
+    interface_enabled = True
+    target_host = 127.0.0.1
+    target_port = {hub_port}
+"""
+    (configdir / "config").write_text(cfg, encoding="utf-8")
+
+
 def cmd_live_recv(req: dict[str, Any]) -> dict[str, Any]:
     """Inbound lxmf.delivery destination that waits for one packed message from Go."""
     listen_port = int(req["listen_port"])
@@ -495,8 +519,8 @@ def cmd_live_send_delivery(req: dict[str, Any]) -> dict[str, Any]:
 
 def cmd_live_send_propagation(req: dict[str, Any]) -> dict[str, Any]:
     """Upload one propagated LXMF message to a propagation node destination hash."""
-    listen_port = int(req["listen_port"])
-    forward_port = int(req["forward_port"])
+    listen_port = int(req.get("listen_port", 0))
+    forward_port = int(req.get("forward_port", 0))
     pn_hex = req["propagation_hash"]
     recipient_hex = req.get("recipient_hash", "")
     title = req.get("title", "")
@@ -505,7 +529,10 @@ def cmd_live_send_propagation(req: dict[str, Any]) -> dict[str, Any]:
 
     configdir = Path(tempfile.mkdtemp(prefix="lxmf-prop-send-"))
     try:
-        _write_rns_config(configdir, listen_port, forward_port)
+        if int(req.get("hub_port", 0)):
+            _write_rns_config_tcp(configdir, int(req["hub_port"]))
+        else:
+            _write_rns_config(configdir, listen_port, forward_port)
         _reticulum = RNS.Reticulum(str(configdir))
         storage = configdir / "storage"
         storage.mkdir(parents=True, exist_ok=True)
@@ -722,10 +749,35 @@ def cmd_live_prop_fetch(req: dict[str, Any]) -> dict[str, Any]:
             pass
 
 
+def cmd_unpack_batch(req: dict[str, Any]) -> dict[str, Any]:
+    """Differential batch unpack: for each hex blob, attempt unpack_from_bytes
+    and report accept/reject plus decoded fields on accept."""
+    results = []
+    for blob_hex in req.get("blobs", []):
+        packed = bytes.fromhex(blob_hex)
+        entry = {"accept": False}
+        try:
+            msg = LXMessage.unpack_from_bytes(packed)
+            if msg is not None:
+                entry = {
+                    "accept": True,
+                    "source_hash": _hex(msg.source_hash) if msg.source_hash else "",
+                    "dest_hash": _hex(msg.destination_hash) if msg.destination_hash else "",
+                    "timestamp": msg.timestamp if msg.timestamp is not None else 0,
+                    "title": msg.title.decode("utf-8", "replace") if isinstance(msg.title, bytes) else str(msg.title or ""),
+                    "content": msg.content.decode("utf-8", "replace") if isinstance(msg.content, bytes) else str(msg.content or ""),
+                }
+        except Exception as exc:
+            entry = {"accept": False, "error": str(exc)[:120]}
+        results.append(entry)
+    return {"ok": True, "results": results}
+
+
 HANDLERS = {
     "ping": cmd_ping,
     "pack": cmd_pack,
     "unpack": cmd_unpack,
+    "unpack_batch": cmd_unpack_batch,
     "stamp_workblock": cmd_stamp_workblock,
     "stamp_valid": cmd_stamp_valid,
     "stamp_value": cmd_stamp_value,
@@ -738,6 +790,7 @@ HANDLERS = {
     "paper_uri": cmd_paper_uri,
     "paper_decode": cmd_paper_decode,
     "ticket_stamp": cmd_ticket_stamp,
+
     "live_recv": cmd_live_recv,
     "live_send_delivery": cmd_live_send_delivery,
     "live_send_propagation": cmd_live_send_propagation,

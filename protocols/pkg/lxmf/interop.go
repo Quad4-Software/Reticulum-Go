@@ -35,6 +35,8 @@ type interopResponse struct {
 	Error string `json:"error"`
 	Trace string `json:"trace"`
 
+	Results []json.RawMessage `json:"results,omitempty"`
+
 	LXMFVersion string `json:"lxmf_version,omitempty"`
 
 	Packed               string         `json:"packed,omitempty"`
@@ -87,14 +89,16 @@ func interopAvailable() (bool, string) {
 			return
 		}
 		interopDir = filepath.Join(root, "pkg", "lxmf", "interoptest")
-		ref := filepath.Join(root, "LXMF-ref")
-		if _, err := os.Stat(ref); err != nil {
-			interopSkipMsg = "LXMF-ref clone missing; clone upstream LXMF to LXMF-ref"
-			return
-		}
-		if _, err := exec.LookPath("uv"); err != nil {
-			interopSkipMsg = "uv not found in PATH"
-			return
+		if interopPythonPath() == "" {
+			ref := filepath.Join(root, "LXMF-ref")
+			if _, err := os.Stat(ref); err != nil {
+				interopSkipMsg = "python LXMF unavailable; set LXMF_PYTHON or clone upstream LXMF to LXMF-ref"
+				return
+			}
+			if _, err := exec.LookPath("uv"); err != nil {
+				interopSkipMsg = "uv not found in PATH"
+				return
+			}
 		}
 		resp, err := runInterop(map[string]any{"cmd": "ping"})
 		if err != nil {
@@ -134,7 +138,12 @@ func runInterop(req map[string]any) (interopResponse, error) {
 	if err != nil {
 		return zero, err
 	}
-	cmd := exec.Command("uv", "run", "python", "harness.py")
+	var cmd *exec.Cmd
+	if py := interopPythonPath(); py != "" {
+		cmd = exec.Command(py, "harness.py")
+	} else {
+		cmd = exec.Command("uv", "run", "python", "harness.py")
+	}
 	cmd.Dir = interopDir
 	cmd.Stdin = bytes.NewReader(payload)
 	out, err := cmd.CombinedOutput()
@@ -163,6 +172,20 @@ func decodeHarnessOutput(out []byte, resp *interopResponse) error {
 		}
 	}
 	return json.Unmarshal(out, resp)
+}
+
+func interopPythonPath() string {
+	if py := os.Getenv("LXMF_PYTHON"); py != "" {
+		if _, err := os.Stat(py); err == nil {
+			return py
+		}
+		return ""
+	}
+	const installed = "/home/dev/.local/share/uv/tools/lxmf/bin/python"
+	if _, err := os.Stat(installed); err == nil {
+		return installed
+	}
+	return ""
 }
 
 func outDeliveryHash(t *testing.T, id *identity.Identity) []byte {
