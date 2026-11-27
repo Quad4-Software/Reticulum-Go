@@ -512,7 +512,7 @@ func (i *BaseInterface) GetBandwidthAvailable() bool {
 	defer i.Mutex.RUnlock()
 
 	elapsed := time.Since(i.lastTx)
-	// Coarse clocks (notably Windows) can report elapsed <= 0 on the same
+	// Coarse clocks (Windows above all) can report elapsed <= 0 on the same
 	// tick as lastTx. Still apply the sampled TX gate in that case.
 	if i.Bitrate <= 0 || elapsed > time.Second {
 		if debug.Enabled(debug.DebugTrace) {

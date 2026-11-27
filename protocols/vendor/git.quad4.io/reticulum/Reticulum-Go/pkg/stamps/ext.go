@@ -29,7 +29,7 @@ func AnnounceExt(stamp []byte, lrCost float64) []byte {
 // stamped reports the trailer had the known format (marker 0xC1, anchor MSB
 // clear, lr_cost <= StampCostCap). When stamped, stamp carries ext[2:16] and
 // value the stamp's computed value. valid reports the stamp satisfied
-// requiredCost; only then is stripped set (app_data minus the trailer, nil
+// requiredCost. Only then is stripped set (app_data minus the trailer, nil
 // when empty) and lrCost populated. When the format is unknown or the stamp
 // is invalid, stripped is nil and callers must keep the original app_data.
 // material = destHash || pubKey || nameHash with expand_rounds=0.

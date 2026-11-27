@@ -257,7 +257,7 @@ type IngressControl struct {
 type ingressHeld struct {
 	hash [32]byte
 	data []byte
-	// dest keys the entry for ReleaseHeldAnnounceFor; zero means no
+	// dest keys the entry for ReleaseHeldAnnounceFor. Zero means no
 	// destination key.
 	dest [16]byte
 	// hops is the wire hop count (packet header byte 1) so the release

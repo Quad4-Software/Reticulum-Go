@@ -28,7 +28,7 @@ func HandleIncomingLinkRequest(pkt *packet.Packet, dest *destination.Destination
 	// LINKREQUEST produces an identical linkID. If a live link for it
 	// already exists, resend its cached proof instead of paying
 	// keygen+ECDH+sign+proof-transmit again. Legitimate initiator retries
-	// (lost proof) still get an answer; a replay flood becomes near-free.
+	// (lost proof) still get an answer. A replay flood becomes near-free.
 	if transport != nil {
 		if existing := transport.FindLink(linkIDFromPacket(pkt)); existing != nil {
 			if l, ok := existing.(*Link); ok && l.resendProofIfPending() {

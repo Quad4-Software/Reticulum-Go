@@ -54,7 +54,7 @@ type StampsConfig struct {
 	StampDestinations bool
 	StampPRs          bool
 	AlwaysStampLRs    bool
-	// StampLRs/StampLRsSet override the STAMP_LRS default (true) — there is
+	// StampLRs/StampLRsSet override the STAMP_LRS default (true), so there is
 	// no stamp_lrs config key in Python. This is a runtime/test toggle.
 	StampLRs    bool
 	StampLRsSet bool

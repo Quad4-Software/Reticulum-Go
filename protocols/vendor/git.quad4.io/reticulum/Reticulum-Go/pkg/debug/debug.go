@@ -38,7 +38,7 @@ func init() {
 	levelAtomic.Store(int64(*debugLevel))
 }
 
-// SetExtraWriter mirrors Reticulum log output to w in addition to stderr.
+// SetExtraWriter mirrors Reticulum log output to w as well as stderr.
 func SetExtraWriter(w io.Writer) {
 	mu.Lock()
 	defer mu.Unlock()

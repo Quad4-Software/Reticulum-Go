@@ -52,7 +52,7 @@ func New(n int) (*Buf, error) {
 
 // NewProtected allocates an n-byte secret buffer in a dedicated mapping that
 // is PROT_NONE except inside Use, CopyFrom, CopyOut and Wipe. Bytes returns
-// nil for protected buffers; access the secret through Use.
+// nil for protected buffers. Access the secret through Use.
 func NewProtected(n int) (*Buf, error) {
 	return newBuf(n, true)
 }
@@ -120,7 +120,7 @@ func (b *Buf) Len() int {
 
 // Bytes returns the live secret region. Do not retain past Close or Wipe.
 // Protected buffers keep their pages PROT_NONE while idle, so Bytes returns
-// nil for them; use Use instead.
+// nil for them. Use Use instead.
 func (b *Buf) Bytes() []byte {
 	if b == nil {
 		return nil

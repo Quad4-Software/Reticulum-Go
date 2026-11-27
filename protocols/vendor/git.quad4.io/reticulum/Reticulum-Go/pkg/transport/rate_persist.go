@@ -131,7 +131,7 @@ func unmarshalRateTable(blob []byte) (map[[16]byte]rateTableEntry, bool) {
 	blocked := readF64()
 	viol := make([]int32, entryCount)
 	for i := range viol {
-		viol[i] = int32(binary.LittleEndian.Uint32(blob[off+i*4 : off+i*4+4])) // #nosec G115 -- file field is int32; bit reinterpretation intended
+		viol[i] = int32(binary.LittleEndian.Uint32(blob[off+i*4 : off+i*4+4])) // #nosec G115 -- file field is int32. bit reinterpretation intended
 	}
 	off += entryCount * 4
 	tsLen := make([]int, entryCount)

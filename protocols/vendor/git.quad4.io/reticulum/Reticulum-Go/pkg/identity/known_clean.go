@@ -59,7 +59,7 @@ func TouchKnownDestination(destHash []byte) {
 
 	// Fast path: lastUsed has one-second granularity, so a touch within the
 	// current second is already recorded. Read-lock only and skip the write
-	// lock entirely; recall storms then cost an RLock instead of a global
+	// lock entirely. Recall storms then cost an RLock instead of a global
 	// write-lock convoy.
 	knownDestinationsLock.RLock()
 	meta, ok := knownDestMetaByKey[key]

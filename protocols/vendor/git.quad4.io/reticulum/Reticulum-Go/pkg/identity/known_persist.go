@@ -227,7 +227,7 @@ func InitKnownDestinationsPersistence(configPath string, inMemory bool) {
 	// Rows remembered before persistence initialization would otherwise never
 	// enter SQLite now that normal operation is row-level write-behind rather
 	// than a whole-table rewrite. Snapshot just the pre-existing rows before
-	// opening storage; rows loaded from the DB must not be written back.
+	// opening storage. Rows loaded from the DB must not be written back.
 	type preInitRow struct {
 		key   destMapKey
 		entry knownDestEntry
@@ -380,7 +380,7 @@ func saveKnownDestinations(force bool) {
 
 	gen := knownPersistGen.Load()
 
-	// SQLite backend (RNS 1.6.0) handles the write; legacy path otherwise.
+	// SQLite backend (RNS 1.6.0) handles the write. Legacy path otherwise.
 	if handled, flushed := saveKnownDestinationsDB(); handled {
 		if flushed {
 			knownPersistLast.Store(time.Now().UnixNano())

@@ -15,7 +15,7 @@ import (
 )
 
 // knownStore holds the sqlite known-destinations DB when the driver is
-// available and persistence is enabled; nil means use the legacy file.
+// available and persistence is enabled. Nil means use the legacy file.
 var knownStore atomic.Pointer[sqlitestore.KnownDestinationsStore]
 
 // knownStoreReadInit guards the one-shot lazy open used by standalone
@@ -27,7 +27,7 @@ var knownStoreReadInit atomic.Bool
 // ensureKnownStoreReadable opens the known-destinations DB on first use by
 // a reader that bypassed InitKnownDestinationsPersistence. It only runs
 // when an explicit storage location is resolvable (config path already set
-// or RETICULUM_STORAGE_PATH); otherwise the legacy file path keeps handling
+// or RETICULUM_STORAGE_PATH). Otherwise the legacy file path keeps handling
 // the default-directory lookup exactly as before. Processes that already
 // initialized persistence as in-memory or disabled keep that choice: the
 // lazy open must not flip them back to disk writes.

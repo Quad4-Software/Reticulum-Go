@@ -67,7 +67,7 @@ func (t *Transport) RegisterFlaggedDestinationType(nameHash []byte, fullName str
 }
 
 // LinkDistributionRPC mirrors Python Transport.link_distribution(), which is
-// a stub returning {} upstream; keep the same shape for RPC parity.
+// a stub returning {} upstream. Keep the same shape for RPC parity.
 func (t *Transport) LinkDistributionRPC() map[string]any {
 	return map[string]any{}
 }

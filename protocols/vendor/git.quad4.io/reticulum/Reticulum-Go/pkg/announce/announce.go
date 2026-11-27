@@ -289,7 +289,7 @@ func (a *Announce) HandleAnnounce(data []byte) error {
 	appData := packetData[pos:]
 
 	// RNS 1.6.0 announce stamps: the signature below still covers the full
-	// unstripped app_data; only a valid stamp strips the trailer for
+	// unstripped app_data. Only a valid stamp strips the trailer for
 	// storage and handler delivery.
 	settings := a.config.StampsSettings()
 	var stampInfo *identity.StampInfo

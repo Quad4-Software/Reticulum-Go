@@ -9,8 +9,8 @@ import (
 )
 
 // applyFilterConfig applies the parsed [filter] section (RNS 1.6.0):
-// ignored_types -> block_destination_type, allowed_types ->
-// allow_destination_type, required_only -> required_destinations_only.
+// ignored_types to block_destination_type, allowed_types to
+// allow_destination_type, required_only to required_destinations_only.
 func (t *Transport) applyFilterConfig(f common.FilterConfig) {
 	if t == nil || t.destFilters == nil {
 		return

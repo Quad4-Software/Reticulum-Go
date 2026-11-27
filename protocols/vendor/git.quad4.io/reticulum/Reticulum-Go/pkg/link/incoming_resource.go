@@ -614,7 +614,7 @@ func (l *Link) sendIncomingResourceReqNext() error {
 	}
 
 	// RNS 1.6.0: when the advertisement carried an empty hashmap ("m": b"",
-	// oversized adv deferred to HMU), hashmap[0] is unknown — request the
+	// oversized adv deferred to HMU), hashmap[0] is unknown, so request the
 	// initial hashmap with HASHMAP_IS_EMPTY (0xFE) instead of part hashes.
 	if rx.hashmapHeight == 0 && len(rx.mapHashes) == 0 {
 		prefix := []byte{hashmapIsEmpty}

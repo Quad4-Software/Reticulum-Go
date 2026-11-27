@@ -14,7 +14,7 @@ import (
 
 // Heap memory belongs to the process, not to one Transport. Tests and
 // simulations often run several transports in one process, so the trim clock
-// is global; otherwise each transport could schedule its own full GC.
+// is global. Otherwise each transport could schedule its own full GC.
 var memTrimState = struct {
 	sync.Mutex
 	last        time.Time
