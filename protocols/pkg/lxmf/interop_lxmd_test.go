@@ -151,7 +151,12 @@ func writeLXMDConfig(t *testing.T, home string, control *identity.Identity, stat
 	t.Helper()
 	cfg := strings.Replace(DefaultConfigText, "enable_node = no", "enable_node = yes", 1)
 	if control != nil {
-		cfg = strings.Replace(cfg, "# control_allowed =", "control_allowed = "+hex.EncodeToString(control.Hash())+"\n# control_allowed =", 1)
+		// Python lxmd announces its control destination at startup only
+		// when more than one control identity is allowed. The dummy
+		// second entry keeps the real client first and triggers the
+		// startup announce, which pre-generates the control stamp.
+		dummy := strings.Repeat("cd", 16)
+		cfg = strings.Replace(cfg, "# control_allowed =", "control_allowed = "+hex.EncodeToString(control.Hash())+", "+dummy+"\n# control_allowed =", 1)
 	}
 	if len(staticPeer) == DestinationLength {
 		cfg = strings.Replace(cfg, "# static_peers =", "static_peers = "+hex.EncodeToString(staticPeer)+"\n# static_peers =", 1)
@@ -285,6 +290,49 @@ print(d.hash.hex())
 	return strings.TrimSpace(string(out))
 }
 
+func pythonControlHash(t *testing.T, identityPath string) string {
+	t.Helper()
+	py := interopPythonPath()
+	if py == "" {
+		t.Skip("python LXMF unavailable")
+	}
+	script := fmt.Sprintf(`import RNS,LXMF
+id=RNS.Identity.from_file(%q)
+d=RNS.Destination(id,RNS.Destination.OUT,RNS.Destination.SINGLE,LXMF.APP_NAME,"propagation","control")
+print(d.hash.hex())
+`, identityPath)
+	cmd := exec.Command(py, "-c", script)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("python control hash: %v\n%s", err, out)
+	}
+	return strings.TrimSpace(string(out))
+}
+
+// waitPythonStampCache waits until python has completed and persisted the
+// announce stamps for the given destination hashes. A fresh destination
+// stamp costs python tens of seconds of proof of work even on fast
+// hardware, and a node cannot answer path requests for a destination
+// before its stamp exists. The file appears only when generation
+// finished, so this gates on the real condition.
+func waitPythonStampCache(t *testing.T, rnsDir string, hashes ...string) {
+	t.Helper()
+	deadline := time.Now().Add(240 * time.Second)
+	for time.Now().Before(deadline) {
+		found := 0
+		for _, h := range hashes {
+			if _, err := os.Stat(filepath.Join(rnsDir, "storage", "stamps", h+".dstamp")); err == nil {
+				found++
+			}
+		}
+		if found == len(hashes) {
+			return
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+	t.Fatalf("python stamp cache incomplete after 240s for %v", hashes)
+}
+
 func TestInterop_Live_PythonLXMDQueriesGolxmd(t *testing.T) {
 	lxmdPath := requireRealLXMD(t)
 	bin := buildGolxmdBinary(t)
@@ -363,12 +411,14 @@ func TestInterop_Live_GolxmdQueriesPythonLXMD(t *testing.T) {
 	_ = pyID
 	pyRNS := t.TempDir()
 	writeInteropRNSConfig(t, pyRNS, pyNodePort, goQueryPort)
-	pyCmd := exec.Command(lxmdPath, "--config", pyHome, "--rnsconfig", pyRNS, "--propagation-node", "--service")
+	pyCmd := exec.Command(lxmdPath, "--config", pyHome, "--rnsconfig", pyRNS, "--propagation-node", "--service", "-vvvv")
 	pyCmd.Env = append(os.Environ(), "HOME="+t.TempDir())
 	pyProc := startLXMDProcess(t, pyCmd)
 	waitPythonLXMDStarted(t, pyHome, 30*time.Second)
 
 	propHash := pythonPropagationHash(t, filepath.Join(pyHome, "identity"))
+	controlHash := pythonControlHash(t, filepath.Join(pyHome, "identity"))
+	waitPythonStampCache(t, pyRNS, propHash, controlHash)
 	query := exec.Command(bin,
 		"--config", clientHome,
 		"--status", "--peers",
