@@ -23,8 +23,11 @@ import (
 )
 
 const (
-	isMemBrk = false
-	memgrind = true
+	// allocaBump selects the alloca(3) bump region, see allocaChunk. Each
+	// alloca is malloc'd instead, so that the audit sees it.
+	allocaBump = false
+	isMemBrk   = false
+	memgrind   = true
 )
 
 type memReportItem struct {
@@ -293,6 +296,19 @@ func MemStat() MemAllocatorStat {
 	return MemAllocatorStat{}
 }
 
+// MemTrim returns to the OS the empty pages the allocator retains for reuse.
+// Pages that still hold a live block stay mapped.
+//
+// MemTrim is never necessary for correctness. It trades a smaller resident set
+// now for the cost of mapping the pages again later.
+func MemTrim() error {
+	allocatorMu.Lock()
+
+	defer allocatorMu.Unlock()
+
+	return allocator.Trim()
+}
+
 func Xmalloc_usable_size(tls *TLS, p uintptr) (r Tsize_t) {
 	return UsableSize(p)
 }
@@ -361,3 +377,6 @@ func MemAuditAnnotate(pc uintptr, s string) {
 func MemAudit() (r []*MemAuditError) {
 	return nil
 }
+
+// tcacheFlushAll is a no-op, this allocator does not use TLS.tcache.
+func (tls *TLS) tcacheFlushAll() {}

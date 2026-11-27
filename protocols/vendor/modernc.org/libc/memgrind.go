@@ -24,7 +24,12 @@ import (
 	"modernc.org/memory"
 )
 
-const memgrind = true
+const (
+	// allocaBump selects the alloca(3) bump region, see allocaChunk. Each
+	// alloca is malloc'd instead, so that the audit sees it.
+	allocaBump = false
+	memgrind   = true
+)
 
 type memReportItem struct {
 	p, pc uintptr
@@ -295,6 +300,19 @@ type MemAllocatorStat struct {
 // MemStat no-op for this build tag
 func MemStat() MemAllocatorStat {
 	return MemAllocatorStat{}
+}
+
+// MemTrim returns to the OS the empty pages the allocator retains for reuse.
+// Pages that still hold a live block stay mapped.
+//
+// MemTrim is never necessary for correctness. It trades a smaller resident set
+// now for the cost of mapping the pages again later.
+func MemTrim() error {
+	allocMu.Lock()
+
+	defer allocMu.Unlock()
+
+	return allocator.Trim()
 }
 
 // MemAuditStart locks the memory allocator, initializes and enables memory

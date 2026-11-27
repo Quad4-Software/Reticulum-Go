@@ -15,7 +15,6 @@ import (
 	"io/fs"
 	mbits "math/bits"
 	"os"
-	"os/exec"
 	gosignal "os/signal"
 	"os/user"
 	"path/filepath"
@@ -85,8 +84,6 @@ var X__stdoutp = Xstdout
 // 1
 // user@darwin-m1:~/tmp$
 var X__mb_cur_max int32 = 1
-
-var startTime = gotime.Now() // For clock(3)
 
 type file uintptr
 
@@ -416,13 +413,15 @@ func Xfsctl(t *TLS, path uintptr, request ulong, data uintptr, options uint32) i
 	if __ccgo_strace {
 		trc("t=%v path=%v request=%v data=%v options=%v, (%v:)", t, path, request, data, options, origin(2))
 	}
-	panic(todo(""))
-	// if _, _, err := unix.Syscall6(unix.SYS_FSCTL, path, uintptr(request), data, uintptr(options), 0, 0); err != 0 {
-	// 	t.setErrno(err)
-	// 	return -1
-	// }
+	// SQLite's unix VFS takes its byte-range locks on AFP and SMB volumes
+	// with fsctl. libSystem's fsctl is a plain wrapper of this system call.
+	r, _, err := unix.Syscall6(unix.SYS_FSCTL, path, uintptr(request), data, uintptr(options), 0, 0)
+	if err != 0 {
+		t.setErrno(err)
+		return -1
+	}
 
-	// return 0
+	return int32(r)
 }
 
 // int * __error(void);
@@ -1304,28 +1303,6 @@ func Xgetpid(t *TLS) int32 {
 	return r
 }
 
-// int system(const char *command);
-func Xsystem(t *TLS, command uintptr) int32 {
-	if __ccgo_strace {
-		trc("t=%v command=%v, (%v:)", t, command, origin(2))
-	}
-	s := GoString(command)
-	if command == 0 {
-		panic(todo(""))
-	}
-
-	cmd := exec.Command("sh", "-c", s)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	err := cmd.Run()
-	if err != nil {
-		ps := err.(*exec.ExitError)
-		return int32(ps.ExitCode())
-	}
-
-	return 0
-}
-
 // int setvbuf(FILE *stream, char *buf, int mode, size_t size);
 func Xsetvbuf(t *TLS, stream, buf uintptr, mode int32, size types.Size_t) int32 {
 	if __ccgo_strace {
@@ -1653,14 +1630,6 @@ func Xperror(tls *TLS, msg uintptr) {
 	fmt.Fprintf(os.Stderr, "%s\n", GoString(errstr))
 }
 
-// int pclose(FILE *stream);
-func Xpclose(t *TLS, stream uintptr) int32 {
-	if __ccgo_strace {
-		trc("t=%v stream=%v, (%v:)", t, stream, origin(2))
-	}
-	panic(todo(""))
-}
-
 // var gai_strerrorBuf [100]byte
 
 // const char *gai_strerror(int errcode);
@@ -1737,14 +1706,6 @@ func Xnl_langinfo(t *TLS, item langinfo.Nl_item) uintptr {
 		trc("t=%v item=%v, (%v:)", t, item, origin(2))
 	}
 	return uintptr(unsafe.Pointer(&emptyStr)) //TODO
-}
-
-// FILE *popen(const char *command, const char *type);
-func Xpopen(t *TLS, command, type1 uintptr) uintptr {
-	if __ccgo_strace {
-		trc("t=%v type1=%v, (%v:)", t, type1, origin(2))
-	}
-	panic(todo(""))
 }
 
 // char *realpath(const char *path, char *resolved_path);
@@ -2423,14 +2384,6 @@ func Xposix_fadvise(t *TLS, fd int32, offset, len types.Off_t, advice int32) int
 		trc("t=%v fd=%v len=%v advice=%v, (%v:)", t, fd, len, advice, origin(2))
 	}
 	panic(todo(""))
-}
-
-// clock_t clock(void);
-func Xclock(t *TLS) time.Clock_t {
-	if __ccgo_strace {
-		trc("t=%v, (%v:)", t, origin(2))
-	}
-	return time.Clock_t(gotime.Since(startTime) * gotime.Duration(time.CLOCKS_PER_SEC) / gotime.Second)
 }
 
 // int iswspace(wint_t wc);

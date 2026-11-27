@@ -21,8 +21,11 @@ import (
 )
 
 const (
-	heapAlign = 16
-	memgrind  = false
+	// allocaBump selects the alloca(3) bump region, see allocaChunk. Each
+	// alloca is malloc'd instead, so that it is never reused.
+	allocaBump = false
+	heapAlign  = 16
+	memgrind   = false
 )
 
 var (
@@ -115,6 +118,9 @@ type MemAllocatorStat struct {
 func MemStat() MemAllocatorStat {
 	return MemAllocatorStat{}
 }
+
+// MemTrim does nothing: this allocator never gives memory back.
+func MemTrim() error { return nil }
 
 // MemAuditStart locks the memory allocator, initializes and enables memory
 // auditing. Finaly it unlocks the memory allocator.
