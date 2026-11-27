@@ -281,3 +281,99 @@ func TestStampedAnnounceJobCopiesTag(t *testing.T) {
 		t.Fatal("deferred announce job aliases the caller's tag slice")
 	}
 }
+
+// Re-announcing while the first stamp generation is still running must not
+// pile copies up in the stamper queue. Before the dedup fix the pending key
+// was cleared when the worker dequeued the job, so every re-announce during
+// a slow generation enqueued another copy and all copies fired in a burst
+// once the stamp existed, tripping the per-destination burst limiter.
+func TestStampedReannouncesDedupDuringGeneration(t *testing.T) {
+	t.Setenv("RETICULUM_STORAGE_PATH", t.TempDir())
+	StopStamper()
+	t.Cleanup(StopStamper)
+
+	cfg := &common.ReticulumConfig{Stamps: common.StampsConfig{
+		StampDestinations:   true,
+		DestinationValue:    24,
+		DestinationValueSet: true,
+	}}
+	iface := newRecordingInterface("out0")
+	tr := &mockTransport{config: cfg, interfaces: map[string]common.NetworkInterface{"out0": iface}}
+	id, err := identity.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	d, err := New(id, In, Single, "app", tr)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Six rapid-fire announces, the pattern a staggered startup loop
+	// produces while generation is in flight.
+	for i := range 6 {
+		if err := d.Announce(false, nil, nil); err != nil {
+			t.Fatalf("announce %d: %v", i, err)
+		}
+	}
+
+	deadline := time.Now().Add(60 * time.Second)
+	for time.Now().Before(deadline) {
+		if len(iface.Sent()) > 0 {
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	if len(iface.Sent()) == 0 {
+		t.Fatal("background stamper never emitted the announce")
+	}
+
+	// Let any erroneously queued copies flush, then count. Exactly one
+	// packet may reach the wire for the whole burst.
+	time.Sleep(500 * time.Millisecond)
+	if got := len(iface.Sent()); got != 1 {
+		t.Fatalf("emitted %d announces for one logical generation, want exactly 1", got)
+	}
+}
+
+// Deferred announces emit nothing, so they must not consume burst budget.
+// Only the final stamped emission counts.
+func TestDeferredAnnouncesDoNotConsumeBurstBudget(t *testing.T) {
+	t.Setenv("RETICULUM_STORAGE_PATH", t.TempDir())
+	StopStamper()
+	t.Cleanup(StopStamper)
+
+	cfg := &common.ReticulumConfig{Stamps: common.StampsConfig{
+		StampDestinations:   true,
+		DestinationValue:    24,
+		DestinationValueSet: true,
+	}}
+	iface := newRecordingInterface("out0")
+	tr := &mockTransport{config: cfg, interfaces: map[string]common.NetworkInterface{"out0": iface}}
+	id, err := identity.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	d, err := New(id, In, Single, "app", tr)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Far more calls than the burst limit while the stamp does not exist
+	// yet. None of them may fail with ErrDestAnnounceThrottled.
+	for i := range announceBurstMax * 3 {
+		if err := d.Announce(false, nil, nil); err != nil {
+			t.Fatalf("deferred announce %d: %v", i, err)
+		}
+	}
+
+	deadline := time.Now().Add(60 * time.Second)
+	for time.Now().Before(deadline) {
+		if len(iface.Sent()) > 0 {
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	if len(iface.Sent()) == 0 {
+		t.Fatal("background stamper never emitted the announce")
+	}
+}

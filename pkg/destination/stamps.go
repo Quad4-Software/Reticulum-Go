@@ -237,23 +237,34 @@ func stamperWorker(ctx context.Context, jobs chan stampJob) {
 			return
 		case job := <-jobs:
 			key := string(job.dest.hashValue)
-			stamper.Lock()
-			delete(stamper.pending, key)
-			stamper.Unlock()
+			// The pending key stays set for the whole job, generation
+			// included. Clearing it at dequeue time let every re-announce
+			// during a slow generation enqueue another copy, and the
+			// queued copies all fired in a burst once the stamp existed,
+			// tripping the per-destination burst limiter. While generation
+			// is in flight the enqueued job already represents every
+			// concurrent announce request for this destination.
+			func() {
+				defer func() {
+					stamper.Lock()
+					delete(stamper.pending, key)
+					stamper.Unlock()
+				}()
 
-			settings := job.dest.stampsSettingsLocked()
-			if !job.dest.awaitStamp(ctx, settings) {
-				debug.Log(debug.DebugWarning, "Stamped announce skipped: stamp generation failed",
-					"dest_hash", job.dest.hexhash())
-				continue
-			}
-			if err := job.dest.Announce(job.pathResponse, job.tag, job.attachedIface); err != nil {
-				debug.Log(debug.DebugWarning, "Stamped announce send failed",
-					"dest_hash", job.dest.hexhash(), "error", err)
-			} else {
-				debug.Log(debug.DebugInfo, "Stamped announce emitted",
-					"dest_hash", job.dest.hexhash(), "path_response", job.pathResponse)
-			}
+				settings := job.dest.stampsSettingsLocked()
+				if !job.dest.awaitStamp(ctx, settings) {
+					debug.Log(debug.DebugWarning, "Stamped announce skipped: stamp generation failed",
+						"dest_hash", job.dest.hexhash())
+					return
+				}
+				if err := job.dest.Announce(job.pathResponse, job.tag, job.attachedIface); err != nil {
+					debug.Log(debug.DebugWarning, "Stamped announce send failed",
+						"dest_hash", job.dest.hexhash(), "error", err)
+				} else {
+					debug.Log(debug.DebugInfo, "Stamped announce emitted",
+						"dest_hash", job.dest.hexhash(), "path_response", job.pathResponse)
+				}
+			}()
 		}
 	}
 }
