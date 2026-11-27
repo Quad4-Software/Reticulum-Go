@@ -65,6 +65,7 @@ type destinationLinkRequestHandler interface {
 
 type registeredDestination struct {
 	raw                any
+	dest               *destination.Destination
 	packetReceiver     destinationPacketReceiver
 	linkRequestHandler destinationLinkRequestHandler
 }
@@ -1124,16 +1125,21 @@ func (t *Transport) RegisterDestination(hash []byte, dest any) {
 		return
 	}
 	key := hash16FromSlice(hash)
-	registered := registeredDestination{raw: dest}
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+	registered := t.destinations[key]
+	registered.raw = dest
+	registered.packetReceiver = nil
+	registered.linkRequestHandler = nil
+	if d, ok := dest.(*destination.Destination); ok {
+		registered.dest = d
+	}
 	if recv, ok := dest.(destinationPacketReceiver); ok {
 		registered.packetReceiver = recv
 	}
 	if handler, ok := dest.(destinationLinkRequestHandler); ok {
 		registered.linkRequestHandler = handler
 	}
-
-	t.mutex.Lock()
-	defer t.mutex.Unlock()
 	t.destinations[key] = registered
 	if debug.Enabled(debug.DebugTrace) {
 		debug.Log(debug.DebugTrace, "Registered destination with transport", "hash", debug.Hex(hash))
@@ -3256,6 +3262,13 @@ func (t *Transport) handleTransportPacket(data []byte, pkt *packet.Packet, iface
 			return
 		}
 
+		// Inbound traffic for destinations owned by shared-instance local
+		// clients is forwarded to the client interface per the zero-hop
+		// path entry recorded from the client's announce.
+		if t.forwardInboundToLocalClient(pkt, data, iface) {
+			return
+		}
+
 		destHash := pkt.DestinationHash
 		if len(destHash) > 16 {
 			destHash = destHash[:16]
@@ -3283,7 +3296,7 @@ func (t *Transport) handleTransportPacket(data []byte, pkt *packet.Packet, iface
 				debug.Log(debug.DebugVerbose, "Destination does not have Receive method")
 			}
 			if delivered {
-				if d, ok := destIface.raw.(*destination.Destination); ok {
+				if d := destIface.dest; d != nil {
 					t.maybeProvePacket(pkt, d, iface)
 				}
 			}
@@ -3472,7 +3485,7 @@ func (t *Transport) processPathRequest(destHash []byte, attachedIface common.Net
 	}
 
 	if isLocal {
-		if dest, ok := localDest.raw.(*destination.Destination); ok {
+		if dest := localDest.dest; dest != nil {
 			if debug.Enabled(debug.DebugVerbose) {
 				debug.Log(debug.DebugVerbose, "Answering path request for local destination", "dest_hash", debug.Hex(destHash))
 			}

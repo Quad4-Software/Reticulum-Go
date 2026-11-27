@@ -468,6 +468,53 @@ func (t *Transport) forwardLocalClientPacket(pkt *packet.Packet, raw []byte, sou
 	return true
 }
 
+// forwardInboundToLocalClient routes a packet received from the network to a
+// destination owned by a shared-instance local client. Python marks such
+// destinations in the path table with hops == 0 and the client interface as
+// the next hop (Transport.py for_local_client), so an inbound packet for a
+// non-local destination whose path entry has zero hops and points at a local
+// client interface is forwarded there. The wire hop count is preserved: the
+// local socket is not a wire hop, matching client-announce accounting.
+func (t *Transport) forwardInboundToLocalClient(pkt *packet.Packet, raw []byte, sourceIface common.NetworkInterface) bool {
+	if pkt == nil || pkt.PacketType == packet.PacketTypeAnnounce {
+		return false
+	}
+	if sourceIface != nil && isLocalClientInterface(sourceIface) {
+		return false
+	}
+	destHash := pkt.DestinationHash
+	if len(destHash) > identity.TruncatedHashLength/8 {
+		destHash = destHash[:identity.TruncatedHashLength/8]
+	}
+	destKey := hash16FromSlice(destHash)
+
+	t.mutex.RLock()
+	path, hasPath := t.paths[pathMapKey(destHash)]
+	_, isLocal := t.destinations[destKey]
+	t.mutex.RUnlock()
+
+	if isLocal || !hasPath || path == nil || path.Interface == nil {
+		return false
+	}
+	if path.HopCount != 0 || !isLocalClientInterface(path.Interface) {
+		return false
+	}
+	if path.Interface == sourceIface {
+		return true
+	}
+
+	if debug.Enabled(debug.DebugVerbose) {
+		debug.Log(debug.DebugVerbose, "Forwarding inbound packet to local client",
+			"dest_hash", debug.Hex(destHash),
+			"client_iface", path.Interface.GetName())
+	}
+	out := append([]byte(nil), raw...)
+	if err := sendOnInterface(path.Interface, out, ""); err != nil {
+		debug.Log(debug.DebugError, "Failed to forward inbound packet to local client", "error", err)
+	}
+	return true
+}
+
 func (t *Transport) recordLinkRelay(raw []byte, recvIface common.NetworkInterface, path *common.Path, takenHops int) {
 	if t.linkTable == nil {
 		return

@@ -310,3 +310,76 @@ func TestAnnounceRejectsOverMaxHops(t *testing.T) {
 		t.Fatalf("path registered for overflow hops=%d", tr.HopsTo(destHash))
 	}
 }
+
+type mergeTestReceiver struct {
+	received bool
+}
+
+func (r *mergeTestReceiver) Receive(pkt *packet.Packet, iface common.NetworkInterface) bool {
+	r.received = true
+	return true
+}
+
+func (r *mergeTestReceiver) HandleIncomingLinkRequest(pkt any, transport any, networkIface common.NetworkInterface) error {
+	return nil
+}
+
+func TestRegisterDestinationMergeRetainsDestinationAndClearsStaleReceivers(t *testing.T) {
+	tr := NewTransport(&common.ReticulumConfig{})
+	defer func() { _ = tr.Close() }()
+
+	id, err := identity.NewIdentity()
+	if err != nil {
+		t.Fatalf("identity.NewIdentity: %v", err)
+	}
+	dest, err := destination.New(id, destination.In, destination.Single, "merge", tr, "test")
+	if err != nil {
+		t.Fatalf("destination.New: %v", err)
+	}
+	destHash := dest.GetHash()
+
+	tr.RegisterDestination(destHash, dest)
+	tr.mutex.RLock()
+	first := tr.destinations[hash16FromSlice(destHash)]
+	tr.mutex.RUnlock()
+	if first.dest != dest {
+		t.Fatal("destination object not retained after initial registration")
+	}
+	if first.packetReceiver == nil {
+		t.Fatal("destination registration should install its packet receiver")
+	}
+
+	receiver := &mergeTestReceiver{}
+	tr.RegisterDestination(destHash, receiver)
+
+	tr.mutex.RLock()
+	merged := tr.destinations[hash16FromSlice(destHash)]
+	tr.mutex.RUnlock()
+	if merged.dest != dest {
+		t.Error("destination object lost after non-destination re-registration; path requests would be dropped")
+	}
+	if merged.raw != any(receiver) {
+		t.Error("raw receiver not updated to latest registration")
+	}
+	if merged.packetReceiver != any(receiver) {
+		t.Error("packet receiver not updated to latest registration")
+	}
+	if merged.linkRequestHandler != any(receiver) {
+		t.Error("link request handler not updated to latest registration")
+	}
+
+	tr.RegisterDestination(destHash, "plain-object")
+
+	tr.mutex.RLock()
+	cleared := tr.destinations[hash16FromSlice(destHash)]
+	tr.mutex.RUnlock()
+	if cleared.dest != dest {
+		t.Error("destination object must survive capability-less re-registration")
+	}
+	if cleared.packetReceiver != nil {
+		t.Error("stale packet receiver inherited by capability-less registration")
+	}
+	if cleared.linkRequestHandler != nil {
+		t.Error("stale link request handler inherited by capability-less registration")
+	}
+}
