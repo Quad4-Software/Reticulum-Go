@@ -206,12 +206,14 @@ func NewFromConfigWithContext(name string, cfg *common.InterfaceConfig, ctx *Fro
 			port = cfg.Address
 		}
 		opts := RNodeMultiOptions{
-			Port:                  port,
-			IDInterval:            time.Duration(cfg.IDInterval) * time.Second,
-			Callsign:              cfg.IDCallsign,
-			MaxReconnectTries:     MaxReconnectTriesFromConfig(cfg),
-			PanicOnInterfaceError: ctx != nil && ctx.PanicOnInterfaceError,
-			SubInterfaces:         cfg.SubInterfaces,
+			RNodeOptions: RNodeOptions{
+				Port:                  port,
+				IDInterval:            time.Duration(cfg.IDInterval) * time.Second,
+				Callsign:              cfg.IDCallsign,
+				MaxReconnectTries:     MaxReconnectTriesFromConfig(cfg),
+				PanicOnInterfaceError: ctx != nil && ctx.PanicOnInterfaceError,
+			},
+			SubInterfaces: cfg.SubInterfaces,
 		}
 		if ctx != nil {
 			opts.RegisterPeer = ctx.RegisterPeer
