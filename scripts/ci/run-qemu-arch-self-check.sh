@@ -88,7 +88,7 @@ if [ "$GOARCH_TARGET" = "arm" ]; then
 fi
 
 echo "${TAG}: qemu=$QEMU go=$(go version) target=$ARCH_LABEL"
-echo "${TAG}: building $ARCH_LABEL -> $BINARY"
+echo "${TAG}: building $ARCH_LABEL into $BINARY"
 mkdir -p "$(dirname "$BINARY")"
 if ! go build -buildvcs=false -ldflags="-s -w" -o "$BINARY" ./cmd/reticulum-go >>"$LOG" 2>&1; then
 	selfcheck_fail "build failed"

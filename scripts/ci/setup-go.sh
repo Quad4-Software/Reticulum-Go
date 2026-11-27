@@ -38,9 +38,6 @@ export PATH="/usr/local/go/bin:$PATH"
 if [ -n "${GITHUB_PATH:-}" ]; then
     echo "/usr/local/go/bin" >> "$GITHUB_PATH"
 fi
-if [ -n "${GITEA_PATH:-}" ]; then
-    echo "/usr/local/go/bin" >> "$GITEA_PATH"
-fi
 
 go version
 GOT="$(go version 2>&1 | head -n1)"

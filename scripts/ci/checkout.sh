@@ -1,33 +1,31 @@
 #!/bin/sh
-# Clone or shallow-fetch the repository using Gitea/GitHub Actions-compatible env.
+# Clone or shallow-fetch the repository using GitHub Actions-compatible env.
 #
-# CI workflows may use actions/checkout on GitHub or inline git in other hosts; this script
+# CI workflows may use actions/checkout on GitHub or inline git in other hosts. This script
 # is for local runs or act when you want a single shared implementation.
 # Use this script for local runs or act when you want a single shared implementation.
 #
 # Usage: checkout.sh [fetch_depth]
 #   fetch_depth: commit depth (default 1), or 0 for full clone then checkout SHA.
 #
-# Env: GITEA_SERVER_URL or GITHUB_SERVER_URL, GITEA_REPOSITORY or GITHUB_REPOSITORY,
-#      GITHUB_SHA (or GITEA_SHA), optional GITHUB_REF / GITEA_REF / GITHUB_REF_NAME.
-#      Optional: GITEA_TOKEN or GITHUB_TOKEN, GITEA_WORKSPACE or GITHUB_WORKSPACE.
+# Env: GITHUB_SERVER_URL, GITHUB_REPOSITORY,
+#      GITHUB_SHA, optional GITHUB_REF / GITHUB_REF_NAME.
+#      Optional: GITHUB_TOKEN, GITHUB_WORKSPACE.
 #
 # Prefers fetching GITHUB_REF when set (e.g. refs/heads/master) because some Git hosts
 # do not allow shallow fetch by raw SHA over HTTPS.
 set -eu
 
 FETCH_DEPTH="${1:-1}"
-SERVER="${GITEA_SERVER_URL:-${GITHUB_SERVER_URL:-}}"
-REPO="${GITEA_REPOSITORY:-${GITHUB_REPOSITORY:-}}"
-SHA="${GITHUB_SHA:-${GITEA_SHA:-}}"
-REF="${GITHUB_REF:-${GITEA_REF:-}}"
-TOKEN="${GITEA_TOKEN:-${GITHUB_TOKEN:-}}"
-WORKSPACE="${GITEA_WORKSPACE:-${GITHUB_WORKSPACE:-.}}"
+SERVER="${GITHUB_SERVER_URL:-}"
+REPO="${GITHUB_REPOSITORY:-}"
+SHA="${GITHUB_SHA:-}"
+REF="${GITHUB_REF:-}"
+TOKEN="${GITHUB_TOKEN:-}"
+WORKSPACE="${GITHUB_WORKSPACE:-.}"
 
-REF_TYPE="${GITHUB_REF_TYPE:-${GITEA_REF_TYPE:-branch}}"
-if [ -z "$REF" ] && [ -z "${GITHUB_REF_NAME:-}" ] && [ -n "${GITEA_REF_NAME:-}" ]; then
-    REF="refs/heads/${GITEA_REF_NAME}"
-elif [ -z "$REF" ] && [ -n "${GITHUB_REF_NAME:-}" ]; then
+REF_TYPE="${GITHUB_REF_TYPE:-branch}"
+if [ -z "$REF" ] && [ -n "${GITHUB_REF_NAME:-}" ]; then
     case "$REF_TYPE" in
         tag)
             REF="refs/tags/${GITHUB_REF_NAME}"
@@ -41,12 +39,12 @@ fi
 SERVER="${SERVER%/}"
 
 if [ -z "$SERVER" ] || [ -z "$REPO" ]; then
-    echo "checkout.sh: need SERVER and REPO (GITEA_* or GITHUB_* URL and repository)" >&2
+    echo "checkout.sh: need SERVER and REPO (GITHUB_* URL and repository)" >&2
     exit 1
 fi
 
 if [ -z "$SHA" ] && [ -z "$REF" ]; then
-    echo "checkout.sh: need GITHUB_SHA (or GITEA_SHA) and/or GITHUB_REF (or GITEA_REF / *_REF_NAME)" >&2
+    echo "checkout.sh: need GITHUB_SHA and/or GITHUB_REF (or GITHUB_REF_NAME)" >&2
     exit 1
 fi
 

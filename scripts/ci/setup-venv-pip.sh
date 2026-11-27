@@ -1,9 +1,9 @@
 #!/bin/sh
-# Create a Python venv in the workspace and pip install packages; expose bin on PATH for later steps.
+# Create a Python venv in the workspace and pip install packages. Expose bin on PATH for later steps.
 # Usage: setup-venv-pip.sh <pip_package> [more packages...]
 set -eu
 
-WS="${GITEA_WORKSPACE:-${GITHUB_WORKSPACE:-.}}"
+WS="${GITHUB_WORKSPACE:-.}"
 cd "$WS" || exit 1
 
 python_bin() {
@@ -52,7 +52,4 @@ deactivate
 
 if [ -n "${GITHUB_PATH:-}" ]; then
 	echo "$BINDIR" >> "$GITHUB_PATH"
-fi
-if [ -n "${GITEA_PATH:-}" ]; then
-	echo "$BINDIR" >> "$GITEA_PATH"
 fi

@@ -8,8 +8,8 @@ from datetime import datetime, timezone
 
 
 def _source_uri() -> str:
-    server = (os.environ.get("GITHUB_SERVER_URL") or os.environ.get("GITEA_SERVER_URL") or "").rstrip("/")
-    repo = os.environ.get("GITHUB_REPOSITORY") or os.environ.get("GITEA_REPOSITORY") or ""
+    server = (os.environ.get("GITHUB_SERVER_URL") or "").rstrip("/")
+    repo = os.environ.get("GITHUB_REPOSITORY") or ""
     if not server or not repo:
         return ""
     if server.startswith("https://") or server.startswith("http://"):
@@ -21,11 +21,9 @@ def _build_type() -> str:
     custom = os.environ.get("PROVENANCE_BUILD_TYPE")
     if custom:
         return custom
-    server = (os.environ.get("GITHUB_SERVER_URL") or os.environ.get("GITEA_SERVER_URL") or "").rstrip("/")
-    repo = os.environ.get("GITHUB_REPOSITORY") or os.environ.get("GITEA_REPOSITORY") or ""
+    server = (os.environ.get("GITHUB_SERVER_URL") or "").rstrip("/")
+    repo = os.environ.get("GITHUB_REPOSITORY") or ""
     if server and repo:
-        if os.environ.get("GITEA_SERVER_URL"):
-            return f"{server}/{repo}/.forgejo/workflows/ci.yml"
         return f"{server}/{repo}/.github/workflows/publish.yml"
     return "https://slsa.dev/provenance/v1"
 
@@ -34,10 +32,10 @@ def _builder_id() -> str:
     custom = os.environ.get("PROVENANCE_BUILDER_ID")
     if custom:
         return custom
-    server = (os.environ.get("GITHUB_SERVER_URL") or os.environ.get("GITEA_SERVER_URL") or "").rstrip("/")
+    server = (os.environ.get("GITHUB_SERVER_URL") or "").rstrip("/")
     if server:
         return f"{server}/actions"
-    return "https://gitea.io/actions/runner"
+    return "https://github.com/actions/runner"
 
 
 def main() -> None:

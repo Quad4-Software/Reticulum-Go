@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Run CI jobs outside GitHub Actions (local shell, Forgejo, Gitea).
+# Run CI jobs outside GitHub Actions (local shell or other CI).
 #
 # Usage:
 #   bash scripts/ci/run.sh <job>

@@ -95,7 +95,7 @@ jobs:
           GITHUB_EVENT_NAME: pull_request
           GITHUB_BASE_SHA: ${{ github.event.pull_request.base.sha || inputs.base_ref }}
           GITHUB_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-        # base_ref arrives as a branch or tag name; resolve it (and its
+        # base_ref arrives as a branch or tag name. Resolve it (and its
         # origin/ fallback) to a SHA before diffing the commit range.
         run: |
           set -eu

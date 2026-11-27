@@ -14,7 +14,7 @@ cd "$ROOT"
 fail=0
 
 # 1. Workflows must not enable public-network opt-ins.
-for wf in .github/workflows/*.yml .github/workflows/*.yaml .forgejo/workflows/*.yml .forgejo/workflows/*.yaml; do
+for wf in .github/workflows/*.yml .github/workflows/*.yaml; do
 	[ -e "$wf" ] || continue
 	if grep -nE 'RUN_VEGA_LIVE|RUN_PUBLIC_MESH|RUN_PUBLIC_NET' "$wf" >/dev/null 2>&1; then
 		echo "check-hermetic: $wf sets a public-network opt-in variable:" >&2

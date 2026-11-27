@@ -4,7 +4,7 @@
 name: Zizmor
 
 # Static analysis gate for the workflow files themselves. Runs at the
-# pedantic persona so every audit fires; findings fail the job.
+# pedantic persona so every audit fires. Findings fail the job.
 
 on:
   push:

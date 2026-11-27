@@ -31,7 +31,7 @@ smoke_fail() {
 	exit 1
 }
 
-echo "binary-smoke: building $(go env GOOS)/$(go env GOARCH) -> $BINARY"
+echo "binary-smoke: building $(go env GOOS)/$(go env GOARCH) into $BINARY"
 if ! go build -ldflags="-s -w" -o "$BINARY" ./cmd/reticulum-go >>"$LOG" 2>&1; then
 	smoke_fail "build failed"
 fi

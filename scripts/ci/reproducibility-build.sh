@@ -1,6 +1,6 @@
 #!/bin/sh
 # Build the release binary twice with fixed flags and require identical SHA256.
-# Uses GOOS/GOARCH when set; otherwise matches the current toolchain (go env).
+# Uses GOOS/GOARCH when set. Otherwise matches the current toolchain (go env).
 #
 # Env: CGO_ENABLED (default 0), GOOS, GOARCH, MAIN_PACKAGE (default ./cmd/reticulum-go)
 set -eu
@@ -38,10 +38,10 @@ echo "reproducibility: package=$MAIN_PACKAGE"
 BUILD_FLAGS="-trimpath -buildvcs=false"
 LDFLAGS="-s -w"
 
-echo "reproducibility: build 1 -> $OUT_A"
+echo "reproducibility: build 1 writing $OUT_A"
 go build $BUILD_FLAGS -ldflags="$LDFLAGS" -o "$OUT_A" "$MAIN_PACKAGE"
 
-echo "reproducibility: build 2 -> $OUT_B"
+echo "reproducibility: build 2 writing $OUT_B"
 go build $BUILD_FLAGS -ldflags="$LDFLAGS" -o "$OUT_B" "$MAIN_PACKAGE"
 
 H1="$(sha256sum "$OUT_A" | awk '{print $1}')"

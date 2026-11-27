@@ -1,6 +1,6 @@
 #!/bin/sh
 # Create SLSA v1 cosign bundle attestations next to each release binary under DIR.
-# Requires: cosign on PATH; COSIGN_KEY_PATH to cosign private key PEM; COSIGN_PASSWORD
+# Requires: cosign on PATH, COSIGN_KEY_PATH to cosign private key PEM, COSIGN_PASSWORD
 # if the key is encrypted. Run from repository root so scripts/ci/slsa-predicate.py resolves.
 #
 # Every bundle carries an RFC 3161 timestamp so signatures remain verifiable

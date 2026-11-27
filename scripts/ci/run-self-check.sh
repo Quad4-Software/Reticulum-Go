@@ -31,7 +31,7 @@ selfcheck_fail() {
 	exit 1
 }
 
-echo "self-check: building $(go env GOOS)/$(go env GOARCH) -> $BINARY"
+echo "self-check: building $(go env GOOS)/$(go env GOARCH) into $BINARY"
 if ! go build -ldflags="-s -w" -o "$BINARY" ./cmd/reticulum-go >>"$LOG" 2>&1; then
 	selfcheck_fail "build failed"
 fi

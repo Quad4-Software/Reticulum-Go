@@ -6,7 +6,7 @@
 # stale copies. Works offline: it compares files, it does not run go mod vendor.
 set -eu
 
-WS="${GITEA_WORKSPACE:-${GITHUB_WORKSPACE:-.}}"
+WS="${GITHUB_WORKSPACE:-.}"
 cd "$WS" || exit 1
 
 vroot=protocols/vendor/git.quad4.io/reticulum/Reticulum-Go

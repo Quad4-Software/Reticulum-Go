@@ -42,8 +42,5 @@ export PATH="${INSTALL_ROOT}/bin:$PATH"
 if [ -n "${GITHUB_PATH:-}" ]; then
 	echo "${INSTALL_ROOT}/bin" >> "$GITHUB_PATH"
 fi
-if [ -n "${GITEA_PATH:-}" ]; then
-	echo "${INSTALL_ROOT}/bin" >> "$GITEA_PATH"
-fi
 
 go version

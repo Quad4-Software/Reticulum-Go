@@ -81,9 +81,6 @@ export PATH="${INSTALL_DIR}:$PATH"
 if [ -n "${GITHUB_PATH:-}" ]; then
     echo "$INSTALL_DIR" >> "$GITHUB_PATH"
 fi
-if [ -n "${GITEA_PATH:-}" ]; then
-    echo "$INSTALL_DIR" >> "$GITEA_PATH"
-fi
 
 TASK_BIN="${INSTALL_DIR}/task"
 if [ -f "${INSTALL_DIR}/task.exe" ]; then

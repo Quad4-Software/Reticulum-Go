@@ -12,7 +12,7 @@
 # on it.
 #
 # Requires: gittuf on PATH (https://github.com/gittuf/gittuf) and a signing
-# key. GPG keys, SSH keys, and sigstore identities all work; pass the key or
+# key. GPG keys, SSH keys, and sigstore identities all work. Pass the key or
 # identity via GITTUF_KEY (default: the repo user.signingkey).
 #
 # gittuf is pre-1.0 and its CLI surface changes between releases. Check
