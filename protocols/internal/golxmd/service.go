@@ -201,20 +201,27 @@ func (s *Service) startAnnounceWorkers() {
 	s.lastNodeAnnounce = now
 
 	s.wg.Go(func() {
-		select {
-		case <-s.stop:
-			return
-		case <-time.After(deferredJobsDelay):
+		// Re-announce on a staggered schedule after startup. The first
+		// emission is stamp gated and can go out before a peer interface
+		// exists. UDP offers no redelivery, so later copies are the only
+		// way late listeners learn the destinations. Once the stamp is
+		// cached each re-announce costs one packet.
+		for _, delay := range []time.Duration{2 * time.Second, 4 * time.Second, 6 * time.Second, 8 * time.Second, deferredJobsDelay} {
+			select {
+			case <-s.stop:
+				return
+			case <-time.After(delay):
+			}
+			if s.lxmfCfg.LXMF.AnnounceAtStart {
+				s.announceDeliveryOnce()
+			}
+			if s.lxmfCfg.Propagation.EnableNode && s.lxmfCfg.Propagation.AnnounceAtStart {
+				s.announcePropagationOnce()
+			}
+			s.announceControlOnce()
+			s.lastPeerAnnounce = time.Now()
+			s.lastNodeAnnounce = time.Now()
 		}
-		if s.lxmfCfg.LXMF.AnnounceAtStart {
-			s.announceDeliveryOnce()
-		}
-		if s.lxmfCfg.Propagation.EnableNode && s.lxmfCfg.Propagation.AnnounceAtStart {
-			s.announcePropagationOnce()
-		}
-		s.announceControlOnce()
-		s.lastPeerAnnounce = time.Now()
-		s.lastNodeAnnounce = time.Now()
 	})
 
 	s.wg.Add(1)

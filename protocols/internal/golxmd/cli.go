@@ -2,6 +2,7 @@
 package golxmd
 
 import (
+	"crypto/rand"
 	"encoding/hex"
 	"fmt"
 	"math"
@@ -142,9 +143,17 @@ func controlRequest(opts RemoteOptions, path string, data []byte) (any, error) {
 		if err := tr.RequestPath(controlHash, "", nil, true); err != nil {
 			return nil, err
 		}
+		lastRequest := time.Now()
 		for !tr.HasPath(controlHash) {
 			if time.Now().After(deadline) {
 				return nil, fmt.Errorf("path to remote control destination timed out")
+			}
+			// Re-request on a bounded interval. The first request can be
+			// lost when the peer interface was not up yet, and client
+			// initiated requests carry no minimum interval in python.
+			if time.Since(lastRequest) >= 2*time.Second {
+				_ = tr.RequestPath(controlHash, "", randomPathTag(), true)
+				lastRequest = time.Now()
 			}
 			time.Sleep(100 * time.Millisecond)
 		}
@@ -268,10 +277,12 @@ func resolveRemoteIdentity(opts RemoteOptions, tr *transport.Transport) (*identi
 		return id, nil
 	}
 	deadline := time.Now().Add(opts.Timeout)
+	lastRequest := time.Now().Add(-3 * time.Second)
 	if !tr.HasPath(destHash) {
-		if err := tr.RequestPath(destHash, "", nil, true); err != nil {
+		if err := tr.RequestPath(destHash, "", randomPathTag(), true); err != nil {
 			return nil, err
 		}
+		lastRequest = time.Now()
 	}
 	for {
 		if id, err := identity.Recall(destHash); err == nil && id != nil {
@@ -280,8 +291,12 @@ func resolveRemoteIdentity(opts RemoteOptions, tr *transport.Transport) (*identi
 		if time.Now().After(deadline) {
 			return nil, fmt.Errorf("could not resolve remote identity")
 		}
-		if !tr.HasPath(destHash) {
-			_ = tr.RequestPath(destHash, "", nil, true)
+		if !tr.HasPath(destHash) && time.Since(lastRequest) >= 2*time.Second {
+			// Explicit tag bypasses the automated request throttle,
+			// matching python where client initiated path requests are
+			// not rate limited.
+			_ = tr.RequestPath(destHash, "", randomPathTag(), true)
+			lastRequest = time.Now()
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
@@ -300,6 +315,16 @@ func waitInterfacesOnline(ifaces []interfaces.Interface, maxWait time.Duration) 
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
+}
+
+// randomPathTag returns a fresh random path request tag. Python generates a
+// new random tag for every client initiated path request.
+func randomPathTag() []byte {
+	tag := make([]byte, 16)
+	if _, err := rand.Read(tag); err != nil {
+		return nil
+	}
+	return tag
 }
 
 func decodeDestHash(s string) ([]byte, error) {
