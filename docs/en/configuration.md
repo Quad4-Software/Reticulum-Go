@@ -66,7 +66,7 @@ storage/ratchets/ holds known-peer public keys named by destination hash (Python
 | enable_control_api | no | Start localhost control API |
 | control_api_host | 127.0.0.1 | Control API bind address |
 | control_api_port | 37430 | Control API port |
-| control_api_socket | (empty) | Optional Unix socket path in addition to TCP |
+| control_api_socket | (empty) | Optional Unix socket path alongside TCP |
 | backbone_io | auto | Backbone poller: auto, epoll, kqueue, io_uring, go |
 | in_memory_path_table | no | Keep path table in RAM only |
 | in_memory_known_destinations | no | Keep known destinations in RAM only |

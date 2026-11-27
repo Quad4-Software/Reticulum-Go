@@ -50,7 +50,7 @@ Tracks Python RNS 1.6.1 plus post-release fixes.
 - Known destinations store the announce payload hash and the raw public key, not a full announce packet copy and a per-destination `Identity`. This matches the Python `known_destinations` layout, where field 1 is `packet_hash`. Retained heap drops by about 700 bytes per known destination, and the sqlite `packet_hash` column and the `known_destinations` RPC export carry the 32 byte hash Python expects.
 - The in-memory announce packet cache keeps the slim wire fields needed to rebuild a PATH_RESPONSE announce. That saves about 150 bytes per cached announce.
 - The path table, announce packet cache and seen-announce maps are rebuilt once they fall below half of their observed peak, because Go maps keep their bucket allocation after large culls.
-- Over-cap path table eviction picks the oldest batch in one pass. The old code rescanned the table per insert, which cost about 2 ms per announce at a full 350k table; it is about 0.6 ms now.
+- Over-cap path table eviction picks the oldest batch in one pass. The old code rescanned the table per insert, which cost about 2 ms per announce at a full 350k table. It is about 0.6 ms now.
 - Path table persistence streams to a temporary file through a buffered msgpack encoder. The old code marshaled the whole table into a second in-memory copy on every save.
 - A remote stdin EOF on an rgosh PTY session writes EOT instead of closing the PTY master. Closing it SIGHUPed the child, so a fast command exited by signal, Go reported -1, and a Python rnsh client mirrored that as exit status 255. The master closes after a 250 ms grace, which matches Python's `close_stdin` plus `ensure_terminate` window. Signaled exits are reported as the Python `waitpid & 0xff` code.
 - An rgosh listener defers link teardown up to `max(rtt*3, 6s)` after the exit-status packet drains its TX ring, like Python's session prune. The peer can then consume the final stream and exit messages before the link drops.
@@ -183,7 +183,7 @@ Tracks Python RNS 1.5.7.
 - Shared-instance RPC now answers medium_path_timeout and lowest_interface_bitrate. Python callers such as rngit previously received msgpack nil, which unpacks to None and crashed numeric comparisons. The timeout matches Python Transport.medium_path_timeout: a two-way MTU airtime on the slowest online outgoing interface plus the per-hop establishment timeout.
 - interface_stats entries now carry the full always-present Python key set (mtu, txdrp, txdrb, txstalled, txbuffered, burst_activated/count, pr_burst_activated/count, announce_rate_target/grace/penalty, autoconnect_source, ifac_signature/ifac_size/ifac_netname), so Python tools like rnstatus no longer hit KeyError. IngressControl and BaseInterface now track burst activation timestamps and counts to back them.
 - rnsutil GetPathTable always sends max_hops, including nil. Python's rpc_loop reads call["max_hops"] unguarded and silently dropped calls that omitted it, which surfaced as read timeouts.
-- New live interop coverage: rpc_surface_probe.py calls every client getter against a Go shared instance and asserts strict numeric replies plus the required per-interface key set; the suite also runs rnstatus against the Go instance and every Go RPC getter plus rgostatus against a real Python rnsd, so RPC surface gaps fail in both directions.
+- New live interop coverage: rpc_surface_probe.py calls every client getter against a Go shared instance and asserts strict numeric replies plus the required per-interface key set. The suite also runs rnstatus against the Go instance and every Go RPC getter plus rgostatus against a real Python rnsd, so RPC surface gaps fail in both directions.
 
 ### Changed
 
@@ -235,11 +235,11 @@ Tracks Python RNS 1.5.5.
 - Link packets that must be encrypted are dropped when no session keys exist.
 - Link teardown works from every state, wakes all waiters and watchdogs, and clears link-installed path entries.
 - Interface restart recreates done channels, so stopped interfaces come back instead of staying dead.
-- WebTransport server sessions go through admission; VSOCK and WebTransport clients cannot stack duplicate read loops; vsock dial is bounded.
-- HTTPS DoS bucketing keys on the transport host rather than the self-chosen peer header; the server warns when run without peer_key or IFAC.
-- max_reconnect_tries = 0 means never reconnect; it is no longer conflated with an unset value.
+- WebTransport server sessions go through admission. VSOCK and WebTransport clients cannot stack duplicate read loops. Vsock dial is bounded.
+- HTTPS DoS bucketing keys on the transport host rather than the self-chosen peer header. The server warns when run without peer_key or IFAC.
+- max_reconnect_tries = 0 means never reconnect. It is no longer conflated with an unset value.
 - Relay tables, discovery state, peer maps, HDLC assembly, and local path-request state are bounded.
-- Atomic state writes fsync file and directory; state-file loads are capped; ratchet init refuses to clobber unreadable material.
+- Atomic state writes fsync file and directory. State-file loads are capped. Ratchet init refuses to clobber unreadable material.
 - Service loops, the memory monitor, and shared-instance RPC observe stop signals and deadlines.
 
 ## v1.3.1 - 2026-09-25

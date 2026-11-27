@@ -286,7 +286,7 @@ Use a real config with UDP/TCP (or a shared path). share_instance is forced off 
 | -identity path | Persistent identity for listen mode |
 | -bytes n | Plaintext bytes to transfer (default 2 MiB) |
 | -min-bps n | Fail below this rate (0 disables, loopback defaults to 1e6) |
-| -timeout sec | Overall timeout (default 60) |
+| -timeout sec | Total timeout (default 60) |
 | -announce sec | Listen announce interval (0 once, <0 never) |
 | -json | Emit JSON after each speedtest_result line |
 | -q | Quieter debug |

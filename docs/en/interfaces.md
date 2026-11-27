@@ -22,13 +22,13 @@ Each interface implements:
 Inbound path:
 
 ```
-raw bytes -> ProcessIncoming -> packetCallback -> Transport.HandlePacket
+raw bytes enter ProcessIncoming, then packetCallback, then Transport.HandlePacket
 ```
 
 Outbound path:
 
 ```
-Transport.SendPacket -> Send -> ProcessOutgoing -> wire
+Transport.SendPacket passes through Send and ProcessOutgoing onto the wire
 ```
 
 ## Supported types
@@ -92,7 +92,7 @@ mode = boundary
 
 DSP stays in the modem73 process. Live: RUN_LIVE_INTEROP=1 with tests/interop/modem73_live_test.go.
 
-Math-backed TNC simulator (no radio): Modem73Simulator in modem73_sim.go with PHY tables from [modem73](https://github.com/RFnexus/modem73) (CONTROL_PORT.md, robust nrows airtime, OFDM payload/bitrate/duration matrices). Shared Modem73Channel applies SNR and BER/FER models for multi-station tests.
+Math-backed TNC simulator (no radio): Modem73Simulator in modem73_sim.go. PHY tables come from [modem73](https://github.com/RFnexus/modem73) (CONTROL_PORT.md, robust nrows airtime, OFDM payload/bitrate/duration matrices). Shared Modem73Channel applies SNR and BER/FER models for multi-station tests.
 
 ## SDRInterface
 

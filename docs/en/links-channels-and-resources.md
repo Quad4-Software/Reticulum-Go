@@ -32,9 +32,9 @@ There is no separate Transport.CreateIncomingLink helper. Incoming link requests
 ### Link lifecycle
 
 ```
-LINKREQUEST -> LINKIDENTIFY -> LINKREADY -> data / channel / resource
+LINKREQUEST, then LINKIDENTIFY, then LINKREADY, then data / channel / resource
                   |
-                  +-> teardown -> LINKCLOSE
+                  +-- teardown ends with LINKCLOSE
 ```
 
 Links track RTT, keepalive, and proof exchange per protocol rules. Link.Reestablish and WatchAndReconnect support automatic recovery when Node.EnableLinkAutoReconnect or equivalent options are set.
@@ -105,12 +105,12 @@ Transfer flow:
 ```
 Sender                           Receiver
   |                                  |
-  |-- resource advertisement ------->|
+  |-- resource advertisement -------|
   |<-- proof / acceptance -----------|
-  |-- parts ------------------------>|
+  |-- parts -------------------------|
   |<-- proof ------------------------|
-  |-- next segment (if split) ------>|
-  |-- completion -------------------->|
+  |-- next segment (if split) -------|
+  |-- completion ---------------------|
 ```
 
 ## Interaction with transport

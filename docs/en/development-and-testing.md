@@ -27,7 +27,7 @@ A Taskfile also exists for maintainer and CI automation (`task --list`), but it 
 
 Optional: [mise](https://mise.jdx.dev/) (mise install) or the Dev Container (.devcontainer/).
 
-## Portable CI (Forgejo, Gitea, local, Podman)
+## Portable CI (local, Podman)
 
 Same PR gate as `task check`, without GitHub Marketplace actions:
 
@@ -39,13 +39,11 @@ Same PR gate as `task check`, without GitHub Marketplace actions:
 | `task ci:pr` / `make ci-pr` | Wrappers for `run.sh pr` |
 | `task ci:docker` / `make ci-docker` | Wrapper for `run-docker.sh pr` |
 
-Forgejo: `.forgejo/workflows/ci.yml` runs bootstrap plus `run.sh`.
-
 Pinned versions: `scripts/ci/versions.env` and `scripts/ci/dev-tools.env`.
 
 ## What CI runs
 
-Not every test in the tree runs in CI; knowing which do matters before
+Not every test in the tree runs in CI. Knowing which do matters before
 trusting a green checkmark.
 
 - Root module (`pkg`, `cmd`, `internal`, `tests`): the `test` job runs
@@ -216,7 +214,7 @@ Follow existing naming, error wrapping, and SPDX headers in each file.
 | Acceptance | make test-acceptance | librns SCAFFOLD minimum, control API acceptance |
 | E2E | make test-e2e | Daemon reload, UDP path e2e, transport TestE2E_* |
 | Black box | make test-blackbox | CLI Main / rgodump surface, control API HTTP acceptance |
-| Interop | RUN_LIVE_INTEROP=1 go test ./tests/interop/... | Live Go<->Python (optional locally), including dos_protection live suites |
+| Interop | RUN_LIVE_INTEROP=1 go test ./tests/interop/... | Live Go/Python (optional locally), including dos_protection live suites |
 
 ### Unit tests
 
@@ -270,7 +268,7 @@ make test-soak
 make test-soak-protect
 ```
 
-Chaos suites are in-process Go only (sim pipes / HDLC fixtures). Live Go<->Python HDLC loss, reorder, corrupt, and mid-session flap live under tests/interop/ (TestLiveInteropHDLC*, RUN_LIVE_INTEROP=1). Unpack hop-gate, HT2 truncation, oversize, and Pack/Unpack byte-identity vs Python RNS.Packet live in unpack_live_test.go. Healthy-path cross-stack coverage also lives under tests/interop/.
+Chaos suites are in-process Go only (sim pipes / HDLC fixtures). Live Go/Python HDLC loss, reorder, corrupt, and mid-session flap live under tests/interop/ (TestLiveInteropHDLC*, RUN_LIVE_INTEROP=1). Unpack hop-gate, HT2 truncation, oversize, and Pack/Unpack byte-identity vs Python RNS.Packet live in unpack_live_test.go. Healthy-path cross-stack coverage also lives under tests/interop/.
 
 ### dos_protection tests
 
@@ -413,7 +411,7 @@ INTEROP_ARTIFACTS=1 INTEROP_ARTIFACT_ROOT=/tmp/rns-interop \
 
 | Test file | Topic |
 |-----------|-------|
-| link_live_test.go | Link sessions, resources, binary burst echo, Go->Python request |
+| link_live_test.go | Link sessions, resources, binary burst echo, Go-to-Python request |
 | channel_buffer_live_test.go | Channel messages and buffer streams |
 | rncp_blackhole_live_test.go | rncp file transfer and blackhole LINKIDENTIFY |
 | auto_live_test.go | AutoInterface |

@@ -138,7 +138,7 @@ wire-visible extensions see [deviations.md](deviations.md):
 | Dart Control API client | bindings/dart ([Control API](control-api.md#dart-and-flutter)) |
 | Runtime sandbox | pkg/sandbox |
 | Sandbox profiles and extra paths | sandbox_profile, sandbox_extra_paths, sandbox_strict, sandbox_exec_rlimits |
-| Control API Unix socket | control_api_socket in addition to TCP |
+| Control API Unix socket | control_api_socket alongside TCP |
 | Local mesh health counters | pkg/health, status RPC fields, reticulum-go slow findings |
 | Pathing affinity / rebalance dampening | Gravity contests use live iface penalty. LRPROOF rebalance capped per dest and gravity-sticky |
 | Local DoS protection | pkg/protect, config dos_protection (off/detect/prevent/auto), storage/dos_protect.mpack |

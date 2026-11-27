@@ -124,16 +124,16 @@ Typical flow:
 
 ```
 POST /v1/sessions
-  -> session id
+  session id
 
 POST /v1/sessions/{id}/destinations
-  -> register app destination
+  register app destination
 
 POST /v1/sessions/{id}/destinations/{hash}/announce
-  -> publish announce
+  publish announce
 
 GET /v1/sessions/{id}/events (WebSocket)
-  -> subscribe to announces, links, requests
+  subscribe to announces, links, requests
 ```
 
 ## WebSocket events

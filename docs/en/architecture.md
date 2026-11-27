@@ -99,12 +99,12 @@ Interface read loop
 ProcessIncoming (IFAC verify, frame decode)
     |
     v
-packetCallback -> Transport.HandlePacket
+packetCallback calls Transport.HandlePacket
     |
-    +-- PacketTypeAnnounce  -> path table update, handler dispatch
-    +-- PacketTypeLink      -> link state machine
-    +-- PacketTypeProof     -> proof handling
-    +-- PacketTypeData      -> forward, relay, or deliver to Destination.Receive
+    +-- PacketTypeAnnounce  path table update, handler dispatch
+    +-- PacketTypeLink      link state machine
+    +-- PacketTypeProof     proof handling
+    +-- PacketTypeData      forward, relay, or deliver to Destination.Receive
 ```
 
 Key functions (for code navigation):
@@ -152,7 +152,7 @@ Backbone I/O can consolidate many TCP sockets behind one epoll, kqueue, or io_ur
 One reticulum-go process with local interfaces. Suitable for gateways, radios, and servers.
 
 ```
-[Internet or LAN] <--> UDP/TCP Interface <--> reticulum-go <--> Your app
+[Internet or LAN] -- UDP/TCP Interface -- reticulum-go -- Your app
 ```
 
 ### Shared instance

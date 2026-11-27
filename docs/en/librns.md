@@ -243,9 +243,9 @@ rns_node_start
 rns_destination_create(..., accepts_links=1)
 rns_destination_register_request_handler(dest, "/ping")
 rns_destination_announce
-  peer: rns_event_poll -> RNS_EV_ANNOUNCE
+  peer: rns_event_poll returns RNS_EV_ANNOUNCE
   peer: rns_link_open(dest_hash)
-rns_event_poll -> RNS_EV_LINK_ESTABLISHED
+rns_event_poll returns RNS_EV_LINK_ESTABLISHED
 rns_link_send / RNS_EV_LINK_DATA
 rns_link_request / RNS_EV_REQUEST_RESPONSE
 rns_link_close / RNS_EV_LINK_CLOSED

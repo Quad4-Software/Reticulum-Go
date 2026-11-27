@@ -70,12 +70,12 @@ Files on server:
   (2)	archive.zip
 ==================================================
 Enter filename or number to download, or 'q' to quit
-> 
+>
 ```
 
 You can:
 - Type the filename: `document.pdf`
-- Type the number: `0`  
+- Type the number: `0`
 - Type `q` to quit
 
 During download, you'll see:
@@ -134,14 +134,14 @@ After each download completes, you'll see:
 ## Comparison with Python Version
 
 This Go implementation mirrors the Python `Filetransfer.py` example:
-- ✅ Server/client architecture
-- ✅ Link establishment and management
-- ✅ File list transmission
-- ✅ Resource-based file transfers
-- ✅ Interactive menu for file selection
-- ✅ Progress tracking and statistics
-- ✅ Automatic file compression
-- ✅ Port configuration for local testing
+- Server/client architecture
+- Link establishment and management
+- File list transmission
+- Resource-based file transfers
+- Interactive menu for file selection
+- Progress tracking and statistics
+- Automatic file compression
+- Port configuration for local testing
 
 ## Known Limitations
 
