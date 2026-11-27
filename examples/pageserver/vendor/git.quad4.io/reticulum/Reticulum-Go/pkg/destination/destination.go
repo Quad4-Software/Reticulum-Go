@@ -273,34 +273,6 @@ func (d *Destination) Announce(pathResponse bool, tag []byte, attachedInterface 
 		return common.ErrDestTransportNotSet
 	}
 
-	if !pathResponse {
-		now := time.Now()
-		if now.Sub(d.announceWindowStart) > announceBurstWindow {
-			d.announceWindowStart = now
-			d.announceWindowCount = 0
-		}
-		d.announceWindowCount++
-		if d.announceWindowCount > announceBurstMax {
-			throttled := d.announceWindowCount
-			hashPrefix := fmt.Sprintf("%x", d.hashValue[:8])
-			name := d.ExpandName()
-			warn := now.Sub(d.announceThrottleWarnedAt) >= announceThrottleWarnCooldown
-			if warn {
-				d.announceThrottleWarnedAt = now
-			}
-			d.mutex.Unlock()
-			if warn {
-				debug.Log(debug.DebugWarning,
-					"Destination announce rate exceeds burst limit (8 per 10s). Announce dropped. Throttle the announce loop.",
-					"dest_hash", hashPrefix,
-					"name", name,
-					"count", throttled,
-				)
-			}
-			return common.ErrDestAnnounceThrottled
-		}
-	}
-
 	appData := d.defaultAppData
 
 	var ratchetPub []byte
@@ -342,6 +314,39 @@ func (d *Destination) Announce(pathResponse bool, tag []byte, attachedInterface 
 		}
 		announceStamp = append([]byte(nil), d.stamp...)
 		announceLRCost = d.getLinkCostLocked(settings)
+	}
+
+	// The burst limiter counts packets actually emitted, not Announce()
+	// calls. A call deferred to the stamper emits nothing and returns
+	// before this point, so it is not counted. The stamper re-entry after
+	// generation lands here exactly once, which keeps one logical announce
+	// at one unit of budget even when generation took seconds.
+	if !pathResponse {
+		now := time.Now()
+		if now.Sub(d.announceWindowStart) > announceBurstWindow {
+			d.announceWindowStart = now
+			d.announceWindowCount = 0
+		}
+		d.announceWindowCount++
+		if d.announceWindowCount > announceBurstMax {
+			throttled := d.announceWindowCount
+			hashPrefix := fmt.Sprintf("%x", d.hashValue[:8])
+			name := d.ExpandName()
+			warn := now.Sub(d.announceThrottleWarnedAt) >= announceThrottleWarnCooldown
+			if warn {
+				d.announceThrottleWarnedAt = now
+			}
+			d.mutex.Unlock()
+			if warn {
+				debug.Log(debug.DebugWarning,
+					"Destination announce rate exceeds burst limit (8 per 10s). Announce dropped. Throttle the announce loop.",
+					"dest_hash", hashPrefix,
+					"name", name,
+					"count", throttled,
+				)
+			}
+			return common.ErrDestAnnounceThrottled
+		}
 	}
 
 	// Create announce packet using announce package
