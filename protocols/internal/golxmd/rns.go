@@ -36,6 +36,14 @@ func startTransport(cfg TransportConfig, log *slog.Logger) (*transport.Transport
 		if created {
 			log.Info("created default reticulum-go config", "path", rc.ConfigPath)
 		}
+		// Python rnsd applies the [stamps] section of the shared config
+		// file to the whole transport. golxmd reads the same file for
+		// interfaces, so it must apply the same stamp costs or the two
+		// daemons disagree on announce and path request stamping. Keys
+		// the file does not set are no-ops in the merge.
+		if rcfg, lerr := rnsnode.LoadOfficialDir(rnsDir); lerr == nil && rcfg != nil {
+			rc.Stamps = rcfg.Stamps
+		}
 	}
 	tr := transport.NewTransport(rc)
 	if err := tr.Start(); err != nil {
