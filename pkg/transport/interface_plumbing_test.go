@@ -249,7 +249,7 @@ func pickFreeTCPPort() (int, error) {
 }
 
 // teeCallback wraps the existing packet callback installed on iface so that
-// fn runs in addition to the original callback. This lets a test observe
+// fn runs after the original callback. This lets a test observe
 // inbound bytes without disconnecting them from the transport.
 func teeCallback(iface interface {
 	GetPacketCallback() common.PacketCallback

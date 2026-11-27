@@ -165,7 +165,7 @@ const (
 	EncryptionDescriptionUnencrypted = "Unencrypted"
 )
 
-// Destination type bytes; same values as Reticulum-Go destination types (duplicated to avoid importing destination where only constants are needed).
+// Destination type bytes. Same values as Reticulum-Go destination types (duplicated to avoid importing destination where only constants are needed).
 const (
 	DestinationTypeSingle byte = 0x00
 	DestinationTypeGroup  byte = 0x01

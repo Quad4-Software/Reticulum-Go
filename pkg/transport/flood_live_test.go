@@ -228,7 +228,7 @@ func TestFloodDistinctAnnouncesBounded(t *testing.T) {
 	if g1-g0 > MaxConcurrentPacketHandlers+128 {
 		t.Fatalf("announce flood spawned unbounded work: +%d goroutines", g1-g0)
 	}
-	t.Logf("PASS: %d distinct signed announces -> %d paths, bounded heap growth", N, paths)
+	t.Logf("PASS: %d distinct signed announces: %d paths, bounded heap growth", N, paths)
 }
 
 // TestFloodGarbagePackets ensures random wire garbage stays cheap: the
@@ -278,7 +278,7 @@ func TestProtectPreventDropsShedFirst(t *testing.T) {
 	protect.SetDefault(e)
 	defer protect.SetDefault(prev)
 
-	var announceHdr byte = 0x01 // packetType=announce -> ClassShedFirst
+	var announceHdr byte = 0x01 // packetType=announce to ClassShedFirst
 	data := append([]byte{announceHdr, 0x00}, make([]byte, 64)...)
 
 	const N = 4000
@@ -311,7 +311,7 @@ func TestProtectPreferKeepSurvivesAnnounceFlood(t *testing.T) {
 	protect.SetDefault(e)
 	defer protect.SetDefault(prev)
 
-	var linkHdr byte = 0x02 // packetType=linkreq -> prefer-keep
+	var linkHdr byte = 0x02 // packetType=linkreq to prefer-keep
 	linkData := append([]byte{linkHdr, 0x00}, make([]byte, 67)...)
 	var annHdr byte = 0x01
 	annData := append([]byte{annHdr, 0x00}, make([]byte, 64)...)
@@ -342,8 +342,8 @@ func TestProtectPreferKeepSurvivesAnnounceFlood(t *testing.T) {
 }
 
 // TestLiveUDPInterfacePreventMode runs the full stack on a real loopback
-// UDP socket: datagram -> read loop -> ProcessIncomingFromAddr -> protect
-// admit gate -> transport. In prevent mode a datagram flood must be shed
+// UDP socket: datagram to read loop to ProcessIncomingFromAddr to protect
+// admit gate to transport. In prevent mode a datagram flood must be shed
 // at the gate and counted, while the transport keeps running.
 func TestLiveUDPInterfacePreventMode(t *testing.T) {
 	if testing.Short() {

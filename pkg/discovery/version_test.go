@@ -9,7 +9,7 @@ import (
 )
 
 // TestVersionTuple matches Python Discovery.version_tuple: each component's
-// leading digits contribute; non-digit components stop the parse, so a
+// leading digits contribute. Non-digit components stop the parse, so a
 // leading v fails like it does in Python.
 func TestVersionTuple(t *testing.T) {
 	cases := []struct {
@@ -21,7 +21,7 @@ func TestVersionTuple(t *testing.T) {
 		{"v1.3.0", nil},
 		{"2", []int{2}},
 		{"1.10.2", []int{1, 10, 2}},
-		{"1.5.2.post1", []int{1, 5, 2}}, // post suffix digits: "post1" has no leading digit -> stop
+		{"1.5.2.post1", []int{1, 5, 2}}, // post suffix digits: "post1" has no leading digit to stop
 		{"not.a.version", nil},
 		{"", nil},
 		{"  ", nil},

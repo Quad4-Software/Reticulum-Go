@@ -29,7 +29,7 @@ type lineWaiter struct {
 	ch      chan lineMsg
 }
 
-var lineWaiters sync.Map // *bufio.Reader -> *lineWaiter
+var lineWaiters sync.Map // *bufio.Reader to *lineWaiter
 
 // ReadLineTimeout reads one newline-terminated line with a deadline.
 func ReadLineTimeout(ctx context.Context, br *bufio.Reader, d time.Duration) (string, error) {

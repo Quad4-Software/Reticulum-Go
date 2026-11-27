@@ -39,11 +39,11 @@ def log(msg):
 def build_backbone_client(host, port):
     # Standalone (non-spawned) backbone clients never run the config path
     # that normally sets ifac_size, and the server starts pushing packets
-    # during __init__ — before any instance attribute could be set. Patch
+    # during __init__, before any instance attribute could be set. Patch
     # the class default first.
     if not hasattr(BackboneClientInterface, "ifac_size"):
         BackboneClientInterface.ifac_size = 0
-    # Attributes the config path would normally set; Transport reads them
+    # Attributes the config path would normally set. Transport reads them
     # for inbound announce rate limiting.
     if not hasattr(BackboneClientInterface, "announce_rate_target"):
         BackboneClientInterface.announce_rate_target = None
@@ -79,7 +79,7 @@ def recv_mode(client):
         def concluded(resource):
             data = resource.data if hasattr(resource, "data") else resource
             # RNS 1.6.0 hands received resources a file-like object in
-            # resource.data (memory-managed storage); read it back.
+            # resource.data (memory-managed storage). Read it back.
             if hasattr(data, "read"):
                 data = data.read()
             digest = hashlib.sha256(bytes(data)).hexdigest()

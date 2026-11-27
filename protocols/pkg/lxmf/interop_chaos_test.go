@@ -101,7 +101,7 @@ func TestInterop_Live_GolxmdKill9MidTransferRecovery(t *testing.T) {
 		// next upload, so kills land at varying positions in the write path
 		if round%2 == 0 {
 			// The SIGKILL below deliberately interrupts this in-flight
-			// transfer; the python client is expected to fail or hang, so
+			// transfer. The python client is expected to fail or hang, so
 			// the call runs outside the test-fatal path. The harness
 			// process must finish before the next round starts or its
 			// Reticulum instance conflicts with the round's new client.
@@ -140,7 +140,7 @@ func TestInterop_Live_GolxmdKill9MidTransferRecovery(t *testing.T) {
 	})
 	ready2 := waitReady()
 	if ready2["propagation_hash"] != firstHash {
-		t.Errorf("propagation hash changed across restart: %s -> %s", firstHash, ready2["propagation_hash"])
+		t.Errorf("propagation hash changed across restart: %s: %s", firstHash, ready2["propagation_hash"])
 	}
 
 	// every store entry must be parseable and non-zero, across both layouts

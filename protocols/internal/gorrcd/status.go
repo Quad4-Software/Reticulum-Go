@@ -77,7 +77,7 @@ func transportSummary(cfg Config, ifaces []interfaces.Interface) (label, address
 		if fwd == "" {
 			fwd = "(none)"
 		}
-		address = fmt.Sprintf("%s -> %s", udpAddr(cfg.UDPListen), fwd)
+		address = fmt.Sprintf("%s: %s", udpAddr(cfg.UDPListen), fwd)
 		return label, address
 	}
 	if len(ifaces) == 0 {

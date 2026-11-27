@@ -12,7 +12,7 @@ Environment:
   INTEROP_ASPECT       Destination aspect (default: linksvc)
   INTEROP_CLIENT_TO    Optional hex destination hash: after announcing, open a
                        link to it, send one packet, and print ECHO_OK on reply.
-  INTEROP_TIMEOUT_SEC  Overall timeout (default: 90)
+  INTEROP_TIMEOUT_SEC  Total timeout (default: 90)
 
 Stdout protocol:
   READY

@@ -39,11 +39,11 @@ Packet paths (must match)
 
 Inbound:
 
-  wire bytes -> ProcessIncoming -> IFAC unmask -> packetCallback -> Transport
+  wire bytes enter ProcessIncoming, then IFAC unmask, then packetCallback, then Transport
 
 Outbound:
 
-  Transport -> Send -> IFAC mask -> ProcessOutgoing -> wire
+  Transport passes through Send, IFAC mask, and ProcessOutgoing onto the wire
 
 BaseInterface.Send already applies IFAC outbound and updates TX stats.
 Concrete types override ProcessOutgoing to write the medium.

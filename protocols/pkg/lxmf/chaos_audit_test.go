@@ -33,7 +33,7 @@ func dumpGoroutines(t *testing.T) {
 }
 
 // Many concurrent hostile clients hammer the control/propagation handlers
-// while peers join and leave; the router must survive with bounded
+// while peers join and leave. The router must survive with bounded
 // goroutines and file descriptors and still answer afterwards.
 func TestChaosAudit_ConcurrentHostileClients(t *testing.T) {
 	if testing.Short() {

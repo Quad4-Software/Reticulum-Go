@@ -60,7 +60,7 @@ func TestUpdateMDU_ProducesMDUThatFitsInPacketMTU(t *testing.T) {
 		worstWire := headerType1Size + ivSize + paddedPlaintext + hmacSize
 
 		if worstWire > packet.MTU {
-			t.Fatalf("mtu=%d -> mdu=%d -> worst raw=%d > packet.MTU=%d",
+			t.Fatalf("mtu=%d: mdu=%d: worst raw=%d > packet.MTU=%d",
 				mtu, l.mdu, worstWire, packet.MTU)
 		}
 	}
@@ -87,7 +87,7 @@ func TestUpdateMDU_StableAcrossRepeatedCalls(t *testing.T) {
 	}
 
 	if l.mtu != mtu1 || l.mdu != mdu1 {
-		t.Fatalf("updateMDU is not idempotent: mtu %d->%d, mdu %d->%d",
+		t.Fatalf("updateMDU is not idempotent: mtu %d to %d, mdu %d to %d",
 			mtu1, l.mtu, mdu1, l.mdu)
 	}
 }

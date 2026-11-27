@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""JSON stdin/stdout harness for Go <-> LXMF-ref interop tests."""
+"""JSON stdin/stdout harness for Go against LXMF-ref interop tests."""
 
 from __future__ import annotations
 

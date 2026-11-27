@@ -172,7 +172,7 @@ const (
 )
 
 // Path table sharding tuning (RNS 1.6.0). Vars rather than consts so
-// tests can shrink the windows; production code must not reassign them.
+// tests can shrink the windows. Production code must not reassign them.
 
 var (
 	// UnusedPathLinger is how long a never-used path stays in the table on

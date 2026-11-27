@@ -58,7 +58,7 @@ func (lt *linkRelayTable) put(linkID []byte, entry *LinkRelayEntry) {
 	defer lt.mu.Unlock()
 	if len(lt.entries) >= maxLinkRelayEntries {
 		// Evict a batch of the oldest unvalidated entries in one sorted
-		// pass. The previous scan ran O(n) on every put once full; batching
+		// pass. The previous scan ran O(n) on every put once full. Batching
 		// keeps the table below the cap for thousands of inserts at a time.
 		removed := evictOldestMapKeys(lt.entries,
 			func(e *LinkRelayEntry) time.Time {
@@ -779,7 +779,7 @@ func (t *Transport) rebroadcastPathRequest(destHash, requestorTransportID, tag, 
 	if len(ifaces) == 0 {
 		return
 	}
-	// Relayed PRs carry their ext payload as received; unstamped requests
+	// Relayed PRs carry their ext payload as received. Unstamped requests
 	// relayed by a stamp-aware node get the lenient 0xFF placeholder
 	// (RNS 1.6.0 transition behaviour when STAMP_PRS is on).
 	if ext == nil && t.StampPRs() {

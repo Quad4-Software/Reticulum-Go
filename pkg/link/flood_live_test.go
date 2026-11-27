@@ -45,7 +45,7 @@ func craftLinkRequest(t *testing.T, destHash []byte) []byte {
 	return pkt.Raw
 }
 
-// pipeNode wires a Transport plus PipeInterface pair; pair() connects two
+// pipeNode wires a Transport plus PipeInterface pair. Pair() connects two
 // nodes so packets flow between them through the real inbound path.
 type pipeNode struct {
 	tr   *transport.Transport
@@ -163,7 +163,7 @@ func TestFloodLinkRequestCap(t *testing.T) {
 	}
 
 	proofFrames := nodeA.pipe.delivered.Load()
-	t.Logf("LINKREQUEST flood: %d sent -> links=%d proof_frames=%d goroutines=%d(+%d)",
+	t.Logf("LINKREQUEST flood: %d sent: links=%d proof_frames=%d goroutines=%d(+%d)",
 		N, links, proofFrames, runtime.NumGoroutine(), runtime.NumGoroutine()-g0)
 
 	if links > transport.MaxRegisteredLinks {
@@ -172,11 +172,11 @@ func TestFloodLinkRequestCap(t *testing.T) {
 	if got := runtime.NumGoroutine() - g0; got > transport.MaxRegisteredLinks+transport.MaxConcurrentPacketHandlers+64 {
 		t.Fatalf("goroutine growth unbounded: +%d for %d requests", got, N)
 	}
-	t.Logf("PASS: %d LINKREQUESTs -> %d links (cap %d)", N, links, transport.MaxRegisteredLinks)
+	t.Logf("PASS: %d LINKREQUESTs: %d links (cap %d)", N, links, transport.MaxRegisteredLinks)
 }
 
 // TestFloodLinkRequestReplayDedup replays one identical LINKREQUEST N
-// times. The first costs a full handshake; replays must be answered by
+// times. The first costs a full handshake. Replays must be answered by
 // cached-proof resend - one link, no repeated crypto.
 func TestFloodLinkRequestReplayDedup(t *testing.T) {
 	skipHeavyLinkTestsIfShort(t)
@@ -198,7 +198,7 @@ func TestFloodLinkRequestReplayDedup(t *testing.T) {
 	destA.AcceptsLinks(true)
 
 	// Wire-level identical replays are dropped by the transport packet
-	// filter before reaching the handler; the linkID dedup covers replays
+	// filter before reaching the handler. The linkID dedup covers replays
 	// that re-arrive after hashlist eviction, plus in-process callers.
 	// Exercise the handler path directly to prove it.
 	raw := craftLinkRequest(t, destA.GetHash())
@@ -231,7 +231,7 @@ func TestFloodLinkRequestReplayDedup(t *testing.T) {
 
 	links := nodeA.tr.LinkCount()
 	proofs := nodeA.pipe.delivered.Load()
-	t.Logf("LR replay: 1 + %d identical requests -> links=%d proof_frames=%d first=%s replay=%s/pkt",
+	t.Logf("LR replay: 1 + %d identical requests: links=%d proof_frames=%d first=%s replay=%s/pkt",
 		N, links, proofs, firstElapsed, replayElapsed/N)
 
 	if links != 1 {
@@ -240,12 +240,12 @@ func TestFloodLinkRequestReplayDedup(t *testing.T) {
 	if last == nil {
 		t.Fatal("replay returned nil link")
 	}
-	// The first request pays keygen+ECDH+sign (~ms); each replay is a
+	// The first request pays keygen+ECDH+sign (~ms). Each replay is a
 	// FindLink + cached-proof resend and must be orders cheaper.
 	if replayElapsed/N > firstElapsed/20 {
 		t.Fatalf("replay not deduplicated: first=%s replay=%s/pkt", firstElapsed, replayElapsed/N)
 	}
-	t.Logf("PASS: %d replays -> 1 link, proofs resent at %s/pkt (first cost %s)",
+	t.Logf("PASS: %d replays: 1 link, proofs resent at %s/pkt (first cost %s)",
 		N, replayElapsed/N, firstElapsed)
 }
 
@@ -334,10 +334,10 @@ func TestFloodResourceReqAmplification(t *testing.T) {
 	after := nodeA.pipe.delivered.Load()
 	dropped := health.Default.SnapshotTransport().ResourceReqDrop.Total
 	partFrames := after - before
-	// Burst 384 + refill 128/s over the storm; each admitted REQ can emit
+	// Burst 384 + refill 128/s over the storm. Each admitted REQ can emit
 	// at most the requested hash count (<=20) part frames.
 	maxFrames := int64(resourceReqBurst+resourceReqRate*5) * int64(len(reqHashes)/resource.MapHashLen) * 2
-	t.Logf("REQ storm: %d reqs -> %d part frames outbound, %d reqs dropped by limiter",
+	t.Logf("REQ storm: %d reqs: %d part frames outbound, %d reqs dropped by limiter",
 		N, partFrames, dropped)
 
 	if dropped == 0 {
@@ -346,7 +346,7 @@ func TestFloodResourceReqAmplification(t *testing.T) {
 	if partFrames > maxFrames {
 		t.Fatalf("REQ amplification unbounded: %d frames > %d", partFrames, maxFrames)
 	}
-	t.Logf("PASS: %d REQs -> %d part frames (limiter held, %d dropped)", N, partFrames, dropped)
+	t.Logf("PASS: %d REQs: %d part frames (limiter held, %d dropped)", N, partFrames, dropped)
 }
 
 // TestFloodResourceAdvSupersede floods valid resource advertisements on an
@@ -387,7 +387,7 @@ func TestFloodResourceAdvSupersede(t *testing.T) {
 		t.Fatal("responder sdu <= 0")
 	}
 
-	// Craft advs with distinct hashes; each supersedes the previous.
+	// Craft advs with distinct hashes. Each supersedes the previous.
 	mkAdv := func() []byte {
 		hash := make([]byte, 32)
 		rh := make([]byte, resource.RandomHashSize)
@@ -443,13 +443,13 @@ func TestFloodResourceAdvSupersede(t *testing.T) {
 	responder.incomingMu.Unlock()
 	g1 := runtime.NumGoroutine()
 
-	t.Logf("adv flood: %d sent -> incomingRx=%v goroutines=%d(+%d)", N, rx != nil, g1, g1-g0)
+	t.Logf("adv flood: %d sent: incomingRx=%v goroutines=%d(+%d)", N, rx != nil, g1, g1-g0)
 	if rx == nil {
 		t.Fatal("no incoming resource active after flood")
 	}
-	// One incoming asm per link + watchdog; superseded ones exit.
+	// One incoming asm per link + watchdog. Superseded ones exit.
 	if g1-g0 > 64 {
 		t.Fatalf("supersede leaked goroutines: +%d for %d advs", g1-g0, N)
 	}
-	t.Logf("PASS: %d advs -> single incoming assembly, +%d goroutines", N, g1-g0)
+	t.Logf("PASS: %d advs: single incoming assembly, +%d goroutines", N, g1-g0)
 }

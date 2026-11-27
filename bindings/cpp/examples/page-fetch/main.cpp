@@ -28,7 +28,7 @@ void usage(const char *argv0) {
       "\n"
       "Options:\n"
       "  -c path   Reticulum config file (required for network interfaces)\n"
-      "  -t sec    Overall timeout in seconds (default %d)\n"
+      "  -t sec    Total timeout in seconds (default %d)\n"
       "\n"
       "Example:\n"
       "  %s -c config.example "

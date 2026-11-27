@@ -111,7 +111,7 @@ func TestProxySeededDeterminism(t *testing.T) {
 		t.Errorf("non-deterministic: %+v vs %+v", s1, s2)
 	}
 	if s1.Dropped == 0 {
-		t.Error("seed 42 produced no drops over 100 frames — check RNG wiring")
+		t.Error("seed 42 produced no drops over 100 frames, check RNG wiring")
 	}
 }
 
@@ -137,7 +137,7 @@ func TestProxyDuplicationNeverLoses(t *testing.T) {
 		t.Fatal(err)
 	}
 	_ = c.SetReadDeadline(time.Now().Add(1500 * time.Millisecond))
-	echoed, _ := io.ReadAll(c) // reads until deadline; duplicates make it longer
+	echoed, _ := io.ReadAll(c) // reads until deadline. Duplicates make it longer
 	_ = c.Close()
 	if len(echoed) < len(payload) {
 		t.Fatalf("echoed %d bytes < sent %d with duplication-only faults", len(echoed), len(payload))

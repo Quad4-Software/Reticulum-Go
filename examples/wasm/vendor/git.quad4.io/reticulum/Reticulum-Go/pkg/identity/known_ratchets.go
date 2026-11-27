@@ -68,7 +68,7 @@ func RememberRatchet(destHash, ratchet []byte) {
 	if knownPersistMemory.Load() || knownPersistDisabled.Load() {
 		return
 	}
-	// Ratchet writes are write-behind in the sqlite store; mark dirty so the
+	// Ratchet writes are write-behind in the sqlite store. Mark dirty so the
 	// periodic known-destinations flush persists them even when no
 	// destination-table entry changed (Python flushes every 10s).
 	markKnownDestinationsDirty()

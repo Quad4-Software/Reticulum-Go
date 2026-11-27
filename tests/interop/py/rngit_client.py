@@ -179,7 +179,7 @@ def main() -> int:
     sys.stderr.write(proc2.stderr)
     if proc2.returncode != 0:
         return proc2.returncode
-    # Remote helpers import objects but do not update refs; the parent git
+    # Remote helpers import objects but do not update refs. The parent git
     # process writes refs during a real fetch. Verify the tip object directly.
     log = subprocess.run(
         ["git", "log", "-1", "--oneline", sha],

@@ -180,7 +180,7 @@ func TestPacketHashlistRotateNoGrowth(t *testing.T) {
 	var m2 runtime.MemStats
 	runtime.ReadMemStats(&m2)
 	if m2.HeapAlloc > m1.HeapAlloc+(2<<20) {
-		t.Errorf("hashlist heap grew %d -> %d", m1.HeapAlloc, m2.HeapAlloc)
+		t.Errorf("hashlist heap grew %d: %d", m1.HeapAlloc, m2.HeapAlloc)
 	}
 	if hl.Len() > 1024+512 {
 		t.Fatalf("len=%d exceeds rotate bound", hl.Len())

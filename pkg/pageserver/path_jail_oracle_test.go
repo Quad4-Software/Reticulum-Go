@@ -28,7 +28,7 @@ func TestOraclePageJailPrefixEscape(t *testing.T) {
 
 	joined := filepath.Join(pages, "../pages_secret/leak.txt")
 	if got, allowed := resolveJailedPath(pages, joined); allowed {
-		t.Fatalf("jail accepted prefix escape %q -> %q", joined, got)
+		t.Fatalf("jail accepted prefix escape %q: %q", joined, got)
 	}
 }
 
@@ -49,7 +49,7 @@ func TestOraclePageJailSymlinkEscape(t *testing.T) {
 	}
 
 	if got, allowed := resolveJailedPath(pages, link); allowed {
-		t.Fatalf("jail followed symlink outside pages dir: %q -> %q", link, got)
+		t.Fatalf("jail followed symlink outside pages dir: %q: %q", link, got)
 	}
 }
 
@@ -76,7 +76,7 @@ func TestOraclePageJailSymlinkedAncestorEscape(t *testing.T) {
 
 	joined := filepath.Join(pages, "linkdir", "leak.txt")
 	if got, allowed := resolveJailedPath(pages, joined); allowed {
-		t.Fatalf("jail followed symlinked ancestor outside pages dir: %q -> %q", joined, got)
+		t.Fatalf("jail followed symlinked ancestor outside pages dir: %q: %q", joined, got)
 	}
 }
 

@@ -148,7 +148,7 @@ tasks:
       - '{{.GOCMD}} test -v -count=1 -timeout 15m -run TestInterop ./pkg/lxmf/...'
 
   test:lxmf:golxmd:
-    desc: golxmd unit tests and live Python<->Go golxmd interop (requires uv and LXMF-ref)
+    desc: golxmd unit tests and live Python/Go golxmd interop (requires uv and LXMF-ref)
     cmds:
       - '{{.GOCMD}} test -v -count=1 -timeout 20m -run "Test(MessageStore|ValidatePN|EncodePN|RouterDelivery|RouterPropagation|PropagationControl|Interop_Live_.*Golxmd|Interop_Live_GoDeliveryGolxmd)" ./pkg/lxmf/... ./internal/golxmd/...'
 

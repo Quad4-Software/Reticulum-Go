@@ -123,7 +123,7 @@ func TestKnownDestinationsEnvOverrideForcesInMemory(t *testing.T) {
 	cfgPath := filepath.Join(tmp, "config")
 
 	inMemory := false
-	// Mirrors how transport.NewTransport wires config -> persistence: the
+	// Mirrors how transport.NewTransport wires config to persistence: the
 	// env var is meant to be applied by common.ApplyPersistenceEnv before
 	// InitKnownDestinationsPersistence is called. Here we just confirm the
 

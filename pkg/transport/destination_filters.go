@@ -11,18 +11,18 @@ import (
 
 // Destination-type filtering (RNS 1.6.0 [filter] semantics): announces for
 // destination types are filtered by name_hash at ingress. blocked_destination
-// types are always dropped; allowed_destination_types pass the
-// required_only gate; client_destination_types tracks per-requester
+// types are always dropped. Allowed_destination_types pass the
+// required_only gate. Client_destination_types tracks per-requester
 // registration via wants/unwants calls.
 
 type destinationFilters struct {
 	mu      sync.RWMutex
 	blocked map[string]bool
 	allowed map[string]bool
-	// name_hash -> {requester -> true}
+	// name_hash to {requester to true}
 	clients map[string]map[string]bool
-	names   map[string]string // name_hash -> full name or <hex>
-	flagged map[string]string // name_hash -> full name
+	names   map[string]string // name_hash to full name or <hex>
+	flagged map[string]string // name_hash to full name
 }
 
 func newDestinationFilters() *destinationFilters {
@@ -112,7 +112,7 @@ func (f *destinationFilters) typeName(nameHash []byte) string {
 }
 
 // wants registers a requester for a destination type (Python
-// _wants_destination_type; signature unchecked upstream).
+// _wants_destination_type. Signature unchecked upstream).
 func (f *destinationFilters) wants(fullName, requester string) bool {
 	key := nameHashKey(fullName)
 	f.mu.Lock()
@@ -172,7 +172,7 @@ func (f *destinationFilters) isBlockedNameHash(nameHash []byte) bool {
 }
 
 // announceAllowed mirrors Python inbound announce gating for the type filters
-// and required_only. hops is the wire hop count; localClient/interfaceToShared
+// and required_only. hops is the wire hop count. LocalClient/interfaceToShared
 // indicate a local-client/shared-instance interface (Python hops==1 passes).
 func (f *destinationFilters) announceAllowed(nameHash []byte, hops int, requiredOnly bool, localClient bool) bool {
 	f.mu.RLock()

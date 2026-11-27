@@ -393,7 +393,7 @@ func (c *Client) sendRoomContent(msgType uint64, room, text string) error {
 	_, member := c.rooms[room]
 	c.mu.Unlock()
 	if !member {
-		// Client may still send if it believes it joined; hub will correct.
+		// Client may still send if it believes it joined. Hub will correct.
 		// Spec allows sending only for rooms it believes joined - we track JOINED.
 		return ErrNotMember
 	}

@@ -10,7 +10,7 @@ import (
 
 // logThrottle dedups repeated log emissions: a key may log at most once per
 // interval. Used for diagnostics that would otherwise fire once per packet
-// under flood (e.g. "no path to relay link request"). The map is bounded; on
+// under flood (e.g. "no path to relay link request"). The map is bounded. On
 // overflow expired entries are swept, and if still full it is reset.
 type logThrottle struct {
 	mu    sync.Mutex
@@ -51,7 +51,7 @@ func (l *logThrottle) allow(key string) bool {
 
 // noPathLogRate limits "no path to relay link request" diagnostics. Each
 // suppressed packet previously cost a full slog record plus a serialized
-// write; under link-request floods that dominated CPU.
+// write. Under link-request floods that dominated CPU.
 var noPathLogRate = newLogThrottle(30*time.Second, 4096)
 
 // allowNoPathLog reports whether a no-path diagnostic for destHash on

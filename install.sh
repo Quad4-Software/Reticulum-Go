@@ -606,7 +606,7 @@ install_binary_and_links() {
 	as_root mkdir -p "${DESTDIR}${BINDIR}"
 	install_file 755 "$src" "$dest"
 	for name in $TOOL_LINKS; do
-		log "link ${DESTDIR}${BINDIR}/$name -> $BINARY_NAME"
+		log "link ${DESTDIR}${BINDIR}/$name to $BINARY_NAME"
 		as_root ln -sf "$BINARY_NAME" "${DESTDIR}${BINDIR}/$name"
 	done
 }
@@ -753,7 +753,7 @@ build_from_tree() {
 				ldflags="$ldflags -X main.defaultVersion=${ver}"
 			fi
 		fi
-		log "go build (GOAMD64=${GOAMD64:-default}) -> $out"
+		log "go build (GOAMD64=${GOAMD64:-default}) writing $out"
 		go build -ldflags "$ldflags" -o "$out" ./cmd/reticulum-go
 	)
 }

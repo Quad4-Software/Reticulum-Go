@@ -120,7 +120,7 @@ func (ra *ResourceAdvertisement) Pack(segment int, linkMDU int) ([]byte, error) 
 		return nil, err
 	}
 	// RNS 1.6.0: packed advertisement larger than the link MDU defers the
-	// initial hashmap ("m": b""); the receiver then issues a
+	// initial hashmap ("m": b""). The receiver then issues a
 	// HASHMAP_IS_EMPTY (0xFE) request and the sender serves from index 0.
 	if linkMDU > 0 && len(packed) > linkMDU {
 		dict["m"] = []byte{}

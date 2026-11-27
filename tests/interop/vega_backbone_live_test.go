@@ -30,7 +30,7 @@ import (
 )
 
 // Live end-to-end resource transfers over the public Vega backbones.
-// Set RUN_VEGA_LIVE=1 to run; these exercise the adaptive resource
+// Set RUN_VEGA_LIVE=1 to run. These exercise the adaptive resource
 // receive window against real internet latency, not loopback.
 
 const (
@@ -62,7 +62,7 @@ func newBackboneHub(t *testing.T) *backbone.Hub {
 // newBackboneTransport builds a transport with one Backbone client
 // interface attached to host:port, waits for it to come online, and
 // returns a cleanup that closes both. The hub is created once per test
-// and shared; pass the same hub to every transport in the test.
+// and shared. Pass the same hub to every transport in the test.
 func newBackboneTransport(t *testing.T, hub *backbone.Hub, name, host string, port int) (*transport.Transport, func()) {
 	t.Helper()
 	tr := transport.NewTransport(interopPeerConfig())
@@ -116,7 +116,7 @@ func newGoResourceDestination(t *testing.T, tr *transport.Transport) *destinatio
 func waitVegaPath(ctx context.Context, tr *transport.Transport, hash []byte) error {
 	// RNS 1.6 path table sharding: relays no longer broadcast every
 	// announce to every client, so waiting passively for a path can
-	// starve forever. AwaitPath sends a path request; retry a few times
+	// starve forever. AwaitPath sends a path request. Retry a few times
 	// across the overall deadline in case the first request is lost.
 	deadline := time.Now().Add(180 * time.Second)
 	for time.Now().Before(deadline) {
@@ -197,7 +197,7 @@ func TestVegaGoToGoResource(t *testing.T) {
 		if !bytes.Equal(b, payload) {
 			t.Fatalf("payload mismatch: %d bytes", len(b))
 		}
-		t.Logf("Go->Go over Vega Go backbone ok in %s", time.Since(t0))
+		t.Logf("Go to Go over Vega Go backbone ok in %s", time.Since(t0))
 	case <-time.After(4 * time.Minute):
 		t.Fatalf("resource not delivered within deadline (waited %s)", time.Since(t0))
 	}
@@ -332,7 +332,7 @@ func TestVegaGoToPythonResource(t *testing.T) {
 	if fields[2] != fmt.Sprintf("%x", sum) {
 		t.Fatalf("payload digest mismatch: %s", fields[2])
 	}
-	t.Logf("Go->Python over Vega Python backbone ok in %s", time.Since(t0))
+	t.Logf("Go to Python over Vega Python backbone ok in %s", time.Since(t0))
 }
 
 func TestVegaPythonToGoResource(t *testing.T) {
@@ -381,14 +381,14 @@ func TestVegaPythonToGoResource(t *testing.T) {
 
 	select {
 	case b := <-got:
-		// The Python peer sends os.urandom(64000); content integrity is
+		// The Python peer sends os.urandom(64000). Content integrity is
 		// proven by the resource hash/proof exchange itself, so assert
 		// the delivery length here and cross-check the peer's completion
 		// line below.
 		if len(b) != len(payload) {
 			t.Fatalf("payload length %d != %d", len(b), len(payload))
 		}
-		t.Logf("Python->Go over Vega Python backbone ok")
+		t.Logf("Python to Go over Vega Python backbone ok")
 	case <-time.After(4 * time.Minute):
 		t.Fatal("resource not delivered within deadline")
 	}

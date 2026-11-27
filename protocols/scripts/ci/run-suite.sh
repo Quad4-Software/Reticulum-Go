@@ -45,7 +45,7 @@ live)
 		./pkg/mf/... ./pkg/lxmf/... ./pkg/rrc/... ./internal/gorrcd/...
 	;;
 examples)
-	# examples/*.go use //go:build ignore; single-file go build still type-checks them.
+	# examples/*.go use //go:build ignore. Single-file go build still type-checks them.
 	# lxmf_send.go needs reticulumconfig from a newer Reticulum-Go than this vendor pin.
 	for base in example.go messenger.go; do
 		f="$ROOT/examples/$base"

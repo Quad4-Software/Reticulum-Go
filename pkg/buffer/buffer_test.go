@@ -602,7 +602,7 @@ func TestDecompressData_RejectsBombPastMaxChunkLen(t *testing.T) {
 	if len(bomb) > 4096 {
 		t.Fatalf("bomb stream unexpectedly large: %d bytes", len(bomb))
 	}
-	t.Logf("bomb stream: %d bytes compressed -> %d bytes decompressed (ratio %dx)",
+	t.Logf("bomb stream: %d bytes compressed: %d bytes decompressed (ratio %dx)",
 		len(bomb), huge, huge/len(bomb))
 
 	out := decompressData(bomb)

@@ -33,7 +33,7 @@ func attachInterface(rec *nodeRecord, name string, ni interfaces.Interface) erro
 
 // attachConfiguredInterfaces instantiates every enabled [interfaces] entry
 // from the loaded Reticulum-Go config. Individual failures are logged and
-// skipped, matching gorrcd behavior; the node itself stays usable.
+// skipped, matching gorrcd behavior. The node itself stays usable.
 func attachConfiguredInterfaces(rec *nodeRecord, configDir string) {
 	rcfg := rec.cfg
 	if rcfg == nil {

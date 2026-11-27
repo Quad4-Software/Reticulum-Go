@@ -45,7 +45,7 @@ func waitWTOnline(t *testing.T, cli *interfaces.WebTransportClientInterface, d t
 	t.Fatal("webtransport client not online")
 }
 
-// TestLiveInteropWebTransportGoGoEcho sends a frame client->server and
+// TestLiveInteropWebTransportGoGoEcho sends a frame client to server and
 // verifies the datagram lands on the server packet callback.
 func TestLiveInteropWebTransportGoGoEcho(t *testing.T) {
 	liveOrSkip(t)

@@ -939,7 +939,7 @@ func TestECDH(t *testing.T) {
 				t.Fatalf("DeriveSharedSecret(A,B) failed: %v", err)
 			}
 			if !bytes.Equal(sharedAB, expected) {
-				t.Errorf("Shared secret A->B mismatch:\n  got:  %x\n  want: %x", sharedAB, expected)
+				t.Errorf("Shared secret A to B mismatch:\n  got:  %x\n  want: %x", sharedAB, expected)
 			}
 
 			sharedBA, err := cryptography.DeriveSharedSecret(privB, pubA)
@@ -947,7 +947,7 @@ func TestECDH(t *testing.T) {
 				t.Fatalf("DeriveSharedSecret(B,A) failed: %v", err)
 			}
 			if !bytes.Equal(sharedBA, expected) {
-				t.Errorf("Shared secret B->A mismatch:\n  got:  %x\n  want: %x", sharedBA, expected)
+				t.Errorf("Shared secret B to A mismatch:\n  got:  %x\n  want: %x", sharedBA, expected)
 			}
 		})
 	}

@@ -12,7 +12,7 @@ import (
 var ErrInvalidURI = errors.New("lxmf: invalid paper URI")
 
 // PaperURI returns an lxm:// URI with URL-safe unpadded base64, matching upstream LXMF and QR paper encoding.
-// paperPacked is opaque ciphertext (e.g. from destination.Encrypt); this function only encodes bytes.
+// paperPacked is opaque ciphertext (e.g. from destination.Encrypt). This function only encodes bytes.
 func PaperURI(paperPacked []byte) (string, error) {
 	if len(paperPacked) == 0 {
 		return "", errors.New("lxmf: empty paper payload")

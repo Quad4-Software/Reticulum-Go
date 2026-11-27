@@ -30,7 +30,7 @@ func Positive(n int) bool {
 		t.Fatalf("mutants=%d", len(mutants))
 	}
 	if mutants[0].From != ">" || mutants[0].To != "<" {
-		t.Fatalf("swap=%s->%s", mutants[0].From, mutants[0].To)
+		t.Fatalf("swap=%s to %s", mutants[0].From, mutants[0].To)
 	}
 	if string(mutants[0].Source[mutants[0].Offset:mutants[0].Offset+1]) != "<" {
 		t.Fatal("mutated source not applied")
@@ -50,7 +50,7 @@ func TestSwapOperatorPairs(t *testing.T) {
 			t.Fatalf("no swap for %s", p.from)
 		}
 		if got.String() != p.to {
-			t.Fatalf("%s -> %s", p.from, got.String())
+			t.Fatalf("%s: %s", p.from, got.String())
 		}
 	}
 }

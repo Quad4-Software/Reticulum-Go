@@ -380,7 +380,7 @@ func (r *Router) messageGetRequestHandler(path string, data []byte, requestID, l
 	}
 
 	// Upstream lists available messages only when both fields are
-	// None; explicit empty lists are a get request with no wants.
+	// None. Explicit empty lists are a get request with no wants.
 	if req[0] == nil && req[1] == nil {
 		return r.store.ListForDestination(deliveryHash)
 	}
@@ -391,7 +391,7 @@ func (r *Router) messageGetRequestHandler(path string, data []byte, requestID, l
 	limitSet := false
 	if len(req) >= 3 {
 		// Upstream applies the client limit whenever the field parses as
-		// a float, including a literal zero; absent or non-numeric means
+		// a float, including a literal zero. Absent or non-numeric means
 		// unlimited.
 		if f, ok := numericField(req[2]); ok {
 			transferLimitKB = f

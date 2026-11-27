@@ -89,7 +89,7 @@ func TestAssembleIncomingPayload_RejectsBz2Bomb(t *testing.T) {
 	if len(bomb) > 4096 {
 		t.Fatalf("bomb stream unexpectedly large: %d bytes", len(bomb))
 	}
-	t.Logf("bomb stream: %d bytes compressed -> %d bytes decompressed (ratio %dx)",
+	t.Logf("bomb stream: %d bytes compressed: %d bytes decompressed (ratio %dx)",
 		len(bomb), actualHugeSize, actualHugeSize/len(bomb))
 
 	randomHash := bytes.Repeat([]byte{0xAB}, resource.RandomHashSize)

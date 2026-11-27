@@ -17,7 +17,7 @@ import (
 
 // matrixTransport builds an isolated transport for interface-mix tests.
 // Relays pass enableTransport so announces and packets forward across
-// the chain; endpoint transports may disable it.
+// the chain. Endpoint transports may disable it.
 func matrixTransport(t *testing.T, enableTransport bool) *transport.Transport {
 	t.Helper()
 	cfg := testconfig.New()
@@ -177,7 +177,7 @@ func matrixMutualPath(t *testing.T, trA, trB *transport.Transport, hashA, hashB 
 			return
 		}
 		if time.Now().After(deadline) {
-			t.Fatalf("mutual path timeout: a->b=%v b->a=%v", trA.HasPath(hashB), trB.HasPath(hashA))
+			t.Fatalf("mutual path timeout: a to b=%v b to a=%v", trA.HasPath(hashB), trB.HasPath(hashA))
 		}
 		// Stay under the announce burst limit of 8 per 10s.
 		if time.Since(lastAnnounce) >= 1500*time.Millisecond {
@@ -244,7 +244,7 @@ func matrixTCPLink(t *testing.T, server, client *transport.Transport, tag string
 	matrixTCPClient(t, client, fmt.Sprintf("%s-cli", tag), port)
 }
 
-// matrixUDPChain returns links+1 transports wired in a line; inner
+// matrixUDPChain returns links+1 transports wired in a line. Inner
 // nodes relay, endpoints do not.
 func matrixUDPChain(t *testing.T, links int) []*transport.Transport {
 	t.Helper()
@@ -298,7 +298,7 @@ func TestMatrix_DeliveryMultiHop(t *testing.T) {
 			matrixMutualPath(t, nodes[0], nodes[len(nodes)-1], hA, hB, destA, destB)
 
 			if hops := int(nodes[0].HopsTo(hB)); hops != links {
-				t.Fatalf("a->b hops %d want %d", hops, links)
+				t.Fatalf("a to b hops %d want %d", hops, links)
 			}
 
 			gotA := make(chan string, 4)
@@ -321,7 +321,7 @@ func TestMatrix_DeliveryMixedUDPTCP(t *testing.T) {
 	if testing.Short() {
 		t.Skip("live mesh test")
 	}
-	// a --UDP--> relay --TCP--> b
+	// a --UDP- to relay --TCP- to b
 	a := matrixTransport(t, false)
 	relay := matrixTransport(t, true)
 	b := matrixTransport(t, false)
@@ -333,7 +333,7 @@ func TestMatrix_DeliveryMixedUDPTCP(t *testing.T) {
 	matrixMutualPath(t, a, b, hA, hB, destA, destB)
 
 	if hops := a.HopsTo(hB); hops != 2 {
-		t.Fatalf("a->b hops %d want 2", hops)
+		t.Fatalf("a to b hops %d want 2", hops)
 	}
 
 	gotA := make(chan string, 4)
@@ -356,7 +356,7 @@ func TestMatrix_DeliverySharedInstance(t *testing.T) {
 	if testing.Short() {
 		t.Skip("live mesh test")
 	}
-	// client --local shared instance--> hub --UDP--> remote
+	// client --local shared instance- to hub --UDP- to remote
 	hub := matrixTransport(t, true)
 	remote := matrixTransport(t, false)
 	matrixUDPLink(t, hub, remote, "si-udp")

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: LicenseRef-Reticulum
 // Package faultproxy implements a seeded TCP fault-injecting proxy for
 // chaos testing. It understands RNS HDLC framing so frame-level faults
-// (drop, duplication, reordering) are frame-aligned; a byte-level mode
+// (drop, duplication, reordering) are frame-aligned. A byte-level mode
 // corrupts the raw stream instead.
 package faultproxy
 
@@ -47,7 +47,7 @@ type Stats struct {
 type Proxy struct {
 	Addr   string
 	Seed   int64
-	Faults Faults // applied on client->server traffic; reverse is symmetric copy unless overridden
+	Faults Faults // applied on client to server traffic. Reverse is symmetric copy unless overridden
 
 	mu     sync.Mutex
 	ln     net.Listener
@@ -191,7 +191,7 @@ func (p *Proxy) handle(client net.Conn) {
 	_ = server.Close()
 }
 
-// pipe copies src->dst applying faults. Frame mode parses HDLC frames.
+// pipe copies src to dst applying faults. Frame mode parses HDLC frames.
 func (p *Proxy) pipe(dst net.Conn, src net.Conn, rng *rand.Rand, f Faults) {
 	if f.ByteMode {
 		p.pipeBytes(dst, src, rng, f)
@@ -243,7 +243,7 @@ func (p *Proxy) pipeBytes(dst net.Conn, src net.Conn, rng *rand.Rand, f Faults) 
 	}
 }
 
-// pipeFrames reads HDLC-framed traffic. Data arrives as a raw stream; frames
+// pipeFrames reads HDLC-framed traffic. Data arrives as a raw stream. Frames
 // are delimited by 0x7e flags. The proxy re-emits the raw bytes unchanged
 // unless faults apply.
 func (p *Proxy) pipeFrames(dst net.Conn, src net.Conn, rng *rand.Rand, f Faults) {
@@ -322,7 +322,7 @@ func (p *Proxy) pipeFrames(dst net.Conn, src net.Conn, rng *rand.Rand, f Faults)
 			// soon as its flag arrives. Concatenating all pieces reproduces
 			// the input exactly, keeping the proxy byte-transparent when no
 			// faults apply. One-byte pieces are padding flags passed through
-			// unfaulted; stream-start partial pieces pass through verbatim.
+			// unfaulted. Stream-start partial pieces pass through verbatim.
 			for len(stream) > 0 {
 				idx := bytes.IndexByte(stream, hdlcFlag)
 				if idx < 0 {

@@ -95,7 +95,7 @@ func TestTransportSoakFaultLoad(t *testing.T) {
 	if finalG > baseG+maxGoroutineDelta {
 		t.Fatalf("soak goroutine delta baseline=%d final=%d", baseG, finalG)
 	}
-	t.Logf("soak ok: heap_delta=%d goroutines=%d->%d", heapDelta, baseG, finalG)
+	t.Logf("soak ok: heap_delta=%d goroutines=%d to %d", heapDelta, baseG, finalG)
 }
 
 func TestPacketHashlistAtCapNoGrowth(t *testing.T) {
@@ -122,7 +122,7 @@ func TestPacketHashlistAtCapNoGrowth(t *testing.T) {
 	var m2 runtime.MemStats
 	runtime.ReadMemStats(&m2)
 	if m2.HeapAlloc > m1.HeapAlloc+(4<<20) {
-		t.Fatalf("hashlist at cap grew %d -> %d", m1.HeapAlloc, m2.HeapAlloc)
+		t.Fatalf("hashlist at cap grew %d: %d", m1.HeapAlloc, m2.HeapAlloc)
 	}
 	if hl.Len() > 10_000+5_000 {
 		t.Fatalf("len=%d exceeds rotate bound", hl.Len())

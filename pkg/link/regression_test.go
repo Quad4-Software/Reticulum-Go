@@ -97,7 +97,7 @@ func TestRegression_TeardownWhileWatchdogActive(t *testing.T) {
 }
 
 // TestRegression_WatchdogStaleTeardownDoesNotDeadlock guards against the
-// watchdog calling sendTeardownPacket -> encrypt while holding the write lock.
+// watchdog calling sendTeardownPacket to encrypt while holding the write lock.
 func TestRegression_WatchdogStaleTeardownDoesNotDeadlock(t *testing.T) {
 	skipHeavyLinkTestsIfShort(t)
 	initLink, _, cleanup := establishInteropLink(t)

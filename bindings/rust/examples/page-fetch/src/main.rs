@@ -23,7 +23,7 @@ fn usage(argv0: &str) {
          Fetch a NomadNet / pageserver page over librns (Rust bindings).\n\n\
          Options:\n\
            -c path   Reticulum config file (required for network interfaces)\n\
-           -t sec    Overall timeout in seconds (default {DEFAULT_TIMEOUT_SEC})\n\n\
+           -t sec    Total timeout in seconds (default {DEFAULT_TIMEOUT_SEC})\n\n\
          Example:\n\
            {argv0} -c config.example 92798ea245a0afcfa559348e42d628c6:/page/index.mu"
     );

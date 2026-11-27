@@ -7,7 +7,7 @@
 # release-assets.yml remains the publisher for GitHub releases. This config
 # is for local snapshot builds, CI validation, and a future goreleaser-based
 # release path. The js/wasm target and the win7/winxp legacy builds are not
-# covered here; they stay in release-assets.yml.
+# covered here. They stay in release-assets.yml.
 version: 2
 
 project_name: reticulum-go

@@ -11,7 +11,7 @@ Environment:
   INTEROP_APP            Destination app name (default: interop_pygo)
   INTEROP_ASPECT         Destination aspect (default: destdata)
   INTEROP_CONFIG_DIR     Optional Reticulum config dir
-  INTEROP_TIMEOUT_SEC    Overall timeout (default: 120)
+  INTEROP_TIMEOUT_SEC    Total timeout (default: 120)
 
 Stdin protocol:
   SEND <hex_payload>   Send a DATA packet to INTEROP_GO_DEST_HASH

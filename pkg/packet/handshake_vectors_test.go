@@ -27,7 +27,7 @@ type handshakeVector struct {
 
 // TestHandshakeVectorPackAndReplay builds announce, PATH_RESPONSE, and
 // LINKREQUEST frames, then checks DecodeFrame trees. Set
-// RNS_UPDATE_HANDSHAKE_VECTORS=1 to write vectors under testdata; otherwise,
+// RNS_UPDATE_HANDSHAKE_VECTORS=1 to write vectors under testdata. Otherwise,
 // the vectors are written to a temporary directory.
 func TestHandshakeVectorPackAndReplay(t *testing.T) {
 	id, err := identity.NewIdentity()

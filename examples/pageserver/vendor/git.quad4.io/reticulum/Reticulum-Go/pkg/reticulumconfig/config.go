@@ -584,7 +584,7 @@ func applyLoggingOption(cfg *common.ReticulumConfig, key, value string) {
 }
 
 // applyStampsOption handles keys under [stamps] (RNS 1.6.0). Booleans only
-// enable; floats are stored raw and clamped when applied so StampsSettings
+// enable. Floats are stored raw and clamped when applied so StampsSettings
 // matches Reticulum.py.
 func applyStampsOption(cfg *common.ReticulumConfig, key, value string) {
 	s := &cfg.Stamps
@@ -641,7 +641,7 @@ func applyStampsOption(cfg *common.ReticulumConfig, key, value string) {
 }
 
 // applyFilterOption handles keys under [filter] (RNS 1.6.0). Values are only
-// parsed and stored here; the announce-path behaviour is applied elsewhere.
+// parsed and stored here. The announce-path behaviour is applied elsewhere.
 func applyFilterOption(cfg *common.ReticulumConfig, key, value string) {
 	f := &cfg.Filter
 	switch strings.ToLower(key) {

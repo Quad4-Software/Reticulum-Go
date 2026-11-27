@@ -263,7 +263,7 @@ func repoRoot(t *testing.T) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// tests/interop -> repo root
+	// tests/interop to repo root
 	return filepath.Clean(filepath.Join(wd, "../.."))
 }
 

@@ -10,7 +10,7 @@ import (
 )
 
 // mapSecret reserves dataSize+2*pageSize anonymous memory. The outer pages
-// stay PROT_NONE as guard pages; the inner region is read-write. Returns the
+// stay PROT_NONE as guard pages. The inner region is read-write. Returns the
 // whole mapping (for unmapSecret) and the usable inner region.
 func mapSecret(dataSize int) (mapping, usable []byte, err error) {
 	page := unix.Getpagesize()

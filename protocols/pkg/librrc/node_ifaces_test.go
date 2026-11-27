@@ -143,7 +143,7 @@ func TestNodeCreateConfigPath(t *testing.T) {
 	}
 	defer librrc.NodeDestroy(node)
 
-	// One enabled entry attached; the disabled TCP entry must be skipped.
+	// One enabled entry attached. The disabled TCP entry must be skipped.
 	if n, code := librrc.NodeInterfaceCount(node); code != librrc.OK || n != 1 {
 		t.Fatalf("interface count=%d code=%d", n, code)
 	}

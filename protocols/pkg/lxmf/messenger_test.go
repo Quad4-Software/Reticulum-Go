@@ -116,10 +116,10 @@ func TestMessenger_TwoWayLoopback(t *testing.T) {
 	t.Logf("paths established d1=%s d2=%s", hex.EncodeToString(dest1), hex.EncodeToString(dest2))
 
 	if _, err := m1.SendText(dest2, "from1", "hello two"); err != nil {
-		t.Fatalf("send 1->2: %v", err)
+		t.Fatalf("send 1 to 2: %v", err)
 	}
 	if _, err := m2.SendText(dest1, "from2", "hello one"); err != nil {
-		t.Fatalf("send 2->1: %v", err)
+		t.Fatalf("send 2 to 1: %v", err)
 	}
 
 	doneCh := make(chan struct{})

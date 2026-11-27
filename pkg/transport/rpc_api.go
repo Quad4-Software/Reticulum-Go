@@ -802,7 +802,7 @@ func interfaceStatusType(iface common.NetworkInterface) string {
 }
 
 // linkCountsLocked returns total and validated link counts. The caller must
-// hold t.mutex (read or write); it must not call back into a method that
+// hold t.mutex (read or write). It must not call back into a method that
 // acquires t.mutex because Go RWMutex read locks are not reentrant once a
 // writer is queued.
 func (t *Transport) linkCountsLocked() (total, validated int) {

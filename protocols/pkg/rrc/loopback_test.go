@@ -77,8 +77,8 @@ func TestHubClientLoopback(t *testing.T) {
 		return iface, nil
 	}
 
-	// Hub talks to both clients; clients talk to hub (mesh via pairwise UDP is awkward).
-	// Use hub as center: H<->A and H<->B by registering multiple interfaces on hub,
+	// Hub talks to both clients. Clients talk to hub (mesh via pairwise UDP is awkward).
+	// Use hub as center: H< to A and H< to B by registering multiple interfaces on hub,
 	// or use a shared broadcast-style: A and B both target hub address.
 	ifaceH1, err := startUDP(rrcUDP1, addrH, addrA, trH)
 	if err != nil {

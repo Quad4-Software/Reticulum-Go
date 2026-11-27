@@ -163,7 +163,7 @@ func TestLiveInteropGoSurfaceAgainstPythonSharedInstance(t *testing.T) {
 		RPCKey:              keyBytes,
 		ConfigPath:          filepath.Join(cfgDir, "config"),
 	}
-	// DialRPC only builds the client; probe with a real call until rnsd's
+	// DialRPC only builds the client. Probe with a real call until rnsd's
 	// control listener is accepting connections.
 	client, derr := rnsutil.DialRPC(rpcCfg, keyBytes)
 	if derr != nil {

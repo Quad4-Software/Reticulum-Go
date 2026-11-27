@@ -101,10 +101,10 @@ func TestParseAllowMode(t *testing.T) {
 		t.Errorf("default allow = (%v, %v, %v), want (AllowAll, nil, nil)", allow, list, err)
 	}
 	if allow, _, err := parseAllowMode("all", nil); err != nil || allow != 0x01 {
-		t.Errorf("allow=all -> (%v, %v)", allow, err)
+		t.Errorf("allow=all: (%v, %v)", allow, err)
 	}
 	if allow, _, err := parseAllowMode("none", nil); err != nil || allow != 0x00 {
-		t.Errorf("allow=none -> (%v, %v)", allow, err)
+		t.Errorf("allow=none: (%v, %v)", allow, err)
 	}
 	if _, _, err := parseAllowMode("list", nil); err == nil {
 		t.Error("allow=list with no identities should error")
@@ -112,7 +112,7 @@ func TestParseAllowMode(t *testing.T) {
 	hashHex := hex.EncodeToString(bytes.Repeat([]byte{0xAA}, 16))
 	allow, list, err := parseAllowMode("list", []string{hashHex})
 	if err != nil || allow != 0x02 || len(list) != 1 {
-		t.Errorf("allow=list -> (%v, %v, %v)", allow, list, err)
+		t.Errorf("allow=list: (%v, %v, %v)", allow, list, err)
 	}
 	if _, _, err := parseAllowMode("list", []string{"not-hex"}); err == nil {
 		t.Error("allow=list with invalid hex should error")

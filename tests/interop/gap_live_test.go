@@ -208,7 +208,7 @@ func TestLiveInteropMultiHopAnnounceProgression(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
-	// A -> R1 -> R2 -> C
+	// A to R1 to R2 to C
 	al, r1a := freeUDPPort(t), freeUDPPort(t)
 	r1r2, r2a := freeUDPPort(t), freeUDPPort(t)
 	r2b, cl := freeUDPPort(t), freeUDPPort(t)

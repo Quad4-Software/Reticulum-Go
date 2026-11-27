@@ -220,7 +220,7 @@ func (t *Transport) preprocessInboundPacket(data []byte, iface common.NetworkInt
 
 	// Python accepted_inbound counts len(raw) as rxb for every frame
 	// preprocess accepts. Announce frames are the exception: Python
-	// validates them inside preprocess (rejects -> frxb), while Go
+	// validates them inside preprocess (rejects to frxb), while Go
 	// validates them in the worker, so their rxb/frxb is tallied there.
 	if packetType != PacketTypeAnnounce {
 		t.acceptedInbound(iface, wireLen)

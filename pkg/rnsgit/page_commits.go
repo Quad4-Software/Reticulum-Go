@@ -163,7 +163,7 @@ func (n *Node) serveCommitPage(_ string, data []byte, _ []byte, _ []byte, remote
 				}
 				nameField := fs.Path
 				if fs.OldPath != "" {
-					nameField = fs.OldPath + " -> " + fs.Path
+					nameField = fs.OldPath + ": " + fs.Path
 				}
 				b.WriteString("`a  " + statusColor(status) + " " +
 					mLink(mEscape(nameField), pagePathBlob, map[string]string{

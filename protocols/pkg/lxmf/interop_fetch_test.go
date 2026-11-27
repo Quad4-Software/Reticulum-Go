@@ -161,7 +161,7 @@ func TestInterop_Live_GoFetchPythonNode(t *testing.T) {
 		t.Fatalf("propagation_hash=%q err=%v", ready["propagation_hash"], err)
 	}
 
-	// The Python node announces its propagation destination; wait for the
+	// The Python node announces its propagation destination. Wait for the
 	// path and identity to land.
 	deadline = time.Now().Add(30 * time.Second)
 	for !tr.HasPath(pnHash) {
@@ -351,7 +351,7 @@ func TestInterop_Live_PythonFetchGoNode(t *testing.T) {
 		t.Fatalf("python client did not receive stored message: %+v", resp)
 	}
 
-	// The client returns received ids; the Go node must purge the entry.
+	// The client returns received ids. The Go node must purge the entry.
 	deadline := time.Now().Add(10 * time.Second)
 	for router.store.Count() != 0 {
 		if time.Now().After(deadline) {

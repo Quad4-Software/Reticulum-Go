@@ -43,7 +43,7 @@ func WorkerCount() int {
 
 // GenerateStamp searches for a detached hash stamp of the given size whose
 // sha256(workblock+stamp) is at or below target(cost). material is used
-// directly as the workblock (expand_rounds=0 semantics); callers wanting HKDF
+// directly as the workblock (expand_rounds=0 semantics). Callers wanting HKDF
 // expansion should pass the output of StampWorkblock. Returns the stamp and
 // its value.
 func GenerateStamp(ctx context.Context, material []byte, cost float64, size int) ([]byte, float64, error) {

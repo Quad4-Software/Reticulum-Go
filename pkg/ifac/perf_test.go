@@ -12,7 +12,7 @@ import (
 // the per-sign heap copy: securemem keys live outside the Go heap and stdlib
 // ed25519 needs a heap pointer, so each sign allocates a scoped copy plus a
 // fresh FIPS key derivation instead of hitting the stdlib weak-handle cache.
-// The race detector adds a few more allocations per sign; the budget covers it.
+// The race detector adds a few more allocations per sign. The budget covers it.
 func TestMaskUnmaskAllocBudget(t *testing.T) {
 	id, err := New(0, "budget-net", "budget-pass")
 	if err != nil {

@@ -111,7 +111,7 @@ func TestGetInterfaceStatsRPCNoRecursiveReadLock(t *testing.T) {
 		writerDone <- tr.RegisterInterface("stats-writer", mockIface("stats-writer", true))
 	}()
 
-	// A pending writer makes TryRLock fail; poll until the writer is queued.
+	// A pending writer makes TryRLock fail. Poll until the writer is queued.
 	deadline := time.Now().Add(10 * time.Second)
 	for tr.mutex.TryRLock() {
 		tr.mutex.RUnlock()

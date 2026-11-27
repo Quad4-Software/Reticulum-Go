@@ -102,7 +102,7 @@ func pyStampPeer(t *testing.T, ctx context.Context, mode string, pyListen, pyFor
 	return destHash, lines, cmd
 }
 
-// (a) Go client -> stamped Python server. Sub-cases per destination_cost.
+// (a) Go client to stamped Python server. Sub-cases per destination_cost.
 func TestLiveInteropGoLinkToStampedPython(t *testing.T) {
 	liveOrSkip(t)
 	for _, tc := range []struct {
@@ -207,7 +207,7 @@ func TestLiveInteropGoLinkToStampedPython(t *testing.T) {
 	}
 }
 
-// (b) Python client -> Go stamped server.
+// (b) Python client to Go stamped server.
 func TestLiveInteropPythonLinkToStampedGo(t *testing.T) {
 	liveOrSkip(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
@@ -302,7 +302,7 @@ func TestLiveInteropPythonLinkToStampedGo(t *testing.T) {
 	}
 }
 
-// (c) Python stamped announce -> Go strips app_data correctly.
+// (c) Python stamped announce to Go strips app_data correctly.
 func TestLiveInteropPythonStampedAnnounceToGo(t *testing.T) {
 	liveOrSkip(t)
 	if v := os.Getenv("RNS_DEBUG_LEVEL"); v != "" {
@@ -419,12 +419,12 @@ func TestLiveInteropEnforcedPythonAnnounceFilter(t *testing.T) {
 			defer func() { _ = cmd.Process.Kill(); _ = cmd.Wait() }()
 
 			// Python sink monitors a Go dest hash. Point it at ours.
-			// (sink mode reads INTEROP_GO_DEST_HASH at start — set before launch;
+			// (sink mode reads INTEROP_GO_DEST_HASH at start, set before launch.
 			//  we rely on the stamped announce reaching it.)
 			if err := destGo.Announce(false, nil, nil); err != nil {
 				t.Fatalf("announce: %v", err)
 			}
-			// Re-announce a few times for robustness.
+			// Re-announce a few times so the path tables settle.
 			go func() {
 				for range 4 {
 					time.Sleep(3 * time.Second)
@@ -492,7 +492,7 @@ func TestLiveInteropEnforcedPythonPathRequest(t *testing.T) {
 	}
 }
 
-// (4): enforcing Python link request stamps — Go stamped works, unstamped rejected.
+// (4): enforcing Python link request stamps, Go stamped works, unstamped rejected.
 func TestLiveInteropEnforcedPythonLinkRequest(t *testing.T) {
 	liveOrSkip(t)
 	for _, tc := range []struct {
@@ -567,7 +567,7 @@ func TestLiveInteropEnforcedPythonLinkRequest(t *testing.T) {
 	}
 }
 
-// (5): Go enforcing — unstamped Python announce dropped, stamped accepted,
+// (5): Go enforcing, unstamped Python announce dropped, stamped accepted,
 // unstamped Python path request ignored.
 func TestLiveInteropGoEnforcedAnnounceAndPR(t *testing.T) {
 	liveOrSkip(t)

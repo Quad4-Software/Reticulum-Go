@@ -82,7 +82,7 @@ func TestDedupDuplicateWorseRouteDropped(t *testing.T) {
 		t.Fatalf("path iface moved to %q on worse dupe", got)
 	}
 	if got := contestPendingJobs(t, tr); got != jobsBefore {
-		t.Fatalf("losing dupe scheduled a forward: jobs %d -> %d", jobsBefore, got)
+		t.Fatalf("losing dupe scheduled a forward: jobs %d: %d", jobsBefore, got)
 	}
 
 	key := pathMapKey(destHash)
@@ -301,7 +301,7 @@ func waitForMeshPathIface(t *testing.T, tr *Transport, destHash []byte, want str
 // three-node triangle. Node 2 first hears node 0's announce over the
 // direct link, then the same emission arrives relayed through node 1.
 // The relayed copy loses the dedup contest and is buffered as a pending
-// alternate; when the direct path fails, the alternate is re-injected
+// alternate. When the direct path fails, the alternate is re-injected
 // and wins through the unresponsive-path rule.
 func TestMeshDedupContestFailover(t *testing.T) {
 	enableSimFastPath(t)
@@ -318,7 +318,7 @@ func TestMeshDedupContestFailover(t *testing.T) {
 	directSide := n0.ifaces[1]
 	relaySide := n1.ifaces[1]
 
-	// Direct copy first: wire hops 1 -> announceHops 2.
+	// Direct copy first: wire hops 1 to announceHops 2.
 	direct := append([]byte(nil), pkt...)
 	direct[1] = 1
 	if err := directSide.Send(direct, ""); err != nil {
@@ -326,7 +326,7 @@ func TestMeshDedupContestFailover(t *testing.T) {
 	}
 	waitForMeshPathIface(t, n2.tr, n0.destHash, "node0002_to_node0000", 5*time.Second)
 
-	// Same emission relayed via node 1: wire hops 2 -> announceHops 3.
+	// Same emission relayed via node 1: wire hops 2 to announceHops 3.
 	// Loses the contest, gets buffered for failover.
 	relayed := append([]byte(nil), pkt...)
 	relayed[1] = 2

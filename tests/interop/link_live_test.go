@@ -2082,7 +2082,7 @@ func TestLiveInteropSingleDestDataBothDirections(t *testing.T) {
 		t.Fatalf("path to python: %v", err)
 	}
 
-	// Python -> Go: ask the peer to send a DATA packet to destGo.
+	// Python to Go: ask the peer to send a DATA packet to destGo.
 	pyToGoPayload := []byte("lxmf-shaped-payload-python-to-go")
 	if _, err := fmt.Fprintf(in, "SEND %x\n", pyToGoPayload); err != nil {
 		t.Fatalf("write SEND: %v", err)
@@ -2096,7 +2096,7 @@ func TestLiveInteropSingleDestDataBothDirections(t *testing.T) {
 		t.Fatal("timeout waiting for python DATA packet on go destination")
 	}
 
-	// Go -> Python: send a DATA packet to the announced python destination.
+	// Go to Python: send a DATA packet to the announced python destination.
 	srvID, err := identity.Recall(pyHash)
 	if err != nil {
 		t.Fatalf("recall python identity: %v", err)

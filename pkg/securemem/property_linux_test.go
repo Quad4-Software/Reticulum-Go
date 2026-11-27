@@ -154,7 +154,7 @@ func selfRegions(t *testing.T) []memRegion {
 // A wiped+closed buffer must leave no copy of the marker anywhere in the
 // process's readable memory. The marker needle is kept in a protected
 // buffer (PROT_NONE, unreadable to the scan) and only unprotected inside
-// Use; regions holding the needle or the scan scratch are excluded.
+// Use. Regions holding the needle or the scan scratch are excluded.
 func TestMarkerGoneAfterClose(t *testing.T) {
 	if isHeapFallback {
 		t.Skip("heap fallback")

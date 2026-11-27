@@ -4,7 +4,7 @@
 Environment variables:
     INTEROP_GO_DEST_HASH       hex destination hash of the Go pageserver
     INTEROP_REQUEST_PATH       request path, default /page/index.mu
-    INTEROP_TIMEOUT_SEC        overall timeout, default 90
+    INTEROP_TIMEOUT_SEC        total timeout, default 90
     INTEROP_TCP_HOST           TCP hub host (required, no public default)
     INTEROP_TCP_PORT           TCP hub port, default 4242
     INTEROP_CONFIG_DIR         optional persistent config directory

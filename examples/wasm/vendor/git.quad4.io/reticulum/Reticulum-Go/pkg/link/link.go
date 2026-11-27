@@ -280,7 +280,7 @@ func (l *Link) Establish() error {
 
 	// RNS 1.6.0 stamped link requests: when the destination announced a
 	// link cost (or ALWAYS_STAMP_LRS is on) the ephemeral X25519 key is
-	// mined as a key-stamp on a goroutine; the link stays PENDING and the
+	// mined as a key-stamp on a goroutine. The link stays PENDING and the
 	// request is registered/sent only once stamping completes.
 	if cost, stamped := l.linkStampCost(); stamped {
 		l.mutex.Unlock()
@@ -534,7 +534,7 @@ func (l *Link) SendPacketWithContext(data []byte, context byte) error {
 // Transport workers run concurrently, so consecutive packets for the same
 // link (for example identify then request) could otherwise be processed
 // out of order or in parallel. Transport dispatches link data packets
-// serially on the inbound drainer, so this queue preserves wire order; a
+// serially on the inbound drainer, so this queue preserves wire order. A
 // dedicated drain goroutine processes it one packet at a time.
 func (l *Link) HandleInbound(pkt *packet.Packet) error {
 	// pkt aliases the transport's pooled receive buffer, which is recycled

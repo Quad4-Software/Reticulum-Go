@@ -337,7 +337,7 @@ func (t *Transport) markPathTableDirty() {
 
 // PersistStateForClientDetach writes dirty state without waiting for the
 // periodic persistence interval. Python performs this bounded write when the
-// last local client detaches from a shared instance; clean state still costs
+// last local client detaches from a shared instance. Clean state still costs
 // no disk write.
 func (t *Transport) PersistStateForClientDetach() {
 	t.savePathTable(false)

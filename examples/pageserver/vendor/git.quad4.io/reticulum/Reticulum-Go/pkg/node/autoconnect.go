@@ -451,7 +451,7 @@ func (n *Node) autoconnectMonitorTick() {
 			continue
 		}
 		// RNS 1.5.5: a monitored auto-connected interface that was manually
-		// detached leaves the transport registry; drop it from monitoring
+		// detached leaves the transport registry. Drop it from monitoring
 		// instead of tearing it down again.
 		if gone, gerr := n.transport.GetInterface(e.iface.GetName()); gerr != nil || gone == nil || gone != common.NetworkInterface(e.iface) {
 			debug.Log(debug.DebugVerbose, "A monitored auto-connected interface was manually detached, removing from monitoring",
@@ -512,6 +512,6 @@ func (n *Node) teardownAutoconnect(e *autoconnectEntry) {
 		hook.DetachAutoconnectFromParent()
 	}
 	// Route through the shared drop path used by interface management
-	// (Python teardown_interface -> _detach_interface, RNS 1.5.5).
+	// (Python teardown_interface to _detach_interface, RNS 1.5.5).
 	n.dropInterface(e.iface)
 }

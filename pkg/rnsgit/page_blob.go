@@ -63,7 +63,7 @@ func (n *Node) serveBlobPage(_ string, data []byte, _ []byte, _ []byte, remote *
 		}
 		header += "\n" + mDim(kind+", "+prettySize(float64(info.Size)))
 		if info.Symlink != "" {
-			header += "  " + mDim("-> "+info.Symlink)
+			header += "  " + mDim(": "+info.Symlink)
 		}
 		b.WriteString(header + "\n\n")
 

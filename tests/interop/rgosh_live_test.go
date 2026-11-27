@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: LicenseRef-Reticulum
 // Copyright (c) 2024-2026 Quad4.io
 
-// Live rgosh interop: Go<->Go native and Go<->Python rnsh (--compat).
+// Live rgosh interop: Go< to Go native and Go< to Python rnsh (--compat).
 // Set RUN_LIVE_INTEROP=1 to enable. Python tests need RETICULUM_PATH.
 
 package interop
@@ -318,7 +318,7 @@ func runGoCompatToPythonRnsh(t *testing.T, nullStdin bool) {
 	defer func() { _ = stdinR.Close(); _ = stdinW.Close() }()
 	// An immediate stdin EOF makes Python's listener close the child stdin and
 	// race its own reaper, so it never emits CommandExitedMessage. rgosh now
-	// delays that EOF in compat mode; the null stdin case covers it.
+	// delays that EOF in compat mode. The null stdin case covers it.
 	if nullStdin {
 		cmd.Stdin = bytes.NewReader(nil)
 	} else {

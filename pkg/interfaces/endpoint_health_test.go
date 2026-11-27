@@ -77,7 +77,7 @@ func TestEndpointTrackerSuccessRecovers(t *testing.T) {
 		t.Fatal("expected quarantine")
 	}
 	now = now.Add(EndpointQuarantineBase + time.Second)
-	// After the cooldown elapses a dial is allowed; success halves escalation.
+	// After the cooldown elapses a dial is allowed. Success halves escalation.
 	et.RecordSuccess(ep)
 	if ok, _ := et.DialAllowed(ep); !ok {
 		t.Fatal("endpoint should be dialable after cooldown")

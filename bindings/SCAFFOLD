@@ -147,9 +147,9 @@ Typical librns flow
   destination_create(..., accepts_links=true)
   destination_register_request_handler(dest, "/ping")
   destination_announce
-  peer: poll -> ANNOUNCE
+  peer: poll returns ANNOUNCE
   peer: link_open(dest_hash)
-  poll -> LINK_ESTABLISHED
+  poll returns LINK_ESTABLISHED
   link_send / LINK_DATA
   link_request / REQUEST_RESPONSE
   link_close / LINK_CLOSED
@@ -179,14 +179,14 @@ HTTP
   POST /v1/lifecycle/pause
   POST /v1/lifecycle/refresh-paths
 
-WebSocket server -> client event types
+WebSocket server-to-client event types
   announce
   link.established / link.failed / link.data / link.closed / link.remote_identified
   request.incoming / request.response / request.failed
   resource.started / resource.concluded
   command.error
 
-WebSocket client -> server command types
+WebSocket client-to-server command types
   subscribe_announces
   link.open / link.send / link.close / link.request / link.send_resource / link.identify
   request.respond

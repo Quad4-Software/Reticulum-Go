@@ -301,7 +301,7 @@ func runInterfaceManage(cfg *common.ReticulumConfig, attach, detach, reload stri
 }
 
 // runTopology renders the path table grouped by receiving interface over the
-// shared-instance RPC. Go-only view; Python rnstatus has no equivalent.
+// shared-instance RPC. Go-only view. Python rnstatus has no equivalent.
 func runTopology(cfg *common.ReticulumConfig, nameFilter string, timeout time.Duration, stdout, stderr io.Writer) int {
 	client, err := rnsutil.DialRPC(cfg, nil)
 	if err != nil {

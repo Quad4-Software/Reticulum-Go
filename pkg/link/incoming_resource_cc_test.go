@@ -92,7 +92,7 @@ func TestCCClassifyOscillatesFastMiddleFast(t *testing.T) {
 		1_000_000, // fast 2
 		1_000_000, // fast 3
 		3_000,     // middle
-		1_000_000, // fast 4 -> promote
+		1_000_000, // fast 4 to promote
 		2_000,     // middle: must STAY fast (no thrash on a single round)
 		1_000_000, // fast again: still fast
 	}
@@ -131,7 +131,7 @@ func TestCCClassifyFastToVerySlowDemotes(t *testing.T) {
 	if cc.class != ClassFast {
 		t.Fatalf("one very-slow round demoted early: %v", cc.class)
 	}
-	apply(200) // very slow 2 -> demote
+	apply(200) // very slow 2 to demote
 	if cc.class != ClassVerySlow {
 		t.Fatalf("class after 2 very-slow rounds = %v, want very_slow", cc.class)
 	}
@@ -139,7 +139,7 @@ func TestCCClassifyFastToVerySlowDemotes(t *testing.T) {
 		t.Fatalf("ceiling after demotion = %d, want %d", got, resource.WindowMaxVerySlow)
 	}
 	// Recovery: middle rounds reset the very-slow streak but do not
-	// promote; a fresh fast streak is required.
+	// promote. A fresh fast streak is required.
 	apply(2_000)
 	apply(1_000_000)
 	apply(1_000_000)
@@ -250,7 +250,7 @@ func TestCCStallGrace(t *testing.T) {
 	}
 
 	// Slow link, known rate: scales with outstanding bytes (10 parts x 384
-	// B at 250 B/s -> expected 15.4 s, margin ~31 s).
+	// B at 250 B/s to expected 15.4 s, margin ~31 s).
 	cc2 := newTestCC()
 	cc2.knownRate = true
 	cc2.rateBps = 250
@@ -351,7 +351,7 @@ func newImpairedPair(nameA, nameB string, opts impairedOptions) *impairedPipe {
 }
 
 // setImpairment swaps the impairment profile on both directions at
-// runtime, for regime-change tests (fast->slow, oscillating links).
+// runtime, for regime-change tests (fast to slow, oscillating links).
 func (p *impairedPipe) setImpairment(opts impairedOptions) {
 	for _, q := range []*impairedPipe{p, p.peer} {
 		q.optMu.Lock()
@@ -666,10 +666,10 @@ func TestIncomingResourceCCLossyLinkCompletes(t *testing.T) {
 // clamps a carried window into the current ceiling.
 func TestIncomingResourceCCSeedClampsLastWindow(t *testing.T) {
 	if got := startIncomingWindow(75, resource.WindowMin, resource.WindowMaxVerySlow, resource.WindowMaxSlow); got != resource.WindowMaxVerySlow {
-		t.Fatalf("startIncomingWindow fast->veryslow = %d", got)
+		t.Fatalf("startIncomingWindow fast to veryslow = %d", got)
 	}
 	if got := startIncomingWindow(75, resource.WindowMin, resource.WindowMaxFast, resource.WindowMaxSlow); got != 75 {
-		t.Fatalf("startIncomingWindow fast->fast = %d", got)
+		t.Fatalf("startIncomingWindow fast to fast = %d", got)
 	}
 	if got := startIncomingWindow(0, resource.WindowMin, resource.WindowMaxSlow, resource.WindowMaxSlow); got != resource.WindowMaxSlow {
 		t.Fatalf("startIncomingWindow fresh = %d", got)
@@ -834,7 +834,7 @@ func TestIncomingResourceCCOscillatingLinkCompletes(t *testing.T) {
 
 	switch resp.lastResourceClass {
 	case ClassFast, ClassSlow, ClassVerySlow:
-		// Any settled class is sane after an oscillating transfer; the
+		// Any settled class is sane after an oscillating transfer. The
 		// transfer itself is the assertion.
 	default:
 		t.Fatalf("unexpected final class %v", resp.lastResourceClass)

@@ -179,6 +179,6 @@ func TestHandlerPoolOverflowAlwaysSheds(t *testing.T) {
 	}
 	after := health.Default.SnapshotIface("shed0").DoSHandler.Total
 	if after <= before {
-		t.Fatalf("overflow did not shed: dos_handler %d -> %d", before, after)
+		t.Fatalf("overflow did not shed: dos_handler %d: %d", before, after)
 	}
 }

@@ -102,7 +102,7 @@ func callTCPLink(t *testing.T, server, client *transport.Transport, tag string) 
 	t.Cleanup(func() { _ = cli.Stop() })
 }
 
-// callChain returns links+1 transports wired in a UDP line; inner
+// callChain returns links+1 transports wired in a UDP line. Inner
 // nodes relay.
 func callChain(t *testing.T, links int) []*transport.Transport {
 	t.Helper()
@@ -244,7 +244,7 @@ func TestGoGoCallMixedUDPTCP(t *testing.T) {
 	if testing.Short() {
 		t.Skip("live mesh call test")
 	}
-	// caller --UDP--> relay --TCP--> callee
+	// caller --UDP- to relay --TCP- to callee
 	callerTr := matrixTransportCall(t, false)
 	relay := matrixTransportCall(t, true)
 	calleeTr := matrixTransportCall(t, false)

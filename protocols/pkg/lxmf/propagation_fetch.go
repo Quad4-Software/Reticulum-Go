@@ -43,7 +43,7 @@ const DeliveryLimitKBDefault = 1000
 // message_get_response. It returns the number of messages delivered to the
 // inbound handler. Received transient ids are sent back to the node so it
 // can purge them from its store. A transferLimitKB of zero or less sends the
-// upstream default delivery limit; on the wire a literal zero means no
+// upstream default delivery limit. On the wire a literal zero means no
 // transfer at all.
 func (m *Messenger) FetchPropagated(propNodeHash []byte, maxMessages int, transferLimitKB float64) (int, error) {
 	if m == nil || m.transport == nil {
@@ -60,7 +60,7 @@ func (m *Messenger) FetchPropagated(propNodeHash []byte, maxMessages int, transf
 	// Upstream identifies on the link so the node can authorize the
 	// request and purge the right delivery destination. Inbound packets
 	// are processed concurrently, so a request can reach the node before
-	// the identify lands; retry the list request on NO_IDENTITY.
+	// the identify lands. Retry the list request on NO_IDENTITY.
 	var list []any
 	for attempt := 0; ; attempt++ {
 		if id := m.dest.GetIdentity(); id != nil {

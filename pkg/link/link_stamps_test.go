@@ -28,7 +28,7 @@ func TestValidateLinkRequestStampEnforced(t *testing.T) {
 	_ = priv
 
 	l := &Link{transport: nil}
-	// nil transport → defaults; LREnforced false → never rejects.
+	// nil transport means defaults. LREnforced false means never rejects.
 	v, err := l.validateLinkRequestStamp(destHash, 8, pub[:], sigPub)
 	if err != nil || v < 8 {
 		t.Fatalf("unenforced: v=%v err=%v", v, err)

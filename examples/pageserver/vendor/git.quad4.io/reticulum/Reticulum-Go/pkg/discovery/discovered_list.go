@@ -509,7 +509,7 @@ func stringField(v any) string {
 // BackboneSupported reports whether this platform uses BackboneClientInterface
 // for discovered backbone endpoints, matching Python's
 // "not is_windows() and not is_darwin()" gate in RNS 1.5.5. Go runs the
-// backbone client everywhere; the gate exists so emitted config entries match
+// backbone client everywhere. The gate exists so emitted config entries match
 // what a same-platform Python rnsd would write.
 func BackboneSupported() bool {
 	return runtime.GOOS != "windows" && runtime.GOOS != "darwin"

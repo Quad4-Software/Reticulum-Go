@@ -120,7 +120,7 @@ func TestKnownDestinationsCapNoGrowth(t *testing.T) {
 	var m2 runtime.MemStats
 	runtime.ReadMemStats(&m2)
 	if m2.HeapAlloc > m1.HeapAlloc+(4<<20) {
-		t.Fatalf("known dest heap grew %d -> %d", m1.HeapAlloc, m2.HeapAlloc)
+		t.Fatalf("known dest heap grew %d: %d", m1.HeapAlloc, m2.HeapAlloc)
 	}
 	knownDestinationsLock.RLock()
 	n := len(knownDestinations)

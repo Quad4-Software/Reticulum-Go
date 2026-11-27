@@ -39,7 +39,7 @@ build_android_abi() {
 		return 1
 	fi
 	out="$BUILD_DIR/android/$abi/liblxmf.so"
-	echo "==> android $abi -> $out"
+	echo "==> android $abi writing $out"
 	mkdir -p "$(dirname "$out")"
 	# shellcheck disable=SC2086
 	env CGO_ENABLED=1 GOOS=android GOARCH="$goarch" $extra_env CC="$cc" \

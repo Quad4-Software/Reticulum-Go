@@ -310,7 +310,7 @@ tasks:
       - bash scripts/ci/setup.sh
 
   ci:pr:
-    desc: PR quality gate (local, Forgejo, Gitea, or workflow wrapper)
+    desc: PR quality gate (local or workflow wrapper)
     cmds:
       - bash scripts/ci/run.sh pr
 

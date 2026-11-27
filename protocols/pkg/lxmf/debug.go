@@ -12,7 +12,7 @@ import (
 	rnsdebug "git.quad4.io/reticulum/Reticulum-Go/pkg/debug"
 )
 
-// Log levels match RNS debug (1–7) so one -debug flag can control both stacks.
+// Log levels match RNS debug (1-7) so one -debug flag can control both stacks.
 const (
 	LogCritical = 1
 	LogError    = 2
@@ -41,7 +41,7 @@ func init() {
 	rebuildLogger(os.Stderr)
 }
 
-// SetLogLevel sets the minimum log level; higher numeric levels are discarded.
+// SetLogLevel sets the minimum log level. Higher numeric levels are discarded.
 func SetLogLevel(level int) {
 	if level < LogCritical {
 		level = LogCritical
@@ -69,7 +69,7 @@ func MirrorRNSDebug(enabled bool) {
 	mirrorRNS.Store(enabled)
 }
 
-// SetLogOutput sets the log writer; nil means os.Stderr.
+// SetLogOutput sets the log writer. Nil means os.Stderr.
 func SetLogOutput(w io.Writer) {
 	if w == nil {
 		w = os.Stderr
@@ -79,7 +79,7 @@ func SetLogOutput(w io.Writer) {
 	logMu.Unlock()
 }
 
-// SetLogger replaces the default logger; ignores MirrorRNSDebug and SetLogOutput.
+// SetLogger replaces the default logger. Ignores MirrorRNSDebug and SetLogOutput.
 func SetLogger(l *slog.Logger) {
 	if l == nil {
 		l = slog.New(slog.NewTextHandler(os.Stderr, nil))
@@ -96,7 +96,7 @@ func Logger() *slog.Logger {
 	return logger
 }
 
-// Log writes at level using slog-style args; dropped if level is above the threshold.
+// Log writes at level using slog-style args. Dropped if level is above the threshold.
 func Log(level int, msg string, args ...any) {
 	if level > LogLevel() {
 		return

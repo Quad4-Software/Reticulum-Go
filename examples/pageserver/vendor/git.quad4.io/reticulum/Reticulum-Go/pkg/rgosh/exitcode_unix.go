@@ -12,7 +12,7 @@ import (
 
 // waitStatusCode maps a signaled exit onto Python rnsh's "waitpid & 0xff"
 // exit-code contract: the signal number plus 128 when the child dumped core.
-// Go's ExitCode reports -1 for signal deaths; a remote Python rnsh mirrors
+// Go's ExitCode reports -1 for signal deaths. A remote Python rnsh mirrors
 // that as process exit status 255.
 func waitStatusCode(state *os.ProcessState, fallback int) int {
 	if ws, ok := state.Sys().(syscall.WaitStatus); ok && ws.Signaled() {

@@ -34,7 +34,7 @@ type tagState struct {
 	// captures is a FIFO of *capture bounded at MaxCaptures, matching the
 	// Python deque(maxlen=) semantics: eviction drops the oldest entry but
 	// running stacks keep their own reference so End still lands. head is
-	// the index of the oldest live entry; entries before head are dead.
+	// the index of the oldest live entry. Entries before head are dead.
 	captures []*capture
 	head     int
 	running  map[uint64][]*capture
@@ -152,7 +152,7 @@ func lookupTag(tag string) *tagState {
 
 // push appends c to the bounded FIFO, evicting the oldest entry at
 // MaxCaptures like the Python deque(maxlen=). Evicted captures that
-// already completed are recycled through capturePool; captures still
+// already completed are recycled through capturePool. Captures still
 // referenced by a running stack are left for the GC, matching Python
 // where the deque drop does not invalidate the thread's running ref.
 func (st *tagState) push(c *capture) {

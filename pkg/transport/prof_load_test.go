@@ -46,7 +46,7 @@ func TestProfSimNetworkLoad(t *testing.T) {
 	runtime.MemProfileRate = 131072
 	defer func() { runtime.MemProfileRate = oldRate }()
 
-	// Enable block and mutex contention sampling; without an explicit
+	// Enable block and mutex contention sampling. Without an explicit
 	// rate both profiles come out empty. Rates are coarse enough that the
 	// sampler overhead stays well under the load it measures.
 	runtime.SetBlockProfileRate(1 << 21)
@@ -179,7 +179,7 @@ func TestProfSimNetworkLoad(t *testing.T) {
 	total := sent.Load()
 	allocMB := float64(m2.TotalAlloc-m1.TotalAlloc) / (1 << 20)
 	heapInuseMB := float64(int64(m2.HeapInuse)-int64(m1.HeapInuse)) / (1 << 20)
-	t.Logf("load ran %s: %d data packets sent, %.1f MB total alloc (%.1f KB/pkt), heap inuse delta %.1f MB, goroutines %d -> %d",
+	t.Logf("load ran %s: %d data packets sent, %.1f MB total alloc (%.1f KB/pkt), heap inuse delta %.1f MB, goroutines %d: %d",
 		time.Since(loadStart).Round(time.Millisecond), total, allocMB, allocMB*1024/float64(maxI64(total, 1)), heapInuseMB, g1, g2)
 	for _, p := range []string{"cpu.prof", "heap.prof", "goroutine.prof", "mutex.prof", "block.prof"} {
 		t.Logf("profile: %s", filepath.Join(outDir, p))

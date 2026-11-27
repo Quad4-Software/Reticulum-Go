@@ -24,7 +24,7 @@ func RunSelfCheck(args []string, opt ...Options) int {
 	interop := fs.Bool("interop", false, "include optional external tool checks")
 	strict := fs.Bool("strict", false, "treat warnings as failures")
 	binary := fs.String("binary", "", "path to reticulum-go for daemon and CLI checks")
-	timeout := fs.Duration("timeout", 45*time.Second, "overall check timeout")
+	timeout := fs.Duration("timeout", 45*time.Second, "total check timeout")
 	bindFlagUsage(fs, "reticulum-go self-check - host OS preflight",
 		"Runs platform checks for dependencies, permissions, and optional interop tools.",
 		[]helpLine{

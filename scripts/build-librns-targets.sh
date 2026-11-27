@@ -25,7 +25,7 @@ want() {
 }
 
 build_linux_host() {
-	echo "==> linux host -> $BUILD_DIR/librns.so"
+	echo "==> linux host writing $BUILD_DIR/librns.so"
 	mkdir -p "$BUILD_DIR"
 	CGO_ENABLED=1 "$GOCMD" build -buildmode=c-shared -o "$BUILD_DIR/librns.so" ./cmd/librns
 	cp include/rns.h "$BUILD_DIR/rns.h"
@@ -58,7 +58,7 @@ build_linux_cross() {
 		echo "skip linux $label: zig not on PATH" >&2
 		return 0
 	fi
-	echo "==> linux $label (CC=$cc) -> $out"
+	echo "==> linux $label (CC=$cc) writing $out"
 	mkdir -p "$(dirname "$out")"
 	# shellcheck disable=SC2086
 	env CGO_ENABLED=1 GOOS=linux GOARCH="$goarch" $goarm CC="$cc" \
@@ -99,7 +99,7 @@ build_android_abi() {
 		return 1
 	fi
 	out="$BUILD_DIR/android/$abi/librns.so"
-	echo "==> android $abi -> $out"
+	echo "==> android $abi writing $out"
 	mkdir -p "$(dirname "$out")"
 	# shellcheck disable=SC2086
 	env CGO_ENABLED=1 GOOS=android GOARCH="$goarch" $extra_env CC="$cc" \
@@ -136,7 +136,7 @@ build_windows() {
 		return 0
 	}
 	out="$BUILD_DIR/windows/amd64/librns.dll"
-	echo "==> windows amd64 (CC=$cc) -> $out"
+	echo "==> windows amd64 (CC=$cc) writing $out"
 	mkdir -p "$(dirname "$out")"
 	# shellcheck disable=SC2086
 	env CGO_ENABLED=1 GOOS=windows GOARCH=amd64 CC="$cc" \
@@ -168,7 +168,7 @@ build_darwin_arch() {
 	goarch="$1"
 	cc="$2"
 	out="$BUILD_DIR/darwin/$goarch/librns.dylib"
-	echo "==> darwin $goarch (CC=$cc) -> $out"
+	echo "==> darwin $goarch (CC=$cc) writing $out"
 	mkdir -p "$(dirname "$out")"
 	# shellcheck disable=SC2086
 	env CGO_ENABLED=1 GOOS=darwin GOARCH="$goarch" CC="$cc" \

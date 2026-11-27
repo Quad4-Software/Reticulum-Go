@@ -131,7 +131,7 @@ func TestPythonRoundTrip(t *testing.T) {
 	dir := t.TempDir()
 	dbPath := filepath.Join(dir, "known_destinations.db")
 
-	// Go writes; Python reads read-only.
+	// Go writes. Python reads read-only.
 	s, err := OpenKnownDestinations(dbPath, 16, false)
 	if err != nil {
 		t.Fatal(err)
@@ -171,7 +171,7 @@ print("OK")
 		t.Fatalf("python read of Go DB: %v\n%s", err, out)
 	}
 
-	// Python writes; Go reads.
+	// Python writes. Go reads.
 	out, err = runPython(t, python, `
 import sys, time
 sys.path.insert(0, "/mnt/projects/Reticulum-Go/reticulum-ref")

@@ -165,7 +165,7 @@ func (c *RPCClient) GetRateTable() ([]transport.RateTableEntry, error) {
 }
 
 // GetMemoryStats fetches Go runtime memory stats and per-table counts.
-// Only Go shared instances serve this key; a nil map is returned when the
+// Only Go shared instances serve this key. A nil map is returned when the
 // remote does not know it.
 func (c *RPCClient) GetMemoryStats() (map[string]any, error) {
 	var out map[string]any

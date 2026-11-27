@@ -182,7 +182,7 @@ func TestInterop_Live_ChaosProxyConvergence(t *testing.T) {
 	s := proxy.Snapshot()
 	t.Logf("proxy stats: %+v seed=%d", s, seed)
 	if s.FramesIn == 0 {
-		t.Error("proxy saw no frames — golxmd is not routing through it")
+		t.Error("proxy saw no frames, golxmd is not routing through it")
 	}
 	if got := runtime.NumGoroutine(); got > baseG+200 {
 		t.Errorf("test-side goroutines unbounded: base=%d after=%d", baseG, got)

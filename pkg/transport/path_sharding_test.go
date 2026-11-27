@@ -267,7 +267,7 @@ func TestUnusedPathPoolCull(t *testing.T) {
 
 	// Five never-used paths: 3 fast with staggered expiry, 1 fast with the
 	// earliest expiry, 1 slow. Expect the earliest-expiry fast path and
-	// one later fast path culled; the slow path retained.
+	// one later fast path culled. The slow path retained.
 	type destInfo struct {
 		dest   []byte
 		name   string

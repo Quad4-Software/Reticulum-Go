@@ -56,7 +56,7 @@ func TestBuildOperatorSummary(t *testing.T) {
 	if o.Transport != "UDPInterface" {
 		t.Fatalf("transport=%q", o.Transport)
 	}
-	if o.Address != "127.0.0.1:4242 -> 127.0.0.1:4243" {
+	if o.Address != "127.0.0.1:4242: 127.0.0.1:4243" {
 		t.Fatalf("address=%q", o.Address)
 	}
 	if o.ConfigPath == "" || o.LogFile == "" {

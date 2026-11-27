@@ -10,7 +10,7 @@ import (
 )
 
 // HardenProcess makes the calling process non-dumpable and disables core
-// dumps, so secrets cannot escape through a core file. Best effort; a
+// dumps, so secrets cannot escape through a core file. Best effort. A
 // kernel or sandbox that refuses either step does not stop the caller.
 func HardenProcess() {
 	_ = unix.Prctl(unix.PR_SET_DUMPABLE, 0, 0, 0, 0)

@@ -231,8 +231,8 @@ func TestDownloadEndpoint(t *testing.T) {
 }
 
 // TestDownloadMuConversion covers the RNS 1.5.5 markdown-to-micron download
-// conversion: fmt=mu on a .md file renders micron with a .mu name; other
-// extensions are refused; unknown formats return no response.
+// conversion: fmt=mu on a .md file renders micron with a .mu name. Other
+// extensions are refused. Unknown formats return no response.
 func TestDownloadMuConversion(t *testing.T) {
 	node, _ := pageTestNode(t, "rw:all")
 

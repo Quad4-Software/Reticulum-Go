@@ -282,7 +282,7 @@ func TestIngressControl_ReleaseHeldAnnounceFor_MatchesDest(t *testing.T) {
 	}
 	clearBurst(t, ic)
 
-	// dest-b sits mid-queue; the priority release must find it anyway.
+	// dest-b sits mid-queue. The priority release must find it anyway.
 	gotHash, gotData, ok := ic.ReleaseHeldAnnounceFor(dB)
 	if !ok {
 		t.Fatal("ReleaseHeldAnnounceFor should release the announce held for dest-b")
@@ -399,7 +399,7 @@ func TestIngressControl_ReleaseHeldAnnounceFor_IgnoresReleaseInterval(t *testing
 	if _, _, ok := ic.ReleaseHeldAnnounce(); !ok {
 		t.Fatal("FIFO release should succeed first")
 	}
-	// HeldReleaseInterval is 10ms; an immediate priority release for a
+	// HeldReleaseInterval is 10ms. An immediate priority release for a
 	// different dest must not be paced by it.
 	if _, _, ok := ic.ReleaseHeldAnnounceFor(dB); !ok {
 		t.Error("ReleaseHeldAnnounceFor must ignore HeldReleaseInterval")

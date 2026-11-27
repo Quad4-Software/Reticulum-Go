@@ -28,7 +28,7 @@ import (
 //     interfaces. On failover they are re-injected through the normal
 //     announce pipeline, which re-runs the contest and verifies on demand.
 //
-// Both are local state only; nothing here changes wire behavior.
+// Both are local state only. Nothing here changes wire behavior.
 
 const (
 	// maxBackupPathsPerDest bounds verified alternate paths kept per
@@ -69,7 +69,7 @@ type pendingAltAnnounce struct {
 // duplicateAnnounceContest reports whether a deduplicated announce copy
 // would win the path-table contest against the current entry. It reads only
 // cleartext fields (hops byte, receiving interface, the random blob prefix
-// of the signed payload); winners still pay full verification before any
+// of the signed payload). Winners still pay full verification before any
 // path state changes. Returns the current path's interface name so callers
 // can tell same-neighbor replays from genuine alternates.
 func (t *Transport) duplicateAnnounceContest(hopCount byte, iface common.NetworkInterface, destinationHash, payload []byte) (bool, string) {
@@ -215,7 +215,7 @@ func (t *Transport) pathNeedsFailoverLocked(key [PathMapKeySize]byte, now time.T
 
 // maybeFailoverPath attempts to restore connectivity for the destination
 // behind key after its path failed or expired. Verified backups promote
-// instantly; otherwise the best buffered same-emission alternate is
+// instantly. Otherwise the best buffered same-emission alternate is
 // re-injected through the normal announce pipeline (contest + verify on
 // demand).
 func (t *Transport) maybeFailoverPath(key [PathMapKeySize]byte) {
@@ -224,7 +224,7 @@ func (t *Transport) maybeFailoverPath(key [PathMapKeySize]byte) {
 	}
 	if hops, ok := t.promoteBackupPath(key); ok {
 		// A promoted path can answer a waiting local path request right
-		// away when the announce bytes are still cached; otherwise this
+		// away when the announce bytes are still cached. Otherwise this
 		// is a no-op.
 		t.answerPendingLocalPathRequest(key[:packet.TruncatedHashLength], hops)
 		return

@@ -79,7 +79,7 @@ type AGC struct {
 }
 
 // NewAGC builds an AGC around a dBFS target. Upstream LXST maps dB to linear
-// with 10^(db/10) (target_linear and max_gain_linear); match that convention.
+// with 10^(db/10) (target_linear and max_gain_linear). Match that convention.
 func NewAGC(targetDB float64) *AGC {
 	if targetDB == 0 {
 		targetDB = defaultAGCdB
@@ -158,7 +158,7 @@ func clamp16(v float64) int16 {
 }
 
 // ApplyGain scales samples by a decibel gain. LXST upstream converts dB to a
-// linear factor with 10^(db/10) in Mixer and file sources; match that here.
+// linear factor with 10^(db/10) in Mixer and file sources. Match that here.
 func ApplyGain(pcm []int16, db float64) {
 	if db == 0 || len(pcm) == 0 {
 		return

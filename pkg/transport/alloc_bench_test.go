@@ -211,7 +211,7 @@ func TestAnnounceIngestNoGrowth(t *testing.T) {
 
 	t.Logf("HeapAlloc by batch (after GC): %v bytes", samples)
 	if samples[batches-1] > samples[0]+(2<<20) && samples[batches-1] > samples[1]+(1<<20) {
-		t.Errorf("possible leak: HeapAlloc grew %d -> %d bytes across batches",
+		t.Errorf("possible leak: HeapAlloc grew %d: %d bytes across batches",
 			samples[0], samples[batches-1])
 	}
 	time.Sleep(200 * time.Millisecond)

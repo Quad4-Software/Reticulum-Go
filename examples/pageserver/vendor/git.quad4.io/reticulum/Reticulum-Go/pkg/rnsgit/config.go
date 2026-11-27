@@ -449,7 +449,7 @@ serve_nomadnet = no
 # "refs", "stats", "releases", "release", "work" and
 # "work_doc". Include a {PAGE_CONTENT} variable where the
 # rendered page content should be injected. The base
-# template additionally supports {NODE_NAME}, {VERSION},
+# template also supports {NODE_NAME}, {VERSION},
 # {NAVIGATION} and {GEN_TIME}. A template file with the
 # executable bit set is run and its stdout becomes the
 # template.

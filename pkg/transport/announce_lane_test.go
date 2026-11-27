@@ -17,7 +17,7 @@ import (
 // TestAnnounceLanesBypassBlockedWorkerPool proves announce jobs ride their
 // dedicated lanes instead of the shared packet worker pool. With every
 // packetQ worker parked, a valid announce must still verify and be
-// remembered; before the lanes existed it would shed on the full queue and
+// remembered. Before the lanes existed it would shed on the full queue and
 // never reach handleAnnouncePacket.
 func TestAnnounceLanesBypassBlockedWorkerPool(t *testing.T) {
 	health.Default.Reset()

@@ -308,7 +308,7 @@ func TestAutoInterfacePeerManagement(t *testing.T) {
 			t.Fatalf("Peer %s not found before timestamp update", peer1AddrStr)
 		}
 
-		// The announce stamps lastHeard with time.Now(); on coarse clocks
+		// The announce stamps lastHeard with time.Now(). On coarse clocks
 		// (windows CI granularity can exceed 10ms) that can equal the
 		// previously recorded instant, so wait for the clock to move past it
 		// before re-announcing or the After check is a coin toss.
@@ -342,7 +342,7 @@ func TestAutoInterfacePeerManagement(t *testing.T) {
 
 	t.Run("PeerTimeout", func(t *testing.T) {
 		// Poll for the reaper to drain both peers instead of assuming two
-		// ticks is enough; a delayed tick must not flake the assert.
+		// ticks is enough. A delayed tick must not flake the assert.
 		deadline := time.Now().Add(peerTTL + 3*reapInterval + 2*time.Second)
 		for time.Now().Before(deadline) {
 			reapPeers()

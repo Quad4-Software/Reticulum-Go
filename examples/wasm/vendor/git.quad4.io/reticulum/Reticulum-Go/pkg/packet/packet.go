@@ -192,7 +192,7 @@ func (p *Packet) Pack() error {
 
 	var raw []byte
 	// Raw can only be reused when none of the input fields are views into it.
-	// Unpack leaves DestinationHash, TransportID, and Data inside Raw; copying
+	// Unpack leaves DestinationHash, TransportID, and Data inside Raw. Copying
 	// them before every rewrap costs two or three allocations per relayed
 	// packet. Writing into a fresh backing array preserves those views without
 	// the copies, while independent caller-owned fields still reuse Raw with

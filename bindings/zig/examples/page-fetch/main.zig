@@ -21,7 +21,7 @@ fn usage(argv0: []const u8) void {
         \\
         \\Options:
         \\  -c path   Reticulum config file (required for network interfaces)
-        \\  -t sec    Overall timeout in seconds (default {d})
+        \\  -t sec    Total timeout in seconds (default {d})
         \\
         \\Example:
         \\  {s} -c config.example 92798ea245a0afcfa559348e42d628c6:/page/index.mu

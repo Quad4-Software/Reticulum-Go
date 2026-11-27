@@ -82,7 +82,7 @@ func (n *Node) serveTreePage(_ string, data []byte, _ []byte, _ []byte, remote *
 					mDim("(submodule)") + "`a\n")
 			case "link":
 				b.WriteString("`a  ↳ " + mEscape(e.Name) + " " +
-					mDim("-> "+e.Link) + "`a\n")
+					mDim(": "+e.Link) + "`a\n")
 			default:
 				f := mergeFields(base, "path", entryPath)
 				b.WriteString("`a  " + icons.File + " " +

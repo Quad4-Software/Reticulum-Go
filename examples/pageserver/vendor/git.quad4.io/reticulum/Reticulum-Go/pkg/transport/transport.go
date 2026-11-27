@@ -2754,7 +2754,7 @@ func (t *Transport) hasPendingAnnounceForward(dest hash16) bool {
 
 // noteAnnounceDedupIface records a non-shared-medium interface that delivered
 // an identical copy of a pending announce so the queued rebroadcast skips it
-// (Python announce_table IDX_AT_DEDUP_IFS -> Packet.blocked_interfaces).
+// (Python announce_table IDX_AT_DEDUP_IFS to Packet.blocked_interfaces).
 func (t *Transport) noteAnnounceDedupIface(dest hash16, pktHash [32]byte, ifaceName string) {
 	t.pendingAnnounceMu.Lock()
 	defer t.pendingAnnounceMu.Unlock()

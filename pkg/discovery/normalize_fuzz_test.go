@@ -24,7 +24,7 @@ func FuzzNormalizeIfaceType(f *testing.F) {
 		got := normalizeIfaceType(in)
 		again := normalizeIfaceType(got)
 		if got != again && normalizeIfaceType(again) != again {
-			t.Fatalf("normalize not stable: %q -> %q -> %q", in, got, again)
+			t.Fatalf("normalize not stable: %q: %q: %q", in, got, again)
 		}
 		_ = isDiscoverableType(in)
 	})

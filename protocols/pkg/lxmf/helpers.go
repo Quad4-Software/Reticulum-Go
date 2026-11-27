@@ -80,7 +80,7 @@ func unmarshalMsgpackArray(appData []byte) ([]any, error) {
 	return out, nil
 }
 
-// StampCostFromAppData returns the v0.5.0+ stamp cost; ok false for legacy UTF-8 announces.
+// StampCostFromAppData returns the v0.5.0+ stamp cost. Ok false for legacy UTF-8 announces.
 func StampCostFromAppData(appData []byte) (cost int64, ok bool, err error) {
 	if len(appData) == 0 {
 		return 0, false, nil
@@ -194,7 +194,7 @@ func normalizeAnnounceRGB3(rgb []byte) []byte {
 
 // EncodePNAnnounceAppData builds the 7-element propagation node announce
 // payload. nodeState matches upstream propagation_node and not
-// from_static_only; the limits are announced as configured either way.
+// from_static_only. The limits are announced as configured either way.
 func EncodePNAnnounceAppData(timebase int64, nodeState bool, transferLimitKB, syncLimitKB int, stampTarget, stampFlex, peeringCost int, nodeName string) ([]byte, error) {
 	// Upstream lxmd 1.3.0 always announces implementation name and
 	// version in the propagation node metadata.
@@ -228,7 +228,7 @@ func marshalAnnounceAppData(payload []any) ([]byte, error) {
 }
 
 // CompressionSupportFromAppData reports bz2 Resource support per upstream rules.
-// ok is false for empty input; legacy and short v0.5.0+ arrays default to supported true.
+// ok is false for empty input. Legacy and short v0.5.0+ arrays default to supported true.
 func CompressionSupportFromAppData(appData []byte) (supported, ok bool, err error) {
 	if len(appData) == 0 {
 		return false, false, nil
@@ -263,7 +263,7 @@ func CompressionSupportFromAppData(appData []byte) (supported, ok bool, err erro
 	return false, true, nil
 }
 
-// FeatureSupportFromAppData returns the third-element SF code list when present; ok false if omitted or legacy.
+// FeatureSupportFromAppData returns the third-element SF code list when present. Ok false if omitted or legacy.
 func FeatureSupportFromAppData(appData []byte) (codes []byte, ok bool, err error) {
 	if len(appData) == 0 {
 		return nil, false, nil

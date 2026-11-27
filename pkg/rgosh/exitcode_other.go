@@ -7,6 +7,6 @@ package rgosh
 
 import "os"
 
-// waitStatusCode has no signaled-waitstatus semantics on this platform; the
+// waitStatusCode has no signaled-waitstatus semantics on this platform. The
 // reported exit code is used as-is.
 func waitStatusCode(_ *os.ProcessState, fallback int) int { return fallback }

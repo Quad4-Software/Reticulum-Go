@@ -181,7 +181,7 @@ func TestSimPathRequestStorm(t *testing.T) {
 	if sent > 4 {
 		t.Errorf("path-request storm not throttled: %d packets sent for %d callers", sent, callers)
 	}
-	t.Logf("path-request storm: %d callers -> %d wire packets", callers, sent)
+	t.Logf("path-request storm: %d callers: %d wire packets", callers, sent)
 }
 
 // TestSimIFACFlood configures a network identity on every interface

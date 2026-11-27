@@ -415,7 +415,7 @@ func (s *Service) Reload(peer []byte) {
 	}
 	newTrusted, newBanned := s.trust.Counts()
 	s.notice(peer, "", fmt.Sprintf(
-		"reloaded: trusted=%d->%d banned=%d->%d registered_rooms=%d->%d\npolicy: max_nick_bytes=%d",
+		"reloaded: trusted=%d to %d banned=%d to %d registered_rooms=%d to %d\npolicy: max_nick_bytes=%d",
 		oldTrusted, newTrusted, oldBanned, newBanned, oldRooms, s.rooms.Count(), newCfg.MaxNickBytes,
 	))
 	s.bumpStatus()

@@ -124,7 +124,7 @@ func (s *stubDecoder) Decode(packet []byte) ([]int16, error) {
 		return nil, fmt.Errorf("truncated stub packet")
 	}
 	// Real opus decodes to the decoder's configured frame length at the
-	// playback rate; mirror that contract so callers see a fixed frame size.
+	// playback rate. Mirror that contract so callers see a fixed frame size.
 	out := make([]int16, s.frame)
 	for i := range out {
 		v := int16(packet[6+(i*k/s.frame)*2])<<8 | int16(packet[6+(i*k/s.frame)*2+1])

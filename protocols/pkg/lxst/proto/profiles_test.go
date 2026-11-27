@@ -67,10 +67,10 @@ func TestNextProfileMatchesLXSTOrder(t *testing.T) {
 		t.Fatalf("ll must precede ull in cycle: %v", list)
 	}
 	if proto.NextProfile(proto.ProfileQualityMax) != proto.ProfileLatencyLow {
-		t.Fatal("shq -> ll")
+		t.Fatal("shq: ll")
 	}
 	if proto.NextProfile(proto.ProfileLatencyLow) != proto.ProfileLatencyUltraLow {
-		t.Fatal("ll -> ull")
+		t.Fatal("ll: ull")
 	}
 	if proto.NextProfile(proto.ProfileLatencyUltraLow) != proto.ProfileBandwidthUltraLow {
 		t.Fatal("ull wraps to ulbw")

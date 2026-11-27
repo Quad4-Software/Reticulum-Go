@@ -15,7 +15,7 @@ import (
 
 // IFAC is the subset of pkg/ifac.Identity that interfaces and transport need
 // to authenticate and mask/unmask raw packets. Living in pkg/common avoids an
-// import cycle (pkg/common -> pkg/ifac -> pkg/identity -> pkg/common).
+// import cycle (pkg/common to pkg/ifac to pkg/identity to pkg/common).
 type IFAC interface {
 	// Size returns the per-interface IFAC size in bytes.
 	Size() int

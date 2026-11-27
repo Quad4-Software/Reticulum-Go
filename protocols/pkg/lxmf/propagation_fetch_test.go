@@ -210,7 +210,7 @@ func TestMessageGetTransferLimit(t *testing.T) {
 		t.Fatalf("partial limit response %#v", resp)
 	}
 
-	// Numeric strings coerce like Python float(); junk is unlimited.
+	// Numeric strings coerce like Python float(). Junk is unlimited.
 	resp, ok = get([]any{[]any{tid1, tid2}, []any{}, "0.2"}).([][]byte)
 	if !ok || len(resp) != 1 {
 		t.Fatalf("string limit response %#v", resp)

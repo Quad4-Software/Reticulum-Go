@@ -96,7 +96,7 @@ func runPackage(pkg string, threshold float64, workers int, timeout time.Duratio
 		if rel == "" {
 			rel = o.Mutant.File
 		}
-		fmt.Printf("%-10s %s:%d:%d  %s -> %s\n",
+		fmt.Printf("%-10s %s:%d:%d  %s: %s\n",
 			formatMutantResult(o.Result), rel, o.Mutant.Line, o.Mutant.Column, o.Mutant.From, o.Mutant.To)
 	}
 

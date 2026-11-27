@@ -88,7 +88,7 @@ if [ ! -s "$NOTES_FILE" ]; then
 	printf '%s\n\nSee the release page for details.\n' "$TAG" > "$NOTES_FILE"
 fi
 
-# rngit asks for release notes through $EDITOR; give it a helper that
+# rngit asks for release notes through $EDITOR. Give it a helper that
 # drops our changelog section into its scratch file.
 EDITOR_HELPER="$(mktemp "${TMPDIR:-/tmp}/rngit-editor.XXXXXX.sh")"
 printf '#!/bin/sh\ncat "%s" > "$1"\n' "$NOTES_FILE" > "$EDITOR_HELPER"

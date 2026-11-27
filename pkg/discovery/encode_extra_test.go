@@ -213,7 +213,7 @@ func TestDecodeInfoUnsupportedValueCode(t *testing.T) {
 
 func TestDecodeInfoTransportIDFromString(t *testing.T) {
 	// Build a map with FieldTransportID as a str instead of bin to exercise
-	// the string->[]byte branch.
+	// the string to []byte branch.
 	packed, err := EncodeInfo(Info{Type: "T", TransportID: []byte("from-bin")})
 	if err != nil {
 		t.Fatalf("EncodeInfo: %v", err)

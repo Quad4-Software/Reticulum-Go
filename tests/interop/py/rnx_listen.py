@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Python rnx.execute listener for Go↔Python interop tests."""
+"""Python rnx.execute listener for Go-to-Python interop tests."""
 
 import os
 import sys

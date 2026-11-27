@@ -11,7 +11,7 @@ func TestCodec2HeaderRoundTrip(t *testing.T) {
 	for _, br := range []int{700, 1200, 1300, 1400, 1600, 2400, 3200} {
 		h := proto.Codec2HeaderForBitrate(br)
 		if proto.Codec2BitrateForHeader(h) != br {
-			t.Fatalf("%d -> %d -> %d", br, h, proto.Codec2BitrateForHeader(h))
+			t.Fatalf("%d: %d: %d", br, h, proto.Codec2BitrateForHeader(h))
 		}
 	}
 }

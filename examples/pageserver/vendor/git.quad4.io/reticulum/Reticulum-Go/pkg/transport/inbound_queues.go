@@ -296,7 +296,7 @@ func laneForHash(lanes []chan packetJob, job packetJob) chan packetJob {
 		dh = dh[:16]
 	}
 	k := hash16FromSlice(dh)
-	// uint16 -> int cannot overflow on any supported platform, and two
+	// uint16 to int cannot overflow on any supported platform, and two
 	// hash bytes give plenty of spread across the small lane counts.
 	idx := int(binary.LittleEndian.Uint16(k.bytes[:2])) % len(lanes)
 	return lanes[idx]
@@ -314,7 +314,7 @@ func (t *Transport) inboundQueueDrainer() {
 		// links decrypt in parallel. Routing them through the shared worker
 		// channel let consecutive packets for one link be dequeued in order
 		// but processed out of order, which broke identify-before-request
-		// sequencing; a single serial lane capped multi-link throughput.
+		// sequencing. A single serial lane capped multi-link throughput.
 		if job.destType == DestTypeLink && job.packetType == packet.PacketTypeData {
 			lane := t.linkDataLaneFor(job)
 			if lane == nil {

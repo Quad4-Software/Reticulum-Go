@@ -60,7 +60,7 @@ func TestParseAnnounceExt(t *testing.T) {
 		t.Fatalf("ext-only strip: valid=%v stripped=%v", valid, stripped)
 	}
 
-	// Above the stamp's value: known format but invalid; app_data untouched.
+	// Above the stamp's value: known format but invalid. App_data untouched.
 	stripped, stamped, valid, gotStamp, gotValue, lr = ParseAnnounceExt(build([]byte("x")), destHash, pub, nameHash, value+4)
 	if !stamped || valid || stripped != nil || lr != 0 {
 		t.Fatalf("invalid stamp: stamped=%v valid=%v", stamped, valid)

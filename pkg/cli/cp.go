@@ -557,7 +557,7 @@ func runFetch(tr *transport.Transport, id *identity.Identity, destHash []byte, r
 		diagErr(stderr, "save", err)
 		return 1
 	}
-	_, _ = fmt.Fprintln(stdout, okMsg(stdout, fmt.Sprintf("%s fetched from %s -> %s", remotePath, rnsutil.PrettyHex(destHash), path)))
+	_, _ = fmt.Fprintln(stdout, okMsg(stdout, fmt.Sprintf("%s fetched from %s: %s", remotePath, rnsutil.PrettyHex(destHash), path)))
 	return 0
 }
 

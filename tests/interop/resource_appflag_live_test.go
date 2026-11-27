@@ -22,7 +22,7 @@ import (
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/resource"
 )
 
-// Go -> Python: resource with AppFlag set must arrive with app_flag true.
+// Go to Python: resource with AppFlag set must arrive with app_flag true.
 func TestLiveInteropGoResourceAppFlagToPython(t *testing.T) {
 	liveOrSkip(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
@@ -114,7 +114,7 @@ func TestLiveInteropGoResourceAppFlagToPython(t *testing.T) {
 	}
 }
 
-// Python -> Go: python resource with app_flag=True must arrive with
+// Python to Go: python resource with app_flag=True must arrive with
 // IncomingResource.AppFlag true and intact data.
 func TestLiveInteropPythonResourceAppFlagToGo(t *testing.T) {
 	liveOrSkip(t)

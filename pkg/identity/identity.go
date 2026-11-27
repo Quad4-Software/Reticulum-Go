@@ -587,7 +587,7 @@ func Recall(hash []byte) (*Identity, error) {
 
 // RecallStampValue returns the announce stamp value recorded for destHash
 // (Python Identity.recall_stamp_value). ok is false when the destination is
-// unknown; a known but unstamped destination reports 0, matching Python's
+// unknown. A known but unstamped destination reports 0, matching Python's
 // entry[6] default.
 func RecallStampValue(destHash []byte) (value float64, ok bool) {
 	hashStr := knownDestKey(destHash)
@@ -754,7 +754,7 @@ func (i *Identity) Decrypt(ciphertextToken []byte, ratchets [][]byte, enforceRat
 // keys. Each inbound ratcheted message retries decryption against every
 // stored ratchet, and PublicKeyFromPrivate is a full scalar multiplication.
 // The cache key is SHA-256 of the private scalar so raw private material is
-// never retained as an ordinary map key; cached values are public keys.
+// never retained as an ordinary map key. Cached values are public keys.
 var ratchetPubCache = struct {
 	sync.Mutex
 	m map[[32]byte][]byte

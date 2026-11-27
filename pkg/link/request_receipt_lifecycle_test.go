@@ -7,7 +7,7 @@ package link
 // RequestReceipt semantics:
 //
 //   - Python removes a timed-out receipt from pending_requests
-//     (RequestReceipt.request_timed_out). Ret-go additionally must remove
+//     (RequestReceipt.request_timed_out). Ret-go must also remove
 //     it because pendingRequests is capped at MaxPendingRequests and gated
 //     per pathHash. A leaked entry wedges the link permanently.
 //   - Python suspends the response timeout once a response resource starts

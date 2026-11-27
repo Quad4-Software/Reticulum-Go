@@ -64,6 +64,6 @@ func repoRoot(t *testing.T) string {
 	if !ok {
 		t.Fatal("runtime.Caller failed")
 	}
-	// cmd/reticulum-go -> repo root
+	// cmd/reticulum-go to repo root
 	return filepath.Clean(filepath.Join(filepath.Dir(file), "..", ".."))
 }

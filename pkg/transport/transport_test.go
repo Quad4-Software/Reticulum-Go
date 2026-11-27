@@ -294,7 +294,7 @@ func TestAnnounceRejectsOverMaxHops(t *testing.T) {
 		t.Fatalf("Serialize failed: %v", err)
 	}
 
-	// Wire hops 128 -> announce hops 129, which must not enter the path table.
+	// Wire hops 128 to announce hops 129, which must not enter the path table.
 	annRaw[1] = byte(MaxHops)
 	tr.HandlePacket(annRaw, iface)
 	time.Sleep(100 * time.Millisecond)

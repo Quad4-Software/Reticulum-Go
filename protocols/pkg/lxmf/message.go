@@ -54,7 +54,7 @@ type LXMessage struct {
 	// OutboundTicket is the optional 16-byte ticket for stamp short-circuit.
 	OutboundTicket []byte
 	// StampCost is the required delivery stamp cost. Nil means unset,
-	// matching upstream lxm.stamp_cost None; the messenger auto-fills
+	// matching upstream lxm.stamp_cost None. The messenger auto-fills
 	// it from announced stamp costs before sending.
 	StampCost *int
 	// StampValue is the PoW score or StampValueTicket after ValidateStamp.
@@ -252,7 +252,7 @@ func MaxContentForMethod(method byte, destinationType byte) (int, bool) {
 	}
 }
 
-// ChooseDeliveryMethod selects method and representation from packed size; MethodUnknown becomes MethodDirect.
+// ChooseDeliveryMethod selects method and representation from packed size. MethodUnknown becomes MethodDirect.
 func (m *LXMessage) ChooseDeliveryMethod(desiredMethod, destinationType byte) (method, representation byte, err error) {
 	if m == nil {
 		return 0, 0, errors.New("lxmf: nil message")
@@ -315,7 +315,7 @@ func DetermineTransportEncryption(method, destinationType byte) (encrypted bool,
 	}
 }
 
-// ValidateStamp checks PoW stamp or ticket-derived stamp; sets StampValid and StampValue on success.
+// ValidateStamp checks PoW stamp or ticket-derived stamp. Sets StampValid and StampValue on success.
 func (m *LXMessage) ValidateStamp(targetCost int, tickets [][]byte) (bool, error) {
 	if m == nil {
 		return false, errors.New("lxmf: nil message")
@@ -889,7 +889,7 @@ func normalizeFieldValue(v any) (any, error) {
 // asNestedValue normalizes a map found inside a field value. LXMF field
 // values are arbitrary msgpack data: a nested map may be another LXMF field
 // map (byte-encodable keys) or an application dict with named keys (command
-// entries, reaction dicts). Try the strict field-map decode first; when keys
+// entries, reaction dicts). Try the strict field-map decode first. When keys
 // are not byte-encodable, preserve the map as map[string]any so named-key
 // payloads from Python LXMFy and other clients survive the round trip.
 func asNestedValue(v any) (any, error) {

@@ -305,14 +305,14 @@ func (m *Messenger) DestinationHash() []byte {
 	return m.dest.GetHash()
 }
 
-// SetMessageHandler sets the inbound callback; nil disables delivery.
+// SetMessageHandler sets the inbound callback. Nil disables delivery.
 func (m *Messenger) SetMessageHandler(h MessageHandler) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.handler = h
 }
 
-// SetSourceResolver sets signature verification lookup; default is RecallSource.
+// SetSourceResolver sets signature verification lookup. Default is RecallSource.
 func (m *Messenger) SetSourceResolver(r SourceResolver) {
 	m.mu.Lock()
 	defer m.mu.Unlock()

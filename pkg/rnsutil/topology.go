@@ -15,7 +15,7 @@ import (
 // WriteTopologyHuman renders the path table grouped by receiving interface:
 // each interface gets a header with path count and hop range, then one row
 // per destination showing hops, the next-hop transport hash, and age. Purely
-// presentational; pairs with the per-interface announce counters.
+// presentational. Pairs with the per-interface announce counters.
 func WriteTopologyHuman(w io.Writer, stats transport.InterfaceStatsResponse, paths []transport.PathTableEntry, now time.Time) error {
 	if now.IsZero() {
 		now = time.Now()

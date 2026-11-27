@@ -28,7 +28,7 @@ const (
 
 // pathRequestTracker mirrors upstream LXMRouter.request_path and the
 // medium-path timeout helpers added in LXMF 1.2.0. A destination is
-// re-requested at most once per window; the window is
+// re-requested at most once per window. The window is
 // PATH_REQUEST_DEBOUNCE while any interface slower than
 // SLOW_INTERFACE_BITRATE is online, otherwise path_request_wait.
 type pathRequestTracker struct {
@@ -76,7 +76,7 @@ func (t *pathRequestTracker) slowInterfaceOnline() bool {
 
 // requestPath mirrors upstream LXMRouter.request_path: a debounced
 // Transport.request_path per destination. It reports whether a request
-// was emitted; recursive is forwarded to Transport.RequestPath.
+// was emitted. Recursive is forwarded to Transport.RequestPath.
 func (t *pathRequestTracker) requestPath(destHash []byte, recursive bool) bool {
 	if t == nil || t.tr == nil {
 		return false

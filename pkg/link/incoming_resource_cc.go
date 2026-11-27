@@ -24,7 +24,7 @@ import (
 // hysteresis (Python), Go's gentler stall shrinking and faster window
 // growth, and a stall grace derived from the smoothed RTT and measured
 // data rate rather than a fixed constant. It changes only receiver-side
-// pacing; the wire format and request semantics are unchanged.
+// pacing. The wire format and request semantics are unchanged.
 
 // LinkClass is the measured quality class of the path carrying a Resource.
 // It picks the request-window ceiling.
@@ -133,7 +133,7 @@ type resourceCC struct {
 	reqSentAt      time.Time
 	reqAcked       bool
 	roundHadStall  bool
-	// classChanged is set by classify when the class moved; the transfer
+	// classChanged is set by classify when the class moved. The transfer
 	// applies the new ceiling to its window on the next request.
 	classChanged bool
 }

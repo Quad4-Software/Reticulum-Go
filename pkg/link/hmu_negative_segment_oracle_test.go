@@ -10,7 +10,7 @@ import (
 )
 
 // Regression: a RESOURCE_HMU segment index parsed from the wire (attacker
-// controlled, see handleResourceHashmapUpdate -> wireInt(update[0])) must
+// controlled, see handleResourceHashmapUpdate to wireInt(update[0])) must
 // never index rx.mapHashes/partSlots out of bounds. A negative segment must
 // be rejected rather than reaching a negative slice index.
 func TestOracleHMUNegativeSegmentDoesNotPanic(t *testing.T) {

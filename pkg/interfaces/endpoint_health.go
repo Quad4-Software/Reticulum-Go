@@ -51,7 +51,7 @@ type EndpointTracker struct {
 	eps map[string]*endpointState
 	now func() time.Time
 
-	// netProbe snapshots usable network addresses; nil uses
+	// netProbe snapshots usable network addresses. Nil uses
 	// usableNetworkAddrs. netBase holds the last snapshot and netInit
 	// marks the baseline as established.
 	netProbe func() (map[string]struct{}, error)

@@ -79,7 +79,7 @@ func SanRef(ref string) string {
 }
 
 // ExpandSymbolicRef resolves HEAD and other symbolic refs to a full ref name
-// suitable for SanRef and git bundle create (e.g. HEAD -> refs/heads/dev).
+// suitable for SanRef and git bundle create (e.g. HEAD to refs/heads/dev).
 func ExpandSymbolicRef(ref string) (string, error) {
 	ref = strings.TrimSpace(ref)
 	if ref == "" {

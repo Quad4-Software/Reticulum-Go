@@ -10,8 +10,8 @@ import (
 	"git.quad4.io/libraries/pbt/pkg/pbt"
 )
 
-// A valid stamp verifies; any single bit flip in the stamp fails validation
-// at the same cost; a target of cost+1 fails for a marginal-cost stamp.
+// A valid stamp verifies. Any single bit flip in the stamp fails validation
+// at the same cost. A target of cost+1 fails for a marginal-cost stamp.
 func TestPBT_StampProperties(t *testing.T) {
 	gen := pbt.NewGenerator("material", func(r *rand.Rand, _ int) []byte {
 		b := make([]byte, 32)

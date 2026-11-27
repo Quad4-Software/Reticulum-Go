@@ -125,7 +125,7 @@ const (
 	// shed-first traffic: at this fraction of the adaptive trip line,
 	// packets are dropped with probability ramping linearly to 1.0 at the
 	// line itself (RED-style incipient-congestion response). Prefer-keep
-	// traffic never early-drops; link payloads are expensive to
+	// traffic never early-drops. Link payloads are expensive to
 	// re-establish while announces retransmit by design.
 	EarlyDropStartFraction = 0.5
 )

@@ -60,7 +60,7 @@ func (l *Link) stampThenEstablish(destHash []byte, cost float64) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeout*float64(time.Second)))
 	defer cancel()
 
-	// Ed25519 signalling keypair first; the stamp material binds to it.
+	// Ed25519 signalling keypair first. The stamp material binds to it.
 	sigPub, sigPriv, err := cryptography.GenerateSigningKeyPair()
 	if err != nil {
 		l.failStampedEstablish(destHash, fmt.Errorf("signing keypair: %w", err))
@@ -173,7 +173,7 @@ func (l *Link) StampStatus() bool {
 }
 
 // validateLinkRequestStamp mirrors Python's responder-side check:
-// value = stamp_value(owner.hash + peer_sig_pub, peer_pub); when
+// value = stamp_value(owner.hash + peer_sig_pub, peer_pub). When
 // LR_STAMPS_ENFORCED the stamp must satisfy owner.get_link_cost().
 func (l *Link) validateLinkRequestStamp(destHash []byte, linkCost float64, peerPub, peerSigPub []byte) (float64, error) {
 	material := append(append([]byte{}, destHash...), peerSigPub...)

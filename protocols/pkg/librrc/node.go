@@ -37,7 +37,7 @@ func nodeByHandle(id uint64) (*nodeRecord, error) {
 
 // NodeCreate builds a node handle. An empty configPath uses in-memory
 // defaults (no interfaces). A non-empty path loads a Reticulum-Go config
-// file and attaches every enabled [interfaces] entry; individual interface
+// file and attaches every enabled [interfaces] entry. Individual interface
 // failures are logged and skipped. Shared-instance attach is always off:
 // librrc runs its own in-process transport.
 func NodeCreate(configPath string) (uint64, int) {

@@ -158,7 +158,7 @@ func TestInterop_Spec_3_RoomNormalization(t *testing.T) {
 	for _, tc := range cases {
 		resp := interopCall(t, map[string]any{"cmd": "normalize_room", "room": tc.in})
 		if resp.Normalized != tc.want {
-			t.Fatalf("%q -> %q want %q", tc.in, resp.Normalized, tc.want)
+			t.Fatalf("%q: %q want %q", tc.in, resp.Normalized, tc.want)
 		}
 		if NormalizeRoom(tc.in) != tc.want {
 			t.Fatalf("go normalize %q", tc.in)

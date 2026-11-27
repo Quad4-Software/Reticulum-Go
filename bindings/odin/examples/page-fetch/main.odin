@@ -28,7 +28,7 @@ usage :: proc(argv0: string) {
 		"\n" +
 		"Options:\n" +
 		"  -c path   Reticulum config file (required for network interfaces)\n" +
-		"  -t sec    Overall timeout in seconds (default %d)\n" +
+		"  -t sec    Total timeout in seconds (default %d)\n" +
 		"\n" +
 		"Example:\n" +
 		"  %s -c config.example 92798ea245a0afcfa559348e42d628c6:/page/index.mu\n",

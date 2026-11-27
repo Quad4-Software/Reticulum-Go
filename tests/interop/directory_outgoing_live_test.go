@@ -194,14 +194,14 @@ func TestLiveDirectoryOutgoingPolicy(t *testing.T) {
 	txAfter := iface.GetTxBytes()
 	txPktsAfter := iface.GetTxPackets()
 	if txAfter != txBefore || txPktsAfter != txPktsBefore {
-		t.Fatalf("outgoing=no leaked TX: bytes %d->%d packets %d->%d on %s",
+		t.Fatalf("outgoing=no leaked TX: bytes %d to %d packets %d to %d on %s",
 			txBefore, txAfter, txPktsBefore, txPktsAfter, peer.Name)
 	}
 
 	deadline := time.Now().Add(45 * time.Second)
 	for time.Now().Before(deadline) {
 		if iface.GetRxBytes() > rxBefore {
-			t.Logf("RX advanced %d->%d while TX stayed blocked", rxBefore, iface.GetRxBytes())
+			t.Logf("RX advanced %d to %d while TX stayed blocked", rxBefore, iface.GetRxBytes())
 			return
 		}
 		time.Sleep(500 * time.Millisecond)
@@ -258,7 +258,7 @@ func TestLiveDirectoryAnnouncePath(t *testing.T) {
 	deadline := time.Now().Add(10 * time.Second)
 	for time.Now().Before(deadline) {
 		if iface.GetTxBytes() > txBefore {
-			t.Logf("announce TX observed bytes %d->%d", txBefore, iface.GetTxBytes())
+			t.Logf("announce TX observed bytes %d to %d", txBefore, iface.GetTxBytes())
 			return
 		}
 		time.Sleep(200 * time.Millisecond)

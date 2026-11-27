@@ -139,7 +139,7 @@ func TestHDLCResetNoGrowth(t *testing.T) {
 	var m2 runtime.MemStats
 	runtime.ReadMemStats(&m2)
 	if m2.HeapAlloc > m1.HeapAlloc+(2<<20) {
-		t.Fatalf("HDLC reset/feed grew %d -> %d", m1.HeapAlloc, m2.HeapAlloc)
+		t.Fatalf("HDLC reset/feed grew %d: %d", m1.HeapAlloc, m2.HeapAlloc)
 	}
 }
 

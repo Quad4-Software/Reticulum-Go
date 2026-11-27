@@ -25,7 +25,7 @@ type unpackBatchResult struct {
 }
 
 // Differential fuzz: feed identical valid, mutated-valid, and arbitrary LXMF
-// wire bytes to the Go unpacker and the real Python LXMF unpacker; accept/
+// wire bytes to the Go unpacker and the real Python LXMF unpacker. Accept/
 // reject decisions must agree. Skipped when python is absent.
 func TestDifferentialUnpackVsPython(t *testing.T) {
 	if testing.Short() {

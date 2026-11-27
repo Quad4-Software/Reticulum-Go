@@ -39,7 +39,7 @@ func RunSpeedtest(args []string, opt ...Options) int {
 	ifaceSel := fs.String("iface", "all", "interfaces to use: all, or comma-separated config names")
 	dataCap := fs.Int64("bytes", rlink.DefaultSpeedtestDataCap, "plaintext bytes to transfer")
 	minBps := fs.Float64("min-bps", 0, "fail if sustained rate is below this (0 disables, loopback default 1e6)")
-	timeoutSec := fs.Float64("timeout", 60, "overall timeout in seconds")
+	timeoutSec := fs.Float64("timeout", 60, "total timeout in seconds")
 	announceSec := fs.Float64("announce", 0, "listen: announce interval seconds (0 = once, <0 = never)")
 	jsonOut := fs.Bool("json", false, "emit JSON result lines on stdout")
 	quiet := fs.Bool("q", false, "suppress progress logs")

@@ -30,7 +30,7 @@ func TestOracleCPJailRejectsSymlinkEscape(t *testing.T) {
 	}
 
 	if got, ok := resolveFetchPath(link, jail); ok {
-		t.Fatalf("jail followed symlink escape: %q -> %q", link, got)
+		t.Fatalf("jail followed symlink escape: %q: %q", link, got)
 	}
 }
 

@@ -53,7 +53,7 @@ func TestDelayedAnnounceJob_RetransmitSequence(t *testing.T) {
 	}
 	tr.pendingAnnounceMu.Unlock()
 
-	// First emit: retries 0->1, retransmit timeout moves to PATHFINDER_G+RW.
+	// First emit: retries 0 to 1, retransmit timeout moves to PATHFINDER_G+RW.
 	tr.processDelayedAnnounceJobs()
 	if got := countJobSends(out); got != 1 {
 		t.Fatalf("first emit sends = %d, want 1", got)
@@ -67,7 +67,7 @@ func TestDelayedAnnounceJob_RetransmitSequence(t *testing.T) {
 		t.Fatalf("retransmit timeout = %v, want ~PATHFINDER_G+PATHFINDER_RW", until)
 	}
 
-	// Second emit at the retry timeout: retries 1->2.
+	// Second emit at the retry timeout: retries 1 to 2.
 	getJob(t, tr, 0).due = time.Now().Add(-time.Millisecond)
 	tr.processDelayedAnnounceJobs()
 	if got := countJobSends(out); got != 2 {

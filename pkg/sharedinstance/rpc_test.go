@@ -96,7 +96,7 @@ func freeTCPPort(t *testing.T) int {
 
 // TestRPCHandlerManage covers the RNS 1.5.5 interface management RPC path
 // (rnstatus --attach/--detach/--reload). Without a Manage hook the handler
-// answers false; with one it forwards the action and interface name and
+// answers false. With one it forwards the action and interface name and
 // preserves the Python tri-state (true/false/nil).
 func TestRPCHandlerManage(t *testing.T) {
 	cfg := &common.ReticulumConfig{EnableTransport: false, InMemoryStorage: true}

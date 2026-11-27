@@ -333,7 +333,7 @@ func (s *KnownDestinationsStore) LoadRatchets() (map[string][]byte, error) {
 	return out, rows.Err()
 }
 
-// DeleteRatchets removes rows; ExpireRatchets deletes rows older than age seconds.
+// DeleteRatchets removes rows. ExpireRatchets deletes rows older than age seconds.
 func (s *KnownDestinationsStore) ExpireRatchets(olderThan float64) (int64, error) {
 	res, err := s.db.Exec("DELETE FROM ratchets WHERE received < ?", olderThan)
 	if err != nil {

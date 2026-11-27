@@ -613,7 +613,7 @@ func toIntOK(v any) (int64, bool) {
 // version eligible for discovery auto-connect, matching Python
 // InterfaceDiscovery.AUTOCONNECT_IMPLS + AUTOCONNECT_MIN_V (RNS 1.6.0).
 // Python accepts only "RNS" >= 1.5.7. This port also admits its own
-// implementation name; version signalling first shipped in v1.1.0.
+// implementation name. Version signalling first shipped in v1.1.0.
 var AutoconnectMinVersions = map[string]string{
 	"RNS":              "1.5.7",
 	ImplementationName: "1.1.0",

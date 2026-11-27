@@ -31,7 +31,7 @@ will also show up while the WebSocket is subscribed.
 Pass --accept-links to also accept inbound links on the destination and
 register a "/ping" request handler that echoes any request payload back
 prefixed with "pong:". Pass --link-to <hex destination hash> to instead (or
-additionally) open an outbound link to a destination the daemon has already
+also) open an outbound link to a destination the daemon has already
 seen an announce from, send it a "/ping" request via link.request, and print
 the response.
 """
@@ -93,7 +93,7 @@ def http_json(host: str, port: int, method: str, path: str, token: str, body=Non
     finally:
         conn.close()
     if resp.status >= 400:
-        raise RuntimeError(f"{method} {path} -> {resp.status}: {raw.decode(errors='replace')}")
+        raise RuntimeError(f"{method} {path} returned {resp.status}: {raw.decode(errors='replace')}")
     return resp.status, (json.loads(raw.decode()) if raw else None)
 
 
@@ -243,7 +243,7 @@ def handle_event(sock: socket.socket, event: dict, link_to=None) -> None:
             "request_id": event["request_id"],
             "data": base64.b64encode(reply).decode(),
         }).encode())
-        print(f"  -> replied to request.incoming on {event['path']!r}")
+        print(f"  then replied to request.incoming on {event['path']!r}")
     elif event_type == "link.established":
         link_id = event["link_id"]
         if link_to:
@@ -254,7 +254,7 @@ def handle_event(sock: socket.socket, event: dict, link_to=None) -> None:
                 "data": base64.b64encode(b"hello").decode(),
                 "timeout_ms": 5000,
             }).encode())
-            print(f"  -> link.request /ping on link {link_id}")
+            print(f"  then link.request /ping on link {link_id}")
         else:
             payload = base64.b64encode(b"hello over control-api link").decode()
             ws_send_text(sock, json.dumps({
@@ -262,14 +262,14 @@ def handle_event(sock: socket.socket, event: dict, link_to=None) -> None:
                 "link_id": link_id,
                 "data": payload,
             }).encode())
-            print(f"  -> link.send queued on link {link_id}")
+            print(f"  then link.send queued on link {link_id}")
     elif event_type == "request.response":
         data = base64.b64decode(event["data"]) if event.get("data") else b""
-        print(f"  -> request.response on {event.get('path')!r}: {data!r}")
+        print(f"  then request.response on {event.get('path')!r}: {data!r}")
     elif event_type == "request.failed":
-        print(f"  -> request.failed: {event.get('error')}")
+        print(f"  then request.failed: {event.get('error')}")
     elif event_type == "command.error":
-        print(f"  -> command.error ({event.get('command')}): {event.get('error')}")
+        print(f"  then command.error ({event.get('command')}): {event.get('error')}")
 
 
 if __name__ == "__main__":
