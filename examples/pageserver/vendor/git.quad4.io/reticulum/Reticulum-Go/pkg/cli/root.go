@@ -33,6 +33,7 @@ const (
 	CmdSnapshot   = "snapshot"
 	CmdZen        = "zen"
 	CmdGit        = "git"
+	CmdCompletion = "completion"
 )
 
 // DaemonFunc starts the network daemon. Injected by cmd/reticulum-go to avoid
@@ -129,6 +130,8 @@ func Main(args []string, opt Options) int {
 		return RunSnapshot(rest, opt)
 	case CmdZen:
 		return RunZen(rest, opt)
+	case CmdCompletion:
+		return RunCompletion(rest, opt)
 	case CmdGit:
 		if len(rest) > 0 && rest[0] == "remote-rns" {
 			return RunGitRemoteRNS(rest[1:], opt)
@@ -154,7 +157,7 @@ func resolveCommand(argv0 string, args []string) (cmd string, rest []string, ok 
 	}
 
 	switch args[0] {
-	case CmdDaemon, CmdStatus, CmdID, CmdProbe, CmdPath, CmdCP, CmdX, CmdSH, CmdPageserver, CmdDebug, CmdSlow, CmdSelfCheck, CmdSpeedtest, CmdDump, CmdSnapshot, CmdZen, CmdGit:
+	case CmdDaemon, CmdStatus, CmdID, CmdProbe, CmdPath, CmdCP, CmdX, CmdSH, CmdPageserver, CmdDebug, CmdSlow, CmdSelfCheck, CmdSpeedtest, CmdDump, CmdSnapshot, CmdZen, CmdGit, CmdCompletion:
 		return args[0], args[1:], true
 	case "selfcheck", "rgoselfcheck":
 		return CmdSelfCheck, args[1:], true
@@ -274,6 +277,7 @@ func printRootHelp(w io.Writer) {
 		helpLine{"reticulum-go debug [flags]", "effective config, rate table, RPC dump"},
 		helpLine{"reticulum-go self-check [flags]", "host OS preflight checklist"},
 		helpLine{"reticulum-go zen [flags] [packages]", "scan for path/link footguns (go fix style)"},
+		helpLine{"reticulum-go completion bash|zsh|fish", "print shell completion"},
 	)
 	_, _ = fmt.Fprintln(w)
 	helpSection(w, "Global:")

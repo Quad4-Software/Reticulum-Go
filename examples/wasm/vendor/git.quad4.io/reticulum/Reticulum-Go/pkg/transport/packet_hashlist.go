@@ -6,7 +6,6 @@ package transport
 import (
 	"bytes"
 	"encoding/binary"
-	"fmt"
 	"math"
 	"sync"
 
@@ -208,7 +207,7 @@ func (t *Transport) packetFilter(pkt *packet.Packet) bool {
 	}
 	if debug.Enabled(debug.DebugVerbose) {
 		debug.Log(debug.DebugVerbose, "Filtered duplicate packet",
-			"hash", fmt.Sprintf("%x", preview))
+			"hash", debug.Hex(preview))
 	}
 	return false
 }

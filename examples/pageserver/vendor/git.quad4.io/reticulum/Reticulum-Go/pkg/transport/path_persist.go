@@ -180,6 +180,10 @@ func (t *Transport) initPathPersistence(cfg *common.ReticulumConfig) {
 	}
 	t.pathPersistDir = dir
 	t.pendingPathEntries = make([]pendingPathEntry, 0)
+	// Python starts its 12 hour persistence clock at process startup, not at
+	// the first path mutation. Doing the same avoids a full-table write a few
+	// seconds after every daemon start.
+	t.pathPersistLast.Store(time.Now().UnixNano())
 	t.loadPathTableFromDisk()
 }
 
@@ -329,6 +333,16 @@ func (t *Transport) markPathTableDirty() {
 	}
 	t.pathPersistGen.Add(1)
 	t.pathPersistDirty.Store(true)
+}
+
+// PersistStateForClientDetach writes dirty state without waiting for the
+// periodic persistence interval. Python performs this bounded write when the
+// last local client detaches from a shared instance; clean state still costs
+// no disk write.
+func (t *Transport) PersistStateForClientDetach() {
+	t.savePathTable(false)
+	t.saveAnnounceRateTable()
+	identity.PersistKnownDestinationsNowIfDirty()
 }
 
 func (t *Transport) persistPathTableIfDirty() {

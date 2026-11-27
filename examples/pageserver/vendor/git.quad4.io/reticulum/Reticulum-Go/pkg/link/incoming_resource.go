@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"errors"
-	"fmt"
 	"io"
 	"math"
 	"slices"
@@ -264,7 +263,7 @@ func (l *Link) flushIncomingResourceStats(rx *incomingResourceAsm, outcome strin
 		debug.DebugInfo,
 		"Incoming resource transfer stats",
 		"link_id",
-		fmt.Sprintf("%x", l.linkID),
+		debug.Hex(l.linkID),
 		"outcome",
 		outcome,
 		"parts",
@@ -369,7 +368,7 @@ func (l *Link) beginIncomingResource(adv *resource.ResourceAdvertisement) error 
 		debug.DebugInfo,
 		"Incoming resource started",
 		"link_id",
-		fmt.Sprintf("%x", l.linkID),
+		debug.Hex(l.linkID),
 		"parts",
 		adv.Parts,
 		"transfer_size",
@@ -407,7 +406,7 @@ func (l *Link) queueIncomingResourceReqNext() error {
 				debug.DebugInfo,
 				"Incoming resource request failed",
 				"link_id",
-				fmt.Sprintf("%x", l.linkID),
+				debug.Hex(l.linkID),
 				"error",
 				err,
 			)
@@ -509,7 +508,7 @@ func (l *Link) tickIncomingResourceWatchdog(rx *incomingResourceAsm) bool {
 		debug.DebugInfo,
 		"Incoming resource stalled, re-requesting",
 		"link_id",
-		fmt.Sprintf("%x", l.linkID),
+		debug.Hex(l.linkID),
 		"idle",
 		idle,
 		"was_waiting_for_hmu",
@@ -535,7 +534,7 @@ func (l *Link) tickIncomingResourceWatchdog(rx *incomingResourceAsm) bool {
 			debug.DebugWarning,
 			"Incoming resource exceeded max stall retries, aborting",
 			"link_id",
-			fmt.Sprintf("%x", l.linkID),
+			debug.Hex(l.linkID),
 		)
 		l.resetIncomingResource()
 		if l.status.Load() == int32(StatusActive) && rx.adv != nil && len(rx.adv.Hash) == sha256.Size {
@@ -548,7 +547,7 @@ func (l *Link) tickIncomingResourceWatchdog(rx *incomingResourceAsm) bool {
 			debug.DebugInfo,
 			"Incoming resource re-request failed",
 			"link_id",
-			fmt.Sprintf("%x", l.linkID),
+			debug.Hex(l.linkID),
 			"error",
 			err,
 		)
@@ -621,7 +620,7 @@ func (l *Link) sendIncomingResourceReqNext() error {
 		prefix := []byte{hashmapIsEmpty}
 		reqBody := append(prefix, rx.adv.Hash...)
 		iface := l.attachedIfaceName()
-		debug.Log(debug.DebugInfo, "Incoming resource requesting initial hashmap (empty adv)", "link_id", fmt.Sprintf("%x", l.linkID))
+		debug.Log(debug.DebugInfo, "Incoming resource requesting initial hashmap (empty adv)", "link_id", debug.Hex(l.linkID))
 		l.incomingMu.Unlock()
 		health.Inc(iface, health.KindResourceReq)
 		if err := l.SendPacketWithContext(reqBody, packet.ContextResourceReq); err != nil {
@@ -661,11 +660,11 @@ func (l *Link) sendIncomingResourceReqNext() error {
 			debug.DebugInfo,
 			"Incoming resource requesting HMU",
 			"link_id",
-			fmt.Sprintf("%x", l.linkID),
+			debug.Hex(l.linkID),
 			"hashmap_height",
 			rx.hashmapHeight,
 			"anchor_hash",
-			fmt.Sprintf("%x", last),
+			debug.Hex(last),
 		)
 	} else {
 		prefix = []byte{hashmapNotExhausted}
@@ -683,7 +682,7 @@ func (l *Link) sendIncomingResourceReqNext() error {
 		debug.DebugVerbose,
 		"Incoming resource requesting parts",
 		"link_id",
-		fmt.Sprintf("%x", l.linkID),
+		debug.Hex(l.linkID),
 		"search_start",
 		searchStart,
 		"window",
@@ -737,7 +736,7 @@ func (l *Link) queueIncomingResourceHMUPrefetch() {
 				debug.DebugInfo,
 				"Incoming resource HMU prefetch failed",
 				"link_id",
-				fmt.Sprintf("%x", l.linkID),
+				debug.Hex(l.linkID),
 				"error",
 				err,
 			)
@@ -779,7 +778,7 @@ func (l *Link) sendIncomingResourceHMUPrefetch() error {
 		debug.DebugInfo,
 		"Incoming resource prefetching HMU",
 		"link_id",
-		fmt.Sprintf("%x", l.linkID),
+		debug.Hex(l.linkID),
 		"hashmap_height",
 		rx.hashmapHeight,
 		"known_ahead",
@@ -833,7 +832,7 @@ func (l *Link) reRequestIncomingHMU(rx *incomingResourceAsm) {
 		debug.DebugInfo,
 		"Incoming resource HMU overdue, re-requesting",
 		"link_id",
-		fmt.Sprintf("%x", l.linkID),
+		debug.Hex(l.linkID),
 		"waited_ms",
 		waited.Milliseconds(),
 		"hashmap_height",
@@ -848,7 +847,7 @@ func (l *Link) reRequestIncomingHMU(rx *incomingResourceAsm) {
 			debug.DebugInfo,
 			"Incoming resource HMU re-request failed",
 			"link_id",
-			fmt.Sprintf("%x", l.linkID),
+			debug.Hex(l.linkID),
 			"error",
 			err,
 		)
@@ -962,7 +961,7 @@ func (l *Link) applyIncomingHashmapUpdate(resHash []byte, segment int, hashmapBy
 			debug.DebugVerbose,
 			"Ignoring HMU for inactive/mismatched resource",
 			"link_id",
-			fmt.Sprintf("%x", l.linkID),
+			debug.Hex(l.linkID),
 		)
 		l.incomingMu.Unlock()
 		return nil
@@ -978,7 +977,7 @@ func (l *Link) applyIncomingHashmapUpdate(resHash []byte, segment int, hashmapBy
 		cancelHash := append([]byte(nil), rx.adv.Hash...)
 		l.incomingMu.Unlock()
 		debug.Log(debug.DebugError, "Invalid HMU received, cancelling transfer",
-			"link_id", fmt.Sprintf("%x", l.linkID))
+			"link_id", debug.Hex(l.linkID))
 		l.resetIncomingResource()
 		if l.status.Load() == int32(StatusActive) && len(cancelHash) == sha256.Size {
 			_ = l.rejectResource(cancelHash) // #nosec G104 - best effort RESOURCE_RCL
@@ -993,7 +992,7 @@ func (l *Link) applyIncomingHashmapUpdate(resHash []byte, segment int, hashmapBy
 			debug.DebugVerbose,
 			"Incoming duplicate HMU applied",
 			"link_id",
-			fmt.Sprintf("%x", l.linkID),
+			debug.Hex(l.linkID),
 			"segment",
 			segment,
 			"entries",
@@ -1006,7 +1005,7 @@ func (l *Link) applyIncomingHashmapUpdate(resHash []byte, segment int, hashmapBy
 			debug.DebugVerbose,
 			"Incoming HMU applied",
 			"link_id",
-			fmt.Sprintf("%x", l.linkID),
+			debug.Hex(l.linkID),
 			"segment",
 			segment,
 			"entries",
@@ -1112,7 +1111,7 @@ func (l *Link) appendIncomingResourcePart(data []byte) error {
 					debug.DebugVerbose,
 					"Incoming resource duplicate part ignored",
 					"link_id",
-					fmt.Sprintf("%x", l.linkID),
+					debug.Hex(l.linkID),
 					"part_index",
 					i,
 					"part_len",
@@ -1126,11 +1125,11 @@ func (l *Link) appendIncomingResourcePart(data []byte) error {
 			debug.DebugInfo,
 			"Incoming resource part map hash mismatch",
 			"link_id",
-			fmt.Sprintf("%x", l.linkID),
+			debug.Hex(l.linkID),
 			"part_len",
 			len(data),
 			"map_hash",
-			fmt.Sprintf("%x", mh),
+			debug.Hex(mh),
 		)
 		l.incomingMu.Unlock()
 		return errors.New("incoming resource part map hash mismatch")
@@ -1153,7 +1152,7 @@ func (l *Link) appendIncomingResourcePart(data []byte) error {
 		debug.DebugVerbose,
 		"Incoming resource part accepted",
 		"link_id",
-		fmt.Sprintf("%x", l.linkID),
+		debug.Hex(l.linkID),
 		"part_index",
 		idx,
 		"consecutive_completed",
@@ -1315,7 +1314,7 @@ func (l *Link) deliverIncomingResource(inner []byte, adv *resource.ResourceAdver
 		debug.DebugInfo,
 		"Incoming resource assembled",
 		"link_id",
-		fmt.Sprintf("%x", l.linkID),
+		debug.Hex(l.linkID),
 		"inner_len",
 		len(inner),
 		"payload_len",
@@ -1339,7 +1338,7 @@ func (l *Link) deliverIncomingResource(inner []byte, adv *resource.ResourceAdver
 			return err
 		}
 		requestID := identity.TruncatedHash(payload)
-		debug.Log(debug.DebugInfo, "Incoming request resource complete", "request_id", fmt.Sprintf("%x", requestID), "payload_len", len(payload))
+		debug.Log(debug.DebugInfo, "Incoming request resource complete", "request_id", debug.Hex(requestID), "payload_len", len(payload))
 		return l.handleRequest(payload, requestID)
 	}
 
@@ -1369,7 +1368,7 @@ func (l *Link) deliverIncomingResource(inner []byte, adv *resource.ResourceAdver
 	// cannot swallow resource.concluded for an already-assembled payload.
 	if err := l.sendIncomingResourceProof(payload, adv.Hash); err != nil {
 		debug.Log(debug.DebugWarning, "Incoming resource proof send failed after conclude",
-			"link_id", fmt.Sprintf("%x", l.linkID), "error", err)
+			"link_id", debug.Hex(l.linkID), "error", err)
 	}
 	return nil
 }

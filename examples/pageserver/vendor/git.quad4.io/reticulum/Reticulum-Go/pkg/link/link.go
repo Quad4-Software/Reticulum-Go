@@ -256,7 +256,7 @@ func (l *Link) Establish() error {
 		return common.ErrLinkDestinationRequired
 	}
 
-	debug.Log(debug.DebugVerbose, "Establishing link", "dest_hash", fmt.Sprintf("%x", l.destination.GetHash()))
+	debug.Log(debug.DebugVerbose, "Establishing link", "dest_hash", debug.Hex(l.destination.GetHash()))
 
 	if l.transport == nil {
 		l.mutex.Unlock()
@@ -331,7 +331,7 @@ func (l *Link) Establish() error {
 	}
 	go l.startWatchdog()
 
-	debug.Log(debug.DebugVerbose, "Link establishment initiated", "link_id", fmt.Sprintf("%x", l.linkID), "elapsed", time.Since(startTime).Seconds())
+	debug.Log(debug.DebugVerbose, "Link establishment initiated", "link_id", debug.Hex(l.linkID), "elapsed", time.Since(startTime).Seconds())
 	return nil
 }
 
@@ -591,7 +591,7 @@ func (l *Link) processInboundSafe(pkt *packet.Packet) (err error) {
 			err = fmt.Errorf("panic in inbound packet handler: %v", r)
 			debug.Log(debug.DebugError, "Panic in inbound packet handler",
 				"panic", fmt.Sprint(r),
-				"link_id", fmt.Sprintf("%x", l.linkID))
+				"link_id", debug.Hex(l.linkID))
 		}
 	}()
 	return l.processInbound(pkt)
@@ -602,7 +602,7 @@ func (l *Link) processInbound(pkt *packet.Packet) error {
 		l.mutex.Lock()
 		l.watchdogLock = true
 		if l.status.Load() == int32(StatusClosed) {
-			debug.Log(debug.DebugVerbose, "Ignoring packet for closed link", "link_id", fmt.Sprintf("%x", l.linkID))
+			debug.Log(debug.DebugVerbose, "Ignoring packet for closed link", "link_id", debug.Hex(l.linkID))
 			l.watchdogLock = false
 			l.mutex.Unlock()
 			return nil
@@ -626,7 +626,7 @@ func (l *Link) processInbound(pkt *packet.Packet) error {
 		l.mutex.Lock()
 		l.watchdogLock = true
 		if l.status.Load() == int32(StatusClosed) {
-			debug.Log(debug.DebugVerbose, "Ignoring packet for closed link", "link_id", fmt.Sprintf("%x", l.linkID))
+			debug.Log(debug.DebugVerbose, "Ignoring packet for closed link", "link_id", debug.Hex(l.linkID))
 			l.watchdogLock = false
 			l.mutex.Unlock()
 			return nil
@@ -646,7 +646,7 @@ func (l *Link) processInbound(pkt *packet.Packet) error {
 		l.mutex.Lock()
 		l.watchdogLock = true
 		if l.status.Load() == int32(StatusClosed) {
-			debug.Log(debug.DebugVerbose, "Ignoring packet for closed link", "link_id", fmt.Sprintf("%x", l.linkID))
+			debug.Log(debug.DebugVerbose, "Ignoring packet for closed link", "link_id", debug.Hex(l.linkID))
 			l.watchdogLock = false
 			l.mutex.Unlock()
 			return nil
@@ -669,7 +669,7 @@ func (l *Link) processInbound(pkt *packet.Packet) error {
 	}()
 
 	if l.status.Load() == int32(StatusClosed) {
-		debug.Log(debug.DebugVerbose, "Ignoring packet for closed link", "link_id", fmt.Sprintf("%x", l.linkID))
+		debug.Log(debug.DebugVerbose, "Ignoring packet for closed link", "link_id", debug.Hex(l.linkID))
 		return nil
 	}
 
@@ -692,7 +692,7 @@ func (l *Link) handleDataPacket(pkt *packet.Packet) error {
 	}
 
 	if pkt.Context == packet.ContextLRRTT && st == int32(StatusHandshake) && !l.initiator {
-		debug.Log(debug.DebugVerbose, "RTT packet detected in handleDataPacket, routing to handleRTTPacket", "link_id", fmt.Sprintf("%x", l.linkID))
+		debug.Log(debug.DebugVerbose, "RTT packet detected in handleDataPacket, routing to handleRTTPacket", "link_id", debug.Hex(l.linkID))
 		return l.handleRTTPacket(pkt)
 	}
 
@@ -715,7 +715,7 @@ func (l *Link) handleDataPacket(pkt *packet.Packet) error {
 			default:
 				plaintext, err = l.decrypt(pkt.Data)
 				if err != nil {
-					debug.Log(debug.DebugError, "Failed to decrypt packet", "error", err, "context", fmt.Sprintf("0x%02x", pkt.Context), "link_id", fmt.Sprintf("%x", l.linkID))
+					debug.Log(debug.DebugError, "Failed to decrypt packet", "error", err, "context", fmt.Sprintf("0x%02x", pkt.Context), "link_id", debug.Hex(l.linkID))
 					return err
 				}
 			}
@@ -730,7 +730,7 @@ func (l *Link) handleDataPacket(pkt *packet.Packet) error {
 		case packet.ContextResource, packet.ContextCacheReq, packet.ContextKeepalive:
 			plaintext = pkt.Data
 		default:
-			debug.Log(debug.DebugError, "Dropping unencrypted link packet before session keys", "context", fmt.Sprintf("0x%02x", pkt.Context), "link_id", fmt.Sprintf("%x", l.linkID))
+			debug.Log(debug.DebugError, "Dropping unencrypted link packet before session keys", "context", fmt.Sprintf("0x%02x", pkt.Context), "link_id", debug.Hex(l.linkID))
 			return errors.New("link packet requires session keys")
 		}
 	}
@@ -823,17 +823,17 @@ func (l *Link) handleRTTPacket(pkt *packet.Packet) error {
 			return nil
 		}
 		measuredRTT := time.Since(l.requestTime).Seconds()
-		debug.Log(debug.DebugVerbose, "Handling RTT packet (responder)", "link_id", fmt.Sprintf("%x", l.linkID), "has_session_key", l.hasSessionKeys(), "status", l.status.Load(), "data_len", len(pkt.Data))
+		debug.Log(debug.DebugVerbose, "Handling RTT packet (responder)", "link_id", debug.Hex(l.linkID), "has_session_key", l.hasSessionKeys(), "status", l.status.Load(), "data_len", len(pkt.Data))
 		plaintext, err := l.decrypt(pkt.Data)
 		if err != nil {
-			debug.Log(debug.DebugError, "Failed to decrypt RTT packet", "error", err, "link_id", fmt.Sprintf("%x", l.linkID))
+			debug.Log(debug.DebugError, "Failed to decrypt RTT packet", "error", err, "link_id", debug.Hex(l.linkID))
 			return err
 		}
-		debug.Log(debug.DebugVerbose, "RTT packet decrypted successfully", "plaintext_len", len(plaintext), "link_id", fmt.Sprintf("%x", l.linkID))
+		debug.Log(debug.DebugVerbose, "RTT packet decrypted successfully", "plaintext_len", len(plaintext), "link_id", debug.Hex(l.linkID))
 
 		rtt, err := parseRTTPayloadSeconds(plaintext)
 		if err != nil {
-			debug.Log(debug.DebugError, "Failed to decode RTT payload", "error", err, "link_id", fmt.Sprintf("%x", l.linkID))
+			debug.Log(debug.DebugError, "Failed to decode RTT payload", "error", err, "link_id", debug.Hex(l.linkID))
 			return err
 		}
 
@@ -848,7 +848,7 @@ func (l *Link) handleRTTPacket(pkt *packet.Packet) error {
 		l.mutex.Unlock()
 
 		if !l.promoteToActive() {
-			debug.Log(debug.DebugVerbose, "Ignoring late RTT on closed link", "link_id", fmt.Sprintf("%x", l.linkID))
+			debug.Log(debug.DebugVerbose, "Ignoring late RTT on closed link", "link_id", debug.Hex(l.linkID))
 			return nil
 		}
 
@@ -869,7 +869,7 @@ func (l *Link) handleRTTPacket(pkt *packet.Packet) error {
 		l.markChannelReady()
 
 		establishmentElapsed := time.Since(l.requestTime).Seconds()
-		debug.Log(debug.DebugInfo, "Link established (responder) after RTT", "link_id", fmt.Sprintf("%x", l.linkID), "rtt", fmt.Sprintf("%.3fs", logRtt), "total_elapsed", fmt.Sprintf("%.3fs", establishmentElapsed))
+		debug.Log(debug.DebugInfo, "Link established (responder) after RTT", "link_id", debug.Hex(l.linkID), "rtt", fmt.Sprintf("%.3fs", logRtt), "total_elapsed", fmt.Sprintf("%.3fs", establishmentElapsed))
 	}
 	return nil
 }
@@ -1193,7 +1193,7 @@ func (l *Link) watchdog() {
 			nextCheck := l.requestTime.Add(l.establishmentTimeout)
 			sleepTime = time.Until(nextCheck).Seconds()
 			if time.Now().After(nextCheck) {
-				debug.Log(debug.DebugWarning, "Link establishment timed out", "link_id", fmt.Sprintf("%x", l.linkID), "status", l.status.Load())
+				debug.Log(debug.DebugWarning, "Link establishment timed out", "link_id", debug.Hex(l.linkID), "status", l.status.Load())
 				l.finishWatchdogClose(StatusFailed, true)
 				sleepTime = 0.001
 			}
@@ -1203,9 +1203,9 @@ func (l *Link) watchdog() {
 			if time.Now().After(nextCheck) {
 				elapsed := time.Since(l.requestTime).Seconds()
 				if l.initiator {
-					debug.Log(debug.DebugWarning, "Timeout waiting for link request proof", "link_id", fmt.Sprintf("%x", l.linkID), "elapsed", fmt.Sprintf("%.3fs", elapsed), "timeout", l.establishmentTimeout.Seconds())
+					debug.Log(debug.DebugWarning, "Timeout waiting for link request proof", "link_id", debug.Hex(l.linkID), "elapsed", fmt.Sprintf("%.3fs", elapsed), "timeout", l.establishmentTimeout.Seconds())
 				} else {
-					debug.Log(debug.DebugWarning, "Timeout waiting for RTT packet from link initiator", "link_id", fmt.Sprintf("%x", l.linkID), "elapsed", fmt.Sprintf("%.3fs", elapsed), "timeout", l.establishmentTimeout.Seconds())
+					debug.Log(debug.DebugWarning, "Timeout waiting for RTT packet from link initiator", "link_id", debug.Hex(l.linkID), "elapsed", fmt.Sprintf("%.3fs", elapsed), "timeout", l.establishmentTimeout.Seconds())
 				}
 				l.finishWatchdogClose(StatusFailed, true)
 				sleepTime = 0.001
@@ -1261,7 +1261,7 @@ func (l *Link) watchdog() {
 				sleepTime = time.Until(nextKeepalive).Seconds()
 			}
 		} else if l.status.Load() == int32(StatusStale) {
-			debug.Log(debug.DebugWarning, "Link marked stale, closing", "link_id", fmt.Sprintf("%x", l.linkID))
+			debug.Log(debug.DebugWarning, "Link marked stale, closing", "link_id", debug.Hex(l.linkID))
 			ifaceName := ""
 			if l.networkInterface != nil {
 				ifaceName = l.networkInterface.GetName()
@@ -1382,7 +1382,7 @@ func (l *Link) tryTerminusPathRebalanceLocked(pkt *packet.Packet, networkIface c
 	signedData = append(signedData, signalling...)
 	if !l.destination.GetIdentity().Verify(signedData, signature) {
 		debug.Log(debug.DebugVerbose, "Aborting terminus path rebalance due to invalid signature",
-			"link_id", fmt.Sprintf("%x", l.linkID))
+			"link_id", debug.Hex(l.linkID))
 		return false
 	}
 	destHash := l.destination.GetHash()
@@ -1392,7 +1392,7 @@ func (l *Link) tryTerminusPathRebalanceLocked(pkt *packet.Packet, networkIface c
 	l.rebalanced = time.Now()
 	l.expectedHops = accounted
 	debug.Log(debug.DebugVerbose, "Re-balancing path at link terminus",
-		"link_id", fmt.Sprintf("%x", l.linkID),
+		"link_id", debug.Hex(l.linkID),
 		"to", accounted)
 	return accounted == l.expectedHops
 }

@@ -286,7 +286,7 @@ func LoadConfig(path string) (*common.ReticulumConfig, error) {
 
 			if kind == sectionInterface {
 				if _, exists := cfg.Interfaces[name]; !exists {
-					cfg.Interfaces[name] = &common.InterfaceConfig{Name: name}
+					cfg.Interfaces[name] = &common.InterfaceConfig{Name: name, Enabled: true}
 				}
 			}
 			if kind == sectionSubInterface && parent != "" {

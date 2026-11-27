@@ -97,13 +97,22 @@ func LoadAllowedIdentities(extra []string) ([][]byte, error) {
 		}
 	}
 	for _, a := range extra {
-		h, err := ParseDestHash(strings.TrimSpace(a))
+		h, err := parseAllowedIdentityHash(a)
 		if err != nil {
 			return nil, fmt.Errorf("allowed identity %q: %w", a, err)
 		}
 		add(h)
 	}
 	return out, nil
+}
+
+func parseAllowedIdentityHash(text string) ([]byte, error) {
+	trimmed := strings.TrimSpace(text)
+	unwrapped := strings.TrimSuffix(strings.TrimPrefix(trimmed, "<"), ">")
+	if len(unwrapped) < 32 || strings.Contains(unwrapped, "...") {
+		return nil, fmt.Errorf("hash truncated, use full 32 hex chars")
+	}
+	return ParseDestHash(trimmed)
 }
 
 func readAllowedFile(path string) ([][]byte, error) {

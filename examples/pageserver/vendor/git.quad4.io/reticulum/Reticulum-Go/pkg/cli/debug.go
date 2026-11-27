@@ -19,7 +19,7 @@ func RunDebug(args []string, opt ...Options) int {
 	stdout, stderr := cliIO(opt)
 	fs := flag.NewFlagSet("debug", flag.ContinueOnError)
 	fs.SetOutput(stderr)
-	configDir := fs.String("config", "", "path to config directory")
+	configDir := fs.String("config", "", "path to config file or directory")
 	jsonOut := fs.Bool("json", false, "emit JSON")
 	rates := fs.Bool("rates", false, "include rate table")
 	timeout := fs.Duration("timeout", 10*time.Second, "RPC timeout")
@@ -31,7 +31,7 @@ func RunDebug(args []string, opt ...Options) int {
 		"reticulum-go debug",
 		"reticulum-go debug -json -rates",
 	)
-	if err := fs.Parse(args); err != nil {
+	if err := parseAll(fs, args); err != nil {
 		return 2
 	}
 

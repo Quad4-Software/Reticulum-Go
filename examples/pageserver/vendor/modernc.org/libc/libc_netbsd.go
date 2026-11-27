@@ -7,8 +7,8 @@ package libc // import "modernc.org/libc"
 import (
 	"fmt"
 	"io"
+	mbits "math/bits"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"runtime/debug"
@@ -884,28 +884,6 @@ func Xgetpid(t *TLS) int32 {
 	return int32(os.Getpid())
 }
 
-// int system(const char *command);
-func Xsystem(t *TLS, command uintptr) int32 {
-	if __ccgo_strace {
-		trc("t=%v command=%v, (%v:)", t, command, origin(2))
-	}
-	s := GoString(command)
-	if command == 0 {
-		panic(todo(""))
-	}
-
-	cmd := exec.Command("sh", "-c", s)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	err := cmd.Run()
-	if err != nil {
-		ps := err.(*exec.ExitError)
-		return int32(ps.ExitCode())
-	}
-
-	return 0
-}
-
 // int setvbuf(FILE *stream, char *buf, int mode, size_t size);
 func Xsetvbuf(t *TLS, stream, buf uintptr, mode int32, size types.Size_t) int32 {
 	if __ccgo_strace {
@@ -1216,14 +1194,6 @@ func Xperror(tls *TLS, msg uintptr) {
 	fmt.Fprintf(os.Stderr, "%s\n", GoString(errstr))
 }
 
-// int pclose(FILE *stream);
-func Xpclose(t *TLS, stream uintptr) int32 {
-	if __ccgo_strace {
-		trc("t=%v stream=%v, (%v:)", t, stream, origin(2))
-	}
-	panic(todo(""))
-}
-
 var gai_strerrorBuf [100]byte
 
 // const char *gai_strerror(int errcode);
@@ -1300,14 +1270,6 @@ func Xnl_langinfo(t *TLS, item langinfo.Nl_item) uintptr {
 		trc("t=%v item=%v, (%v:)", t, item, origin(2))
 	}
 	return uintptr(unsafe.Pointer(&emptyStr)) //TODO
-}
-
-// FILE *popen(const char *command, const char *type);
-func Xpopen(t *TLS, command, type1 uintptr) uintptr {
-	if __ccgo_strace {
-		trc("t=%v type1=%v, (%v:)", t, type1, origin(2))
-	}
-	panic(todo(""))
 }
 
 // char *realpath(const char *path, char *resolved_path);
@@ -1650,22 +1612,6 @@ func fcntlCmdStr(cmd int32) string {
 	}
 }
 
-// int setenv(const char *name, const char *value, int overwrite);
-func Xsetenv(t *TLS, name, value uintptr, overwrite int32) int32 {
-	if __ccgo_strace {
-		trc("t=%v value=%v overwrite=%v, (%v:)", t, value, overwrite, origin(2))
-	}
-	panic(todo(""))
-}
-
-// int unsetenv(const char *name);
-func Xunsetenv(t *TLS, name uintptr) int32 {
-	if __ccgo_strace {
-		trc("t=%v name=%v, (%v:)", t, name, origin(2))
-	}
-	panic(todo(""))
-}
-
 // int pause(void);
 func Xpause(t *TLS) int32 {
 	if __ccgo_strace {
@@ -1915,18 +1861,20 @@ func X__ccgo_getMutexType(tls *TLS, m uintptr) int32 { /* pthread_mutex_lock.c:3
 	return (*(*int32)(unsafe.Pointer((m /* &.__u */ /* &.__i */))) & 15)
 }
 
+// The detach state is the pthreadAttr at the start of the 16 bytes (12 on
+// arm) of a pthread_attr_t, where pthread_attr_init puts it.
 func X__ccgo_pthreadAttrGetDetachState(tls *TLS, a uintptr) int32 { /* pthread_attr_get.c:3:5: */
 	if __ccgo_strace {
 		trc("tls=%v a=%v, (%v:)", tls, a, origin(2))
 	}
-	return *(*int32)(unsafe.Pointer((a /* &.__u */ /* &.__i */) + 6*4))
+	return (*pthreadAttr)(unsafe.Pointer(a)).detachState
 }
 
 func Xpthread_attr_getdetachstate(tls *TLS, a uintptr, state uintptr) int32 { /* pthread_attr_get.c:7:5: */
 	if __ccgo_strace {
 		trc("tls=%v a=%v state=%v, (%v:)", tls, a, state, origin(2))
 	}
-	*(*int32)(unsafe.Pointer(state)) = *(*int32)(unsafe.Pointer((a /* &.__u */ /* &.__i */) + 6*4))
+	*(*int32)(unsafe.Pointer(state)) = (*pthreadAttr)(unsafe.Pointer(a)).detachState
 	return 0
 }
 
@@ -1937,7 +1885,7 @@ func Xpthread_attr_setdetachstate(tls *TLS, a uintptr, state int32) int32 { /* p
 	if uint32(state) > 1 {
 		return 22
 	}
-	*(*int32)(unsafe.Pointer((a /* &.__u */ /* &.__i */) + 6*4)) = state
+	(*pthreadAttr)(unsafe.Pointer(a)).detachState = state
 	return 0
 }
 
@@ -2058,3 +2006,13 @@ func Xrewinddir(tls *TLS, f uintptr) {
 	}
 	Xfseek(tls, f, 0, stdio.SEEK_SET)
 }
+
+func X__builtin_ctz(t *TLS, n uint32) int32 {
+	return int32(mbits.TrailingZeros32(n))
+}
+
+// ftw, see ftw_bsd.go.
+const (
+	ftwMaxFDs      = 128   // OPEN_MAX of <sys/syslimits.h>, the largest nfds ftw accepts
+	ftwFollowLinks = false // ftw reports symbolic links below the root as FTW_SL
+)

@@ -82,8 +82,14 @@
 //
 // # Signals
 //
-// Signal handling in translated C code is not coordinated with the Go runtime.
-// This is probably the same as when running C code via CGo.
+// A handler that C code installs with signal or sigaction gets the signal
+// through os/signal. It runs on the C thread that installed it, at that
+// thread's next check point: when a function that took stack memory from its
+// TLS returns, and in some native routines such as fabs. Unlike in C, a handler
+// does not interrupt the code running at the time, so a loop that reaches no
+// check point, an interpreter running an empty endless loop for example, never
+// runs it. A Go program that must handle such a signal promptly can catch it
+// with os/signal itself.
 //
 // # Environmental variables
 //
@@ -123,7 +129,6 @@ import (
 	"math"
 	"math/rand"
 	"os"
-	"os/exec"
 	gosignal "os/signal"
 	"path/filepath"
 	"runtime"
@@ -170,6 +175,23 @@ func init() {
 	Xprogram_invocation_name = mustCString(nm)
 	Xprogram_invocation_short_name = mustCString(filepath.Base(nm))
 	X__libc.Fpage_size = Tsize_t(os.Getpagesize())
+}
+
+// musl's stdio locks a FILE only when its lock word is not negative. The
+// standard streams start at -1, and fopen, fdopen, fmemopen and
+// open_memstream set it to -1 while libc.threaded is zero. musl's
+// pthread_create sets libc.threaded and clears the lock words of the open
+// FILEs before it starts the first thread, but the hand-written Xpthread_create
+// does not, and every TLS may be a thread anyway. Without locks, two TLSs
+// writing to the same FILE corrupt its buffer pointers and write past its
+// buffer. So stdio locks from the start, as it does in a musl program once
+// it has created a thread. Doing it later would race with a stdio call
+// already in progress on another TLS.
+func init() {
+	X__libc.Fthreaded = 1
+	X__stdin_FILE.Flock = 0
+	X__stdout_FILE.Flock = 0
+	X__stderr_FILE.Flock = 0
 }
 
 // RawMem64 represents the biggest uint64 array the runtime can handle.
@@ -262,10 +284,14 @@ type tlsStackSlot struct {
 	sz Tsize_t
 }
 
+// The TLSAlloc fast paths in tls_linux_amd64.s and tls_linux_arm64.s index
+// tls.stack by shifting sp left by 4, the size of a slot on 64-bit targets.
+var _ = [1]struct{}{}[unsafe.Sizeof(tlsStackSlot{})-2*unsafe.Sizeof(uintptr(0))]
+
 // TLS emulates thread local storage. TLS is not safe for concurrent use by
 // multiple goroutines.
 type TLS struct {
-	allocaStack         []int
+	allocaStack         []allocaMark
 	allocas             []uintptr
 	jumpBuffers         []uintptr
 	pendingSignals      chan os.Signal
@@ -281,6 +307,35 @@ type TLS struct {
 
 	checkSignals bool
 	ownsPthread  bool
+
+	// The alloca(3) bump region. New fields go after the ones above so that
+	// their offsets do not change for ABI0 code built against older versions.
+	allocaChunks []allocaChunk
+	allocaNext   int     // allocaChunks index of the chunk to use when the current one is full
+	allocaP      uintptr // the next free byte in the current chunk
+	allocaEnd    uintptr // the end of the current chunk, zero before the first chunk
+
+	started bool // by Xpthread_create, whose goroutine ends the thread
+
+	// SetExitUnwind.
+	atExit      []uintptr // atexit handlers
+	atQuickExit []uintptr // at_quick_exit handlers
+	exitUnwind  bool
+
+	allocaSeq uintptr // numbers the alloca regions, see TLSCheckpoint
+
+	// Free malloc slots, a bin for each size class of modernc.org/memory
+	// up to tcacheMaxSize, see mem_musl.go. Unused by the libc.membrk and
+	// libc.memgrind allocators. The length is a power of two so that
+	// masking the index makes the bounds check go away.
+	tcache [64]tcacheBin
+}
+
+// tcacheBin is a stack of free malloc slots of one size, linked through their
+// first words.
+type tcacheBin struct {
+	head uintptr
+	n    int
 }
 
 var __ccgo_environOnce sync.Once
@@ -459,6 +514,29 @@ func (tls *TLS) allocSlow(n0 int) (r uintptr) {
 	return r
 }
 
+// tlsCheckpointStack is the TLS.Alloc part of a TLSCheckpoint.
+type tlsCheckpointStack struct {
+	sp uintptr // TLS.sp
+}
+
+func (tls *TLS) stackCheckpoint() tlsCheckpointStack {
+	return tlsCheckpointStack{sp: uintptr(tls.sp)}
+}
+
+func (tls *TLS) checkStackRollback(c tlsCheckpointStack) error {
+	if c.sp > uintptr(tls.sp) {
+		return errTLSCheckpointNotLive
+	}
+
+	return nil
+}
+
+// stackRollback leaves the TLS.Alloc slots from c.sp on allocated, for reuse,
+// as Free does.
+func (tls *TLS) stackRollback(c tlsCheckpointStack) {
+	tls.sp = int(c.sp)
+}
+
 // Free manages memory of the preceding TLS.Alloc()
 func (tls *TLS) Free(n int) {
 	//TODO shrink stacks if possible. Tcl is currently against.
@@ -537,30 +615,6 @@ func (tls *TLS) raiseSignal(sig int32) long {
 	return 0
 }
 
-func (tls *TLS) alloca(n Tsize_t) (r uintptr) {
-	r = mustMalloc(n)
-	tls.allocas = append(tls.allocas, r)
-	return r
-}
-
-// AllocaEntry must be called early on function entry when the function calls
-// or may call alloca(3).
-func (tls *TLS) AllocaEntry() {
-	tls.allocaStack = append(tls.allocaStack, len(tls.allocas))
-}
-
-// AllocaExit must be defer-called on function exit when the function calls or
-// may call alloca(3).
-func (tls *TLS) AllocaExit() {
-	n := len(tls.allocaStack)
-	x := tls.allocaStack[n-1]
-	tls.allocaStack = tls.allocaStack[:n-1]
-	for _, v := range tls.allocas[x:] {
-		Xfree(tls, v)
-	}
-	tls.allocas = tls.allocas[:x]
-}
-
 func (tls *TLS) Close() {
 	defer func() { *tls = TLS{} }()
 
@@ -568,15 +622,14 @@ func (tls *TLS) Close() {
 	delete(tlsByTID, tls.ID)
 	delete(threadNames, tls.pthread)
 	tlsRegistryMu.Unlock()
-	for _, v := range tls.allocas {
-		Xfree(tls, v)
-	}
+	tls.allocaClose()
 	for _, v := range tls.stack /* shrink diabled[:tls.sp] */ {
 		Xfree(tls, v.p)
 	}
 	if tls.ownsPthread {
 		Xfree(tls, tls.pthread)
 	}
+	tls.tcacheFlushAll()
 }
 
 // PushJumpBuffer arms jb, which stays armed until the matching PopJumpBuffer or
@@ -634,17 +687,42 @@ func (tls *TLS) Longjmp(jb uintptr, val int32) {
 
 // ============================================================================
 
+// Xexit implements exit(3) in musl's order: the atexit handlers, newest first,
+// then the functions registered by AtExit, then the flush of every stdio
+// stream, then the end of the process. A handler may register more handlers,
+// which run next, so no lock is held while one runs. See also SetExitUnwind.
 func Xexit(tls *TLS, code int32) {
-	//TODO atexit finalizers
-	X__stdio_exit(tls)
-	for i := len(atExit) - 1; i >= 0; i-- {
-		atExit[i]()
+	if tls != nil && tls.exitUnwind {
+		tls.exitUnwound(code)
 	}
-	atExitHandlersMu.Lock()
-	for i := len(atExitHandlers) - 1; i >= 0; i-- {
-		v := atExitHandlers[i]
+
+	for {
+		atExitHandlersMu.Lock()
+		n := len(atExitHandlers)
+		if n == 0 {
+			atExitHandlersMu.Unlock()
+			break
+		}
+
+		v := atExitHandlers[n-1]
+		atExitHandlers = atExitHandlers[:n-1]
+		atExitHandlersMu.Unlock()
 		(*(*func(*TLS))(unsafe.Pointer(&struct{ uintptr }{v})))(tls)
 	}
+	for {
+		atExitMu.Lock()
+		n := len(atExit)
+		if n == 0 {
+			atExitMu.Unlock()
+			break
+		}
+
+		f := atExit[n-1]
+		atExit = atExit[:n-1]
+		atExitMu.Unlock()
+		f()
+	}
+	X__stdio_exit(tls)
 	os.Exit(int(code))
 }
 
@@ -665,8 +743,13 @@ var abort Tsigaction
 // does and as the netbsd Xabort explains: a process-directed kill(2) is
 // asynchronous and the calling thread can run on before it lands. With
 // SIG_DFL installed the kernel terminates the process in tgkill; the
-// process-directed kill and the panic are unreachable fallbacks.
+// process-directed kill and the panic are unreachable fallbacks. See also
+// SetExitUnwind.
 func Xabort(tls *TLS) {
+	if tls != nil && tls.exitUnwind {
+		panic(ExitError{Status: 128 + SIGABRT, Abort: true})
+	}
+
 	___libc_sigaction(tls, SIGABRT, uintptr(unsafe.Pointer(&abort)), 0)
 	resetSigDfl(SIGABRT)
 	unix.Tgkill(unix.Getpid(), unix.Gettid(), unix.Signal(SIGABRT))
@@ -1136,7 +1219,13 @@ var (
 	atExitHandlers   []uintptr
 )
 
+// Xatexit registers func_ with the process, or with tls under SetExitUnwind.
 func Xatexit(tls *TLS, func_ uintptr) (r int32) {
+	if tls != nil && tls.exitUnwind {
+		tls.atExit = append(tls.atExit, func_)
+		return 0
+	}
+
 	atExitHandlersMu.Lock()
 	atExitHandlers = append(atExitHandlers, func_)
 	atExitHandlersMu.Unlock()
@@ -1182,27 +1271,6 @@ func Xdlclose(t *TLS, handle uintptr) int32 {
 		trc("t=%v handle=%v, (%v:)", t, handle, origin(2))
 	}
 	panic(todo(""))
-}
-
-func Xsystem(t *TLS, command uintptr) int32 {
-	if __ccgo_strace {
-		trc("t=%v command=%v, (%v:)", t, command, origin(2))
-	}
-	s := GoString(command)
-	if command == 0 {
-		panic(todo(""))
-	}
-
-	cmd := exec.Command("sh", "-c", s)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	err := cmd.Run()
-	if err != nil {
-		ps := err.(*exec.ExitError)
-		return int32(ps.ExitCode())
-	}
-
-	return 0
 }
 
 func Xsched_yield(tls *TLS) int32 {
@@ -1465,9 +1533,25 @@ func Xfts_read(t *TLS, ftsp uintptr) uintptr {
 	panic(todo(""))
 }
 
-// FILE *popen(const char *command, const char *type);
-func Xpopen(t *TLS, command, type1 uintptr) uintptr {
-	panic(todo(""))
+// FILE *popen(const char *command, const char *mode);
+//
+// musl's pclose, which waits for f->pipe_pid, works with it unchanged. See
+// popen for how it differs from musl's.
+func Xpopen(t *TLS, command, mode uintptr) (r uintptr) {
+	if __ccgo_strace {
+		trc("t=%v command=%v mode=%v, (%v:)", t, command, mode, origin(2))
+		defer func() { trc("-> %v", r) }()
+	}
+	op, ok := popenMode(t, mode)
+	if !ok {
+		return 0
+	}
+
+	f, pid := popen(t, command, op, func(fd int32) uintptr { return Xfdopen(t, fd, mode) })
+	if f != 0 {
+		(*TFILE)(unsafe.Pointer(f)).Fpipe_pid = int32(pid)
+	}
+	return f
 }
 
 // int sysctlbyname(const char *name, void *oldp, size_t *oldlenp, void *newp, size_t newlen);

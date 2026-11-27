@@ -94,7 +94,7 @@ func (l *Link) RequestLimited(path string, data any, timeout time.Duration, maxR
 		}
 		l.mutex.Unlock()
 
-		debug.Log(debug.DebugVerbose, "Sending request", "path", path, "request_id", fmt.Sprintf("%x", requestID))
+		debug.Log(debug.DebugVerbose, "Sending request", "path", path, "request_id", debug.Hex(requestID))
 		if err := l.transport.SendPacket(reqPkt); err != nil {
 			l.failPendingRequest(receipt)
 			return nil, fmt.Errorf("failed to send request: %w", err)
@@ -130,7 +130,7 @@ func (l *Link) RequestLimited(path string, data any, timeout time.Duration, maxR
 		return nil, err
 	}
 
-	debug.Log(debug.DebugVerbose, "Sending request as resource", "path", path, "request_id", fmt.Sprintf("%x", requestID), "packed_len", len(packedRequest))
+	debug.Log(debug.DebugVerbose, "Sending request as resource", "path", path, "request_id", debug.Hex(requestID), "packed_len", len(packedRequest))
 	if !l.acquireResourceSendSlot() {
 		l.failPendingRequest(receipt)
 		return nil, errors.New("link resource send slots exhausted")
@@ -138,7 +138,7 @@ func (l *Link) RequestLimited(path string, data any, timeout time.Duration, maxR
 	go func() {
 		defer l.releaseResourceSendSlot()
 		if err := l.SendResource(res); err != nil {
-			debug.Log(debug.DebugError, "Failed to send request resource", "request_id", fmt.Sprintf("%x", requestID), "error", err)
+			debug.Log(debug.DebugError, "Failed to send request resource", "request_id", debug.Hex(requestID), "error", err)
 			l.failPendingRequest(receipt)
 			return
 		}
@@ -329,7 +329,7 @@ func (r *RequestReceipt) startTimeout() {
 			// it like Python response_resource_progress does for a FAILED
 			// receipt.
 			r.link.warnFootgun("Link request timed out",
-				"link_id", fmt.Sprintf("%x", r.link.linkID),
+				"link_id", debug.Hex(r.link.linkID),
 				"timeout_s", r.timeout.Seconds(),
 				"hint", "peer did not respond; check path and keepalive, do not loop Request")
 			r.link.abortResponseResourceFor(r)
@@ -353,7 +353,7 @@ func (r *RequestReceipt) startTimeout() {
 			unboundSince = time.Now()
 		} else if time.Since(unboundSince) > r.timeout {
 			r.link.warnFootgun("Link request response abandoned mid-transfer",
-				"link_id", fmt.Sprintf("%x", r.link.linkID),
+				"link_id", debug.Hex(r.link.linkID),
 				"timeout_s", r.timeout.Seconds(),
 				"hint", "peer started but never finished the response; check resource handlers")
 			r.link.failPendingRequest(r)
@@ -414,12 +414,12 @@ func (l *Link) handleRequest(plaintext []byte, requestID []byte) error {
 	if !requestTimestampValid(requestedAt, time.Now()) {
 		debug.Log(debug.DebugVerbose, "Rejecting request with stale requested_at",
 			"requested_at", requestedAt.Unix(),
-			"request_id", fmt.Sprintf("%x", requestID))
+			"request_id", debug.Hex(requestID))
 		health.Inc(l.attachedIfaceName(), health.KindRequestSkewReject)
 		return nil
 	}
 
-	debug.Log(debug.DebugVerbose, "Handling request", "path_hash", fmt.Sprintf("%x", pathHash), "request_id", fmt.Sprintf("%x", requestID))
+	debug.Log(debug.DebugVerbose, "Handling request", "path_hash", debug.Hex(pathHash), "request_id", debug.Hex(requestID))
 
 	if l.destination != nil {
 		handler := l.destination.GetRequestHandler(pathHash)
@@ -429,7 +429,7 @@ func (l *Link) handleRequest(plaintext []byte, requestID []byte) error {
 				return l.sendResponse(requestID, response)
 			}
 		} else {
-			debug.Log(debug.DebugVerbose, "No handler found for path", "path_hash", fmt.Sprintf("%x", pathHash))
+			debug.Log(debug.DebugVerbose, "No handler found for path", "path_hash", debug.Hex(pathHash))
 		}
 	}
 
@@ -535,7 +535,7 @@ func (l *Link) sendResponse(requestID []byte, response any) error {
 		go func() {
 			defer l.releaseResourceSendSlot()
 			if err := l.SendResource(res); err != nil {
-				debug.Log(debug.DebugError, "Failed to send file response resource", "request_id", fmt.Sprintf("%x", requestID), "error", err)
+				debug.Log(debug.DebugError, "Failed to send file response resource", "request_id", debug.Hex(requestID), "error", err)
 			}
 		}()
 		return nil
@@ -576,7 +576,7 @@ func (l *Link) sendResponse(requestID []byte, response any) error {
 
 		l.recordOutboundData()
 
-		debug.Log(debug.DebugVerbose, "Sending response", "request_id", fmt.Sprintf("%x", requestID), "response_len", len(encrypted))
+		debug.Log(debug.DebugVerbose, "Sending response", "request_id", debug.Hex(requestID), "response_len", len(encrypted))
 		return l.transport.SendPacket(respPkt)
 	}
 
@@ -587,14 +587,14 @@ func (l *Link) sendResponse(requestID []byte, response any) error {
 	res.SetRequestID(requestID)
 	res.SetIsResponse(true)
 
-	debug.Log(debug.DebugVerbose, "Sending response as resource", "request_id", fmt.Sprintf("%x", requestID), "packed_len", len(packedResponse), "mdu", mdu)
+	debug.Log(debug.DebugVerbose, "Sending response as resource", "request_id", debug.Hex(requestID), "packed_len", len(packedResponse), "mdu", mdu)
 	if !l.acquireResourceSendSlot() {
 		return errors.New("link resource send slots exhausted")
 	}
 	go func() {
 		defer l.releaseResourceSendSlot()
 		if err := l.SendResource(res); err != nil {
-			debug.Log(debug.DebugError, "Failed to send response resource", "request_id", fmt.Sprintf("%x", requestID), "error", err)
+			debug.Log(debug.DebugError, "Failed to send response resource", "request_id", debug.Hex(requestID), "error", err)
 		}
 	}()
 	return nil

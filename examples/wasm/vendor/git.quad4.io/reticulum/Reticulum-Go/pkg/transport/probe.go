@@ -41,7 +41,7 @@ func (t *Transport) InitializeProbeDestination() error {
 	t.appendMgmtDestination(dest)
 
 	debug.Log(debug.DebugInfo, "Transport will respond to probe requests",
-		"destination", fmt.Sprintf("%x", dest.GetHash()))
+		"destination", debug.Hex(dest.GetHash()))
 	return nil
 }
 

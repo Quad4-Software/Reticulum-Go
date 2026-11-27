@@ -81,6 +81,7 @@ func usageErr(w io.Writer, text string) {
 }
 
 func bindFlagUsage(fs *flag.FlagSet, title string, intro string, usage []helpLine, examples ...string) {
+	noteCompletionFlagSet(fs)
 	w := fs.Output()
 	fs.Usage = func() {
 		helpTitle(w, title)
@@ -99,6 +100,7 @@ func bindFlagUsage(fs *flag.FlagSet, title string, intro string, usage []helpLin
 }
 
 func bindFlagUsageBullets(fs *flag.FlagSet, title string, intro string, bullets []string, usage []helpLine, examples ...string) {
+	noteCompletionFlagSet(fs)
 	w := fs.Output()
 	fs.Usage = func() {
 		helpTitle(w, title)

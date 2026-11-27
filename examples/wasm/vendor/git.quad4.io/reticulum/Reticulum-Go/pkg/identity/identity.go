@@ -420,8 +420,15 @@ func rememberKnown(packet []byte, destHash []byte, publicKey []byte, appData []b
 		}
 		if bytes.Equal(existing.pktHash, pktHash[:]) && bytes.Equal(existing.app, appData) {
 			meta := knownDestMetaByKey[hashStr]
+			// SQLite rows have one-second granularity. Requeueing an unchanged
+			// re-announce inside the same second would allocate on the hottest
+			// transport path without changing anything the flush can write.
+			dbDirty := meta.rememberedAt != now
 			meta.rememberedAt = now
 			knownDestMetaByKey[hashStr] = meta
+			if dbDirty {
+				markKnownDestDBDirtyLocked(hashStr, existing, meta)
+			}
 			markKnownDestinationsDirty()
 			return true
 		}
@@ -436,6 +443,7 @@ func rememberKnown(packet []byte, destHash []byte, publicKey []byte, appData []b
 		meta := knownDestMetaByKey[hashStr]
 		meta.rememberedAt = now
 		knownDestMetaByKey[hashStr] = meta
+		markKnownDestDBDirtyLocked(hashStr, existing, meta)
 		markKnownDestinationsDirty()
 		return true
 	}
@@ -462,6 +470,7 @@ func rememberKnown(packet []byte, destHash []byte, publicKey []byte, appData []b
 		lastUsed = 0
 	}
 	setKnownDestMetaLocked(hashStr, now, lastUsed)
+	markKnownDestDBDirtyLocked(hashStr, entry, knownDestMetaByKey[hashStr])
 	evictKnownDestinationsIfNeededLocked()
 	markKnownDestinationsDirty()
 	return true
@@ -492,6 +501,7 @@ func evictKnownDestinationsIfNeededLocked() {
 		}
 		delete(knownDestinations, key)
 		deleteKnownDestMetaLocked(key)
+		markKnownDestDBDeletedLocked(key)
 		excess--
 	}
 }

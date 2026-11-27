@@ -29,7 +29,7 @@ func RunSpeedtest(args []string, opt ...Options) int {
 	fs := flag.NewFlagSet("rgospeed", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 
-	configDir := fs.String("config", "", "path to config directory")
+	configDir := fs.String("config", "", "path to config file or directory")
 	identityPath := fs.String("identity", "", "path to identity file (listen mode)")
 	listenMode := fs.Bool("l", false, "listen as speedtest server")
 	daemon := fs.Bool("daemon", false, "listen forever (implies -l -m, default announce every 120s)")
@@ -63,7 +63,7 @@ func RunSpeedtest(args []string, opt ...Options) int {
 		"reticulum-go speedtest -iface tcp -bytes 1048576 <server_dest_hash>",
 	)
 
-	if err := fs.Parse(args); err != nil {
+	if err := parseAll(fs, args); err != nil {
 		return 2
 	}
 

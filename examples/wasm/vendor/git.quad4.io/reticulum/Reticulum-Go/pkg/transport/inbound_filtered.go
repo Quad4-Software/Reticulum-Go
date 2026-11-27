@@ -5,6 +5,7 @@ package transport
 
 import (
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/common"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/debug"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/packet"
 )
@@ -170,6 +171,9 @@ func (t *Transport) announcePrefilterDrop(pkt *packet.Packet, nameHash []byte, i
 	curIfaceName := ""
 	if path.Interface != nil {
 		curIfaceName = path.Interface.GetName()
+	}
+	if path.Interface != nil && path.Interface != iface && isLocalClientInterface(iface) && isLocalClientInterface(path.Interface) {
+		debug.Log(debug.DebugWarning, "Conflicting announces for one destination from separate shared-instance clients", "dest_hash", debug.Hex(pkt.DestinationHash), "existing_client", curIfaceName, "client", iface.GetName())
 	}
 	t.notePendingAltAnnounce(pkt.DestinationHash, pkt.Raw, iface, pkt.Hops, curIfaceName)
 	// Dropped before doing useful work: count the announce as received with

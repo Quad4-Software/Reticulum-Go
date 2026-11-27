@@ -832,6 +832,27 @@ func (s *Session) Authed() bool {
 	return s.authed
 }
 
+// ExitReceived reports whether the peer Exit message has arrived.
+func (s *Session) ExitReceived() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.clientExitCode != nil
+}
+
+// StdoutEOF reports whether the peer stdout stream EOF has arrived.
+func (s *Session) StdoutEOF() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.clientStdoutEOF
+}
+
+// StderrEOF reports whether the peer stderr stream EOF has arrived.
+func (s *Session) StderrEOF() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.clientStderrEOF
+}
+
 // Spawned reports whether a process was started (listener).
 func (s *Session) Spawned() bool {
 	s.mu.Lock()

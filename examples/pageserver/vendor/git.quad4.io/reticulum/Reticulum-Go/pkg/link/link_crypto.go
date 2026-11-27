@@ -276,7 +276,7 @@ func (l *Link) decrypt(data []byte) ([]byte, error) {
 	}
 	l.mutex.RUnlock()
 	if !ok {
-		debug.Log(debug.DebugError, "Decrypt failed: no session keys", "link_id", fmt.Sprintf("%x", l.linkID))
+		debug.Log(debug.DebugError, "Decrypt failed: no session keys", "link_id", debug.Hex(l.linkID))
 		return nil, errors.New("no session keys available")
 	}
 
@@ -304,7 +304,7 @@ func (l *Link) decrypt(data []byte) ([]byte, error) {
 		case cryptography.IsPaddingError(err):
 			health.Inc(ifaceName, health.KindPaddingFail)
 		}
-		debug.Log(debug.DebugError, "Decrypt failed", "link_id", fmt.Sprintf("%x", l.linkID), "error", err)
+		debug.Log(debug.DebugError, "Decrypt failed", "link_id", debug.Hex(l.linkID), "error", err)
 		return nil, err
 	}
 	return plaintext, nil

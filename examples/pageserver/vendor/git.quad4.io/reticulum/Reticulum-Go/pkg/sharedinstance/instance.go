@@ -117,6 +117,9 @@ func attachServerOrClient(cfg *common.ReticulumConfig, tr *transport.Transport, 
 		if hooks.UnregisterInterface != nil {
 			client.SetDisconnectHooks(func() {
 				hooks.UnregisterInterface(name)
+				if clients := client.ParentClients(); clients == nil || clients.Load() == 0 {
+					tr.PersistStateForClientDetach()
+				}
 			}, nil)
 		}
 	}

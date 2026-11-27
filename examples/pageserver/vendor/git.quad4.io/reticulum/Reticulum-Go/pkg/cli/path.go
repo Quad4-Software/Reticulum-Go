@@ -19,7 +19,7 @@ func RunPath(args []string, opt ...Options) int {
 	fs := flag.NewFlagSet("rgopath", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 
-	configDir := fs.String("config", "", "path to config directory")
+	configDir := fs.String("config", "", "path to config file or directory")
 	table := fs.Bool("t", false, "show path table")
 	jsonOut := fs.Bool("json", false, "emit JSON")
 	fs.BoolVar(jsonOut, "j", false, "emit JSON (Python rnpath alias)")
@@ -69,7 +69,7 @@ func RunPath(args []string, opt ...Options) int {
 		"rgopath -p <transport_hash>",
 	)
 
-	if err := fs.Parse(args); err != nil {
+	if err := parseAll(fs, args); err != nil {
 		return 2
 	}
 

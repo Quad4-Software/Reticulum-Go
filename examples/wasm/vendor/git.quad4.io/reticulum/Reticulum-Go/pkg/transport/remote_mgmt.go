@@ -66,7 +66,7 @@ func (t *Transport) InitializeRemoteManagement() error {
 	t.mutex.Unlock()
 
 	debug.Log(debug.DebugInfo, "Enabled remote management",
-		"destination", fmt.Sprintf("%x", dest.GetHash()))
+		"destination", debug.Hex(dest.GetHash()))
 	return nil
 }
 

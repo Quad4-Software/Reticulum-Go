@@ -172,3 +172,19 @@ func systemMemoryBytes() int64 {
 	}
 	return 0
 }
+
+// DefaultGCPercent is the aggressive collector target used by the daemon when
+// the operator has not chosen GOGC. Tailscale uses the same policy: the packet
+// path is close to allocation-free, so more frequent collection costs little
+// compared with the memory saved in long-running network processes.
+const DefaultGCPercent = 10
+
+// ApplyDefaultGCPercent installs DefaultGCPercent unless GOGC is explicitly
+// present in the environment. It reports whether the setting was applied.
+func ApplyDefaultGCPercent() bool {
+	if _, ok := os.LookupEnv("GOGC"); ok {
+		return false
+	}
+	debug.SetGCPercent(DefaultGCPercent)
+	return true
+}

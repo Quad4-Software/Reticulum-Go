@@ -156,14 +156,14 @@ func (l *Link) HandleProofRequest(packet *packet.Packet) bool {
 	}
 }
 func (l *Link) sendLinkProof(ownerIdentity *identity.Identity) error {
-	debug.Log(debug.DebugVerbose, "Generating link proof", "link_id", fmt.Sprintf("%x", l.linkID), "initiator", l.initiator, "has_interface", l.networkInterface != nil)
+	debug.Log(debug.DebugVerbose, "Generating link proof", "link_id", debug.Hex(l.linkID), "initiator", l.initiator, "has_interface", l.networkInterface != nil)
 
 	proofPkt, err := l.GenerateLinkProof(ownerIdentity)
 	if err != nil {
 		return err
 	}
 
-	debug.Log(debug.DebugVerbose, "Link proof packet created", "dest_hash", fmt.Sprintf("%x", proofPkt.DestinationHash), "packet_type", fmt.Sprintf("0x%02x", proofPkt.PacketType))
+	debug.Log(debug.DebugVerbose, "Link proof packet created", "dest_hash", debug.Hex(proofPkt.DestinationHash), "packet_type", fmt.Sprintf("0x%02x", proofPkt.PacketType))
 
 	// For responder links (not initiator), send proof directly through the receiving interface
 	if !l.initiator && l.networkInterface != nil {
@@ -180,7 +180,7 @@ func (l *Link) sendLinkProof(ownerIdentity *identity.Identity) error {
 		if err := l.networkInterface.Send(proofPkt.Raw, ""); err != nil {
 			return fmt.Errorf("failed to send link proof through interface: %w", err)
 		}
-		debug.Log(debug.DebugVerbose, "Link proof sent through interface", "link_id", fmt.Sprintf("%x", l.linkID), "interface", l.networkInterface.GetName())
+		debug.Log(debug.DebugVerbose, "Link proof sent through interface", "link_id", debug.Hex(l.linkID), "interface", l.networkInterface.GetName())
 		return nil
 	}
 
@@ -195,7 +195,7 @@ func (l *Link) sendLinkProof(ownerIdentity *identity.Identity) error {
 		if err := l.transport.SendPacket(proofPkt); err != nil {
 			return fmt.Errorf("failed to send link proof: %w", err)
 		}
-		debug.Log(debug.DebugVerbose, "Link proof sent", "link_id", fmt.Sprintf("%x", l.linkID))
+		debug.Log(debug.DebugVerbose, "Link proof sent", "link_id", debug.Hex(l.linkID))
 	}
 
 	return nil
@@ -218,11 +218,11 @@ func (l *Link) GenerateLinkProof(ownerIdentity *identity.Identity) (*packet.Pack
 	debug.Log(
 		debug.DebugInfo,
 		"Generated link proof signature",
-		"link_id", fmt.Sprintf("%x", l.linkID),
-		"sig_prefix", fmt.Sprintf("%x", signature[:8]),
-		"pub_prefix", fmt.Sprintf("%x", l.pub[:8]),
-		"owner_sig_pub_prefix", fmt.Sprintf("%x", ownerSigPub[:8]),
-		"signalling", fmt.Sprintf("%x", signalling),
+		"link_id", debug.Hex(l.linkID),
+		"sig_prefix", debug.Hex(signature[:8]),
+		"pub_prefix", debug.Hex(l.pub[:8]),
+		"owner_sig_pub_prefix", debug.Hex(ownerSigPub[:8]),
+		"signalling", debug.Hex(signalling),
 	)
 
 	proofData := make([]byte, 0, len(signature)+KeySize+len(signalling))
@@ -276,7 +276,7 @@ func (l *Link) validateLinkProofLocked(pkt *packet.Packet, networkIface common.N
 		return nil
 	}
 	startTime := time.Now()
-	debug.Log(debug.DebugVerbose, "Validating link proof", "link_id", fmt.Sprintf("%x", l.linkID), "status", l.status.Load(), "initiator", l.initiator, "has_interface", networkIface != nil, "proof_data_len", len(pkt.Data))
+	debug.Log(debug.DebugVerbose, "Validating link proof", "link_id", debug.Hex(l.linkID), "status", l.status.Load(), "initiator", l.initiator, "has_interface", networkIface != nil, "proof_data_len", len(pkt.Data))
 	st := l.status.Load()
 	if st != int32(StatusPending) && st != int32(StatusHandshake) {
 		return fmt.Errorf("invalid link status for proof validation: %d", l.status.Load())
@@ -337,7 +337,7 @@ func (l *Link) validateLinkProofLocked(pkt *packet.Packet, networkIface common.N
 	signedData = append(signedData, signalling...)
 
 	first32Len := min(len(signedData), 32)
-	debug.Log(debug.DebugVerbose, "Constructed signed data for validation", "link_id", fmt.Sprintf("%x", l.linkID[:8]), "peer_pub", fmt.Sprintf("%x", peerPub[:8]), "peer_sig_pub", fmt.Sprintf("%x", l.peerSigPub[:8]), "signalling", fmt.Sprintf("%x", signalling), "signed_data_len", len(signedData), "signed_data_first32", fmt.Sprintf("%x", signedData[:first32Len]))
+	debug.Log(debug.DebugVerbose, "Constructed signed data for validation", "link_id", debug.Hex(l.linkID[:8]), "peer_pub", debug.Hex(peerPub[:8]), "peer_sig_pub", debug.Hex(l.peerSigPub[:8]), "signalling", debug.Hex(signalling), "signed_data_len", len(signedData), "signed_data_first32", debug.Hex(signedData[:first32Len]))
 
 	if l.destination == nil || l.destination.GetIdentity() == nil {
 		l.markInitiatorEstablishmentFailedLocked()
@@ -345,11 +345,11 @@ func (l *Link) validateLinkProofLocked(pkt *packet.Packet, networkIface common.N
 	}
 
 	if !l.destination.GetIdentity().Verify(signedData, signature) {
-		debug.Log(debug.DebugError, "Link proof signature validation failed", "link_id", fmt.Sprintf("%x", l.linkID[:8]), "signature", fmt.Sprintf("%x", signature[:8]), "signed_data", fmt.Sprintf("%x", signedData))
+		debug.Log(debug.DebugError, "Link proof signature validation failed", "link_id", debug.Hex(l.linkID[:8]), "signature", debug.Hex(signature[:8]), "signed_data", debug.Hex(signedData))
 		incProofFail(networkIface)
 		return errors.New("link proof signature validation failed")
 	}
-	debug.Log(debug.DebugVerbose, "Link proof signature validated successfully", "link_id", fmt.Sprintf("%x", l.linkID[:8]))
+	debug.Log(debug.DebugVerbose, "Link proof signature validated successfully", "link_id", debug.Hex(l.linkID[:8]))
 
 	if err := l.performHandshakeLocked(); err != nil {
 		l.markInitiatorEstablishmentFailedLocked()
@@ -395,24 +395,24 @@ func (l *Link) validateLinkProofLocked(pkt *packet.Packet, networkIface common.N
 
 	encrypted, err := l.encryptLocked(rttData)
 	if err != nil {
-		debug.Log(debug.DebugError, "Failed to encrypt RTT packet", "error", err, "link_id", fmt.Sprintf("%x", l.linkID))
+		debug.Log(debug.DebugError, "Failed to encrypt RTT packet", "error", err, "link_id", debug.Hex(l.linkID))
 	} else {
 		rttPkt.Data = encrypted
 		if err := rttPkt.Pack(); err != nil {
-			debug.Log(debug.DebugError, "Failed to pack RTT packet", "error", err, "link_id", fmt.Sprintf("%x", l.linkID))
+			debug.Log(debug.DebugError, "Failed to pack RTT packet", "error", err, "link_id", debug.Hex(l.linkID))
 		} else {
-			debug.Log(debug.DebugVerbose, "Sending RTT packet", "link_id", fmt.Sprintf("%x", l.linkID), "rtt", fmt.Sprintf("%.3fs", logRtt), "packet_size", len(rttPkt.Raw))
+			debug.Log(debug.DebugVerbose, "Sending RTT packet", "link_id", debug.Hex(l.linkID), "rtt", fmt.Sprintf("%.3fs", logRtt), "packet_size", len(rttPkt.Raw))
 			if err := l.transport.SendPacket(rttPkt); err != nil {
-				debug.Log(debug.DebugError, "Failed to send RTT packet", "error", err, "link_id", fmt.Sprintf("%x", l.linkID))
+				debug.Log(debug.DebugError, "Failed to send RTT packet", "error", err, "link_id", debug.Hex(l.linkID))
 			} else {
 				l.recordOutbound()
-				debug.Log(debug.DebugVerbose, "RTT packet sent successfully", "link_id", fmt.Sprintf("%x", l.linkID), "rtt", fmt.Sprintf("%.3fs", logRtt))
+				debug.Log(debug.DebugVerbose, "RTT packet sent successfully", "link_id", debug.Hex(l.linkID), "rtt", fmt.Sprintf("%.3fs", logRtt))
 			}
 		}
 	}
 
 	establishmentElapsed := time.Since(l.requestTime).Seconds()
-	debug.Log(debug.DebugInfo, "Link established (initiator)", "link_id", fmt.Sprintf("%x", l.linkID), "rtt", fmt.Sprintf("%.3fs", logRtt), "total_elapsed", fmt.Sprintf("%.3fs", establishmentElapsed), "validation_elapsed", fmt.Sprintf("%.3fs", time.Since(startTime).Seconds()))
+	debug.Log(debug.DebugInfo, "Link established (initiator)", "link_id", debug.Hex(l.linkID), "rtt", fmt.Sprintf("%.3fs", logRtt), "total_elapsed", fmt.Sprintf("%.3fs", establishmentElapsed), "validation_elapsed", fmt.Sprintf("%.3fs", time.Since(startTime).Seconds()))
 
 	if l.establishedCallback != nil {
 		// Initiator callback runs from ValidateLinkProof while the link mutex is

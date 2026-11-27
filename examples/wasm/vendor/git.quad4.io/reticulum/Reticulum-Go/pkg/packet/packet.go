@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"time"
+	"unsafe"
 
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/debug"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity"
@@ -91,6 +92,18 @@ func nextRawWireCap(need int) int {
 		return MTU
 	}
 	return rounded
+}
+
+// byteRangesOverlap reports whether two byte slices share any backing memory.
+func byteRangesOverlap(a, b []byte) bool {
+	if len(a) == 0 || len(b) == 0 {
+		return false
+	}
+	ap := uintptr(unsafe.Pointer(unsafe.SliceData(a))) // #nosec G103 -- backing-array overlap check only
+	bp := uintptr(unsafe.Pointer(unsafe.SliceData(b))) // #nosec G103 -- backing-array overlap check only
+	ae := ap + uintptr(len(a))
+	be := bp + uintptr(len(b))
+	return ap < be && bp < ae
 }
 
 // PacketConfig holds the parameters used to create a new packet.
@@ -178,18 +191,17 @@ func (p *Packet) Pack() error {
 	payload := p.Data
 
 	var raw []byte
-	if cap(p.Raw) >= need {
-		// Unpack leaves DestinationHash, TransportID, and Data as views into Raw.
-		// Reusing that buffer would clobber those views while packing (especially
-		// HT1 to HT2 upgrades used by multi-hop SendPacket rewrap).
-		destHash = append([]byte(nil), destHash...)
-		if len(transportID) > 0 {
-			transportID = append([]byte(nil), transportID...)
-		}
-		payload = append([]byte(nil), payload...)
-		p.DestinationHash = destHash
-		p.TransportID = transportID
-		p.Data = payload
+	// Raw can only be reused when none of the input fields are views into it.
+	// Unpack leaves DestinationHash, TransportID, and Data inside Raw; copying
+	// them before every rewrap costs two or three allocations per relayed
+	// packet. Writing into a fresh backing array preserves those views without
+	// the copies, while independent caller-owned fields still reuse Raw with
+	// zero allocations on warm paths.
+	reuse := cap(p.Raw) >= need &&
+		!byteRangesOverlap(p.Raw[:cap(p.Raw)], destHash) &&
+		!byteRangesOverlap(p.Raw[:cap(p.Raw)], transportID) &&
+		!byteRangesOverlap(p.Raw[:cap(p.Raw)], payload)
+	if reuse {
 		raw = p.Raw[:0]
 	} else {
 		newCap := need

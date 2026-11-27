@@ -4,7 +4,6 @@
 package transport
 
 import (
-	"fmt"
 	"maps"
 	"sort"
 	"sync"
@@ -236,7 +235,7 @@ func (t *Transport) forwardReverseProof(pkt *packet.Packet, iface common.Network
 	}
 	if iface != entry.OutboundIface {
 		debug.Log(debug.DebugInfo, "Proof received on wrong interface for reverse path",
-			"dest_hash", fmt.Sprintf("%x", dest))
+			"dest_hash", debug.Hex(dest))
 		return true
 	}
 	if entry.ReceivedIface == nil || !entry.ReceivedIface.IsEnabled() {
@@ -248,7 +247,7 @@ func (t *Transport) forwardReverseProof(pkt *packet.Packet, iface common.Network
 	}
 	out := rewriteHopsOnly(pkt.Raw, pkt.Hops)
 	debug.Log(debug.DebugInfo, "Transporting receipt proof via reverse table",
-		"dest_hash", fmt.Sprintf("%x", dest),
+		"dest_hash", debug.Hex(dest),
 		"out_iface", entry.ReceivedIface.GetName())
 	if err := sendOnInterface(entry.ReceivedIface, out, ""); err != nil {
 		debug.Log(debug.DebugError, "Failed to transport receipt proof", "error", err)

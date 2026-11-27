@@ -18,7 +18,7 @@ func RunSlow(args []string, opt ...Options) int {
 	fs := flag.NewFlagSet("rgoslow", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 
-	configDir := fs.String("config", "", "path to config directory")
+	configDir := fs.String("config", "", "path to config file or directory")
 	jsonOut := fs.Bool("json", false, "emit JSON report")
 	all := fs.Bool("a", false, "include hidden/local peer interfaces")
 	nameFilter := fs.String("n", "", "filter interfaces by name substring")
@@ -54,7 +54,7 @@ and ranks congestion signals that commonly stall resource transfers:`,
 		"rgoslow -m -I 3s",
 	)
 
-	if err := fs.Parse(args); err != nil {
+	if err := parseAll(fs, args); err != nil {
 		return 2
 	}
 

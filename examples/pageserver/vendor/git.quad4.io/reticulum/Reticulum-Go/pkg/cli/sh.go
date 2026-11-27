@@ -5,11 +5,13 @@ package cli
 
 import (
 	"context"
+	"encoding/hex"
 	"flag"
 	"fmt"
 	"io"
 	"os"
 	"os/signal"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"syscall"
@@ -33,11 +35,12 @@ func RunSH(args []string, opt ...Options) int {
 	fs := flag.NewFlagSet("rgosh", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 
-	configDir := fs.String("config", "", "path to config directory")
+	configDir := fs.String("config", "", "path to config file or directory")
 	identityPath := fs.String("i", "", "path to identity file")
 	service := fs.String("s", "", "service name (identity file suffix)")
 	listenMode := fs.Bool("l", false, "listen for incoming shell sessions")
 	printID := fs.Bool("p", false, "print identity and destination hash then exit")
+	jsonOut := fs.Bool("json", false, "emit JSON with -p")
 	announceSec := fs.Float64("b", rgosh.DefaultAnnounceSec, "listen announce interval seconds (0 once, default 900)")
 	noAnnounce := fs.Bool("no-announce", false, "never announce (listen)")
 	noAuth := fs.Bool("n", false, "accept sessions from anyone (listen)")
@@ -63,7 +66,7 @@ func RunSH(args []string, opt ...Options) int {
 		"rgosh -l /bin/sh",
 	)
 
-	if err := fs.Parse(args); err != nil {
+	if err := parseInterspersed(fs, args); err != nil {
 		return 2
 	}
 
@@ -101,13 +104,21 @@ func RunSH(args []string, opt ...Options) int {
 	timeout := max(time.Duration(*timeoutSec*float64(time.Second)), 0)
 
 	if *printID {
-		_, _ = fmt.Fprintf(stdout, "%s : %s\n", infoMsg(stdout, "Identity"), rnsutil.PrettyHex(id.Hash()))
-		if *compat {
-			_, _ = fmt.Fprintf(stdout, "%s : %s\n", infoMsg(stdout, "Listening on"), rnsutil.PrettyHex(destination.Hash(id, appName)))
+		identityHex := rnsutil.FullHex(id.Hash())
+		plainIdentityHex := hex.EncodeToString(id.Hash())
+		rgoshHex := rnsutil.FullHex(destination.Hash(id, rnsutil.RgoshAppName))
+		rnshHex := rnsutil.FullHex(destination.Hash(id, rnsutil.RnshAppName))
+		if *jsonOut {
+			_, _ = fmt.Fprintf(stdout, "{\"identity\":\"%s\",\"destinations\":{\"rgosh\":\"%s\",\"rnsh\":\"%s\"}}\n", plainIdentityHex, hex.EncodeToString(destination.Hash(id, rnsutil.RgoshAppName)), hex.EncodeToString(destination.Hash(id, rnsutil.RnshAppName)))
 			return 0
 		}
-		_, _ = fmt.Fprintf(stdout, "%s : %s\n", infoMsg(stdout, "Listening on"), rnsutil.PrettyHex(destination.Hash(id, rnsutil.RgoshAppName)))
-		_, _ = fmt.Fprintf(stdout, "%s : %s\n", infoMsg(stdout, "Listening on (rnsh)"), rnsutil.PrettyHex(destination.Hash(id, rnsutil.RnshAppName)))
+		_, _ = fmt.Fprintf(stdout, "%s : %s\n", infoMsg(stdout, "Identity"), identityHex)
+		if *compat {
+			_, _ = fmt.Fprintf(stdout, "%s : %s\n", infoMsg(stdout, "Listening on"), rnsutil.FullHex(destination.Hash(id, appName)))
+			return 0
+		}
+		_, _ = fmt.Fprintf(stdout, "%s : %s\n", infoMsg(stdout, "Listening on"), rgoshHex)
+		_, _ = fmt.Fprintf(stdout, "%s : %s\n", infoMsg(stdout, "Listening on (rnsh)"), rnshHex)
 		return 0
 	}
 
@@ -243,9 +254,17 @@ func runSHListen(tr *transport.Transport, id *identity.Identity, opts shListenOp
 		if appName == rnsutil.RnshAppName {
 			label = "rgosh (rnsh)"
 		}
-		_, _ = fmt.Fprintln(stderr, okMsg(stderr, fmt.Sprintf("%s listening on %s", label, rnsutil.PrettyHex(dest.GetHash()))))
+		_, _ = fmt.Fprintln(stderr, okMsg(stderr, fmt.Sprintf("%s listening on %s", label, rnsutil.FullHex(dest.GetHash()))))
 		if !opts.noAnnounce {
 			_ = dest.Announce(false, nil, nil)
+			// Interfaces may still be connecting at start, so repeat the
+			// announce a few times to refresh paths after a restart.
+			go func(d *destination.Destination) {
+				for _, wait := range []time.Duration{3 * time.Second, 7 * time.Second, 20 * time.Second} {
+					time.Sleep(wait)
+					_ = d.Announce(false, nil, nil)
+				}
+			}(dest)
 			if opts.announceSec > 0 {
 				stop := make(chan struct{})
 				announceStops = append(announceStops, stop)
@@ -618,6 +637,15 @@ afterAuth:
 			}
 			if err != nil {
 				coal.Close()
+				if compat {
+					// Python rnsh can lose the Exit message when stdin EOF
+					// lands while the child is still starting or exiting.
+					select {
+					case <-done:
+						return
+					case <-time.After(compatStdinEOFGrace):
+					}
+				}
 				_ = sess.SendStream(rgosh.StreamStdin, nil, true)
 				return
 			}
@@ -657,7 +685,7 @@ afterAuth:
 		msg := endMsg
 		endMu.Unlock()
 		if timedOut {
-			_, _ = fmt.Fprintln(stderr, errMsg(stderr, "timeout waiting for remote exit"))
+			_, _ = fmt.Fprintf(stderr, "%s\n", errMsg(stderr, fmt.Sprintf("timeout waiting for remote exit (link active=%t stdout EOF=%t stderr EOF=%t exit received=%t)", l.IsActive(), sess.StdoutEOF(), sess.StderrEOF(), sess.ExitReceived())))
 			return 1
 		}
 		if msg != "" {
@@ -701,6 +729,9 @@ afterAuth:
 	}
 }
 
+// compatStdinEOFGrace delays a local stdin EOF toward a Python rnsh listener.
+const compatStdinEOFGrace = 2 * time.Second
+
 func fileFD(f *os.File) int {
 	// #nosec G115 -- kernel fds are small integers well below MaxInt on all supported OSes
 	return int(f.Fd())
@@ -727,4 +758,61 @@ func ttySize() (rows, cols int) {
 		cols, rows = w, h
 	}
 	return rows, cols
+}
+
+// parseInterspersed parses flags, then keeps parsing multi-letter flags that
+// directly follow the first positional (for example "-C /bin/sh -config dir").
+// Single-letter flags after a positional belong to the remote command.
+func parseInterspersed(fs *flag.FlagSet, args []string) error {
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	rest := fs.Args()
+	if len(rest) == 0 {
+		return nil
+	}
+	pos := []string{rest[0]}
+	rest = rest[1:]
+	for len(rest) > 0 && isLongFlag(fs, rest[0]) {
+		if err := fs.Parse(rest); err != nil {
+			return err
+		}
+		rest = fs.Args()
+	}
+	if len(rest) > 0 && rest[0] == "--" {
+		rest = rest[1:]
+	}
+	pos = append(pos, rest...)
+	return fs.Parse(append([]string{"--"}, pos...))
+}
+
+func isLongFlag(fs *flag.FlagSet, arg string) bool {
+	name := strings.TrimLeft(arg, "-")
+	if len(arg)-len(name) == 0 || len(arg)-len(name) > 2 {
+		return false
+	}
+	name, _, _ = strings.Cut(name, "=")
+	return len(name) > 1 && fs.Lookup(name) != nil
+}
+
+// parseAll parses flags anywhere in args, so "tool <hash> -config dir" works.
+// A literal "--" ends flag parsing.
+func parseAll(fs *flag.FlagSet, args []string) error {
+	var pos []string
+	for {
+		if err := fs.Parse(args); err != nil {
+			return err
+		}
+		rest := fs.Args()
+		if len(rest) == 0 {
+			break
+		}
+		if len(args) > len(rest) && args[len(args)-len(rest)-1] == "--" {
+			pos = append(pos, rest...)
+			break
+		}
+		pos = append(pos, rest[0])
+		args = rest[1:]
+	}
+	return fs.Parse(append([]string{"--"}, pos...))
 }

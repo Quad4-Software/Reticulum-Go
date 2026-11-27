@@ -987,6 +987,36 @@ func Xllabs(tls *TLS, a int64) int64 {
 	return -a
 }
 
+// Tdiv_t is C's div_t.
+type Tdiv_t = struct {
+	Fquot int32
+	Frem  int32
+}
+
+// Tldiv_t is C's ldiv_t.
+type Tldiv_t = struct {
+	Fquot long
+	Frem  long
+}
+
+// div_t div(int num, int den);
+func Xdiv(tls *TLS, num, den int32) (r Tdiv_t) {
+	if __ccgo_strace {
+		trc("tls=%v num=%v den=%v, (%v:)", tls, num, den, origin(2))
+		defer func() { trc("-> %v", r) }()
+	}
+	return Tdiv_t{Fquot: num / den, Frem: num % den}
+}
+
+// ldiv_t ldiv(long num, long den);
+func Xldiv(tls *TLS, num, den long) (r Tldiv_t) {
+	if __ccgo_strace {
+		trc("tls=%v num=%v den=%v, (%v:)", tls, num, den, origin(2))
+		defer func() { trc("-> %v", r) }()
+	}
+	return Tldiv_t{Fquot: num / den, Frem: num % den}
+}
+
 func X__builtin_isnan(t *TLS, x float64) int32 {
 	if __ccgo_strace {
 		trc("t=%v x=%v, (%v:)", t, x, origin(2))

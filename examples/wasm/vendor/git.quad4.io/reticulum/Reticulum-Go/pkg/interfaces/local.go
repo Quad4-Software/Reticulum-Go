@@ -31,7 +31,8 @@ type LocalServerInterface struct {
 	socketPath  string
 	useUnix     bool
 	hub         *backbone.Hub
-	clients     atomic.Int32
+	clients     atomic.Int32 // cumulative accepted count, used for unique client names
+	liveClients atomic.Int32
 	spawnHook   LocalSpawnHook
 	done        chan struct{}
 	stopOnce    sync.Once
@@ -192,6 +193,7 @@ func localSpawnedClientName(conn net.Conn, ls *LocalServerInterface) string {
 func (ls *LocalServerInterface) handleConnection(conn net.Conn) {
 	name := localSpawnedClientName(conn, ls)
 	ls.clients.Add(1)
+	ls.liveClients.Add(1)
 	client := newLocalClientFromConn(name, conn, ls, true)
 	client.Out = ls.Out
 	client.In = ls.In
@@ -232,6 +234,7 @@ type LocalClientInterface struct {
 	parent          *LocalServerInterface
 	sharedInitiator bool
 	reconnecting    bool
+	liveReleased    atomic.Bool
 	done            chan struct{}
 	stopOnce        sync.Once
 	readerActive    atomic.Bool
@@ -241,6 +244,7 @@ type LocalClientInterface struct {
 	hub             *backbone.Hub
 	onDisconnect    func()
 	onReconnect     func()
+	txMu            sync.Mutex
 	txFrame         []byte
 	readBuf         []byte
 }
@@ -430,9 +434,14 @@ func (lc *LocalClientInterface) ProcessOutgoing(data []byte) error {
 		stream.QueueSend(data)
 		return nil
 	}
+	// The scratch frame is shared across sends, and HDLC frames must not
+	// interleave on the connection either. Serialize only this non-hub path;
+	// hub streams already queue writes themselves.
+	lc.txMu.Lock()
 	frame := appendFrameHDLC(lc.txFrame[:0], data)
 	lc.txFrame = frame
 	_, err := conn.Write(frame)
+	lc.txMu.Unlock()
 	return err
 }
 
@@ -505,6 +514,9 @@ func (lc *LocalClientInterface) handleDisconnect() {
 	spawned := lc.parent != nil && !lc.sharedInitiator
 	lc.Mutex.Unlock()
 	if spawned {
+		if lc.liveReleased.CompareAndSwap(false, true) {
+			lc.parent.liveClients.Add(-1)
+		}
 		if lc.onDisconnect != nil {
 			lc.onDisconnect()
 		}
@@ -574,7 +586,15 @@ func (lc *LocalClientInterface) ParentClients() *atomic.Int32 {
 	if lc.parent == nil {
 		return nil
 	}
-	return &lc.parent.clients
+	return &lc.parent.liveClients
+}
+
+// Clients reports the number of currently connected spawned clients.
+func (ls *LocalServerInterface) Clients() int {
+	if ls == nil {
+		return 0
+	}
+	return int(ls.liveClients.Load())
 }
 
 // releaseConn returns the admission slot when the connection closes, so

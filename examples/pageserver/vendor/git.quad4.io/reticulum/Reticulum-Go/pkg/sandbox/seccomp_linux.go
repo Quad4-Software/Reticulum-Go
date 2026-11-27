@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"strings"
 	"syscall"
 	"unsafe"
 
@@ -38,7 +39,7 @@ func applySeccomp(cfg *common.ReticulumConfig) error {
 		debug.Log(debug.DebugInfo, "Seccomp disabled by configuration")
 		return nil
 	}
-	mode, err := installSeccompFilter()
+	mode, err := installSeccompFilter(cfg)
 	if err != nil {
 		debug.Log(debug.DebugError, "Seccomp filter install failed (continuing)", "error", err)
 		warnSoftUnavailable("seccomp", err.Error())
@@ -56,12 +57,12 @@ func applySeccomp(cfg *common.ReticulumConfig) error {
 //  1. seccomp(SECCOMP_SET_MODE_FILTER, TSYNC) process-wide
 //  2. AllThreadsSyscall seccomp without TSYNC (kernels without the flag)
 //  3. AllThreadsSyscall prctl(PR_SET_SECCOMP) when the seccomp syscall is missing
-func installSeccompFilter() (string, error) {
+func installSeccompFilter(cfg *common.ReticulumConfig) (string, error) {
 	if os.Getenv("RETICULUM_QEMU_USER") == "1" {
 		return "", fmt.Errorf("seccomp skipped under qemu-user")
 	}
 
-	prog, err := buildSeccompProg()
+	prog, err := buildSeccompProg(cfg)
 	if err != nil {
 		return "", err
 	}
@@ -122,8 +123,8 @@ func installSeccompAllThreads(prog *unix.SockFprog) (mode string, err error) {
 	return "prctl", nil
 }
 
-func buildSeccompProg() (*unix.SockFprog, error) {
-	arch, denied, err := seccompPolicy()
+func buildSeccompProg(cfg *common.ReticulumConfig) (*unix.SockFprog, error) {
+	arch, denied, err := seccompPolicy(cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -157,10 +158,14 @@ func bpfJump(code uint16, k uint32, jt, jf uint8) unix.SockFilter {
 	return unix.SockFilter{Code: code, Jt: jt, Jf: jf, K: k}
 }
 
-func seccompPolicy() (arch uint32, denied []int, err error) {
+func seccompPolicy(cfg *common.ReticulumConfig) (arch uint32, denied []int, err error) {
 	arch, ok := seccompAuditArch()
 	if !ok {
 		return 0, nil, fmt.Errorf("seccomp: unsupported arch %s", runtime.GOARCH)
 	}
-	return arch, deniedSyscalls(), nil
+	denied = append([]int{}, deniedSyscalls()...)
+	if cfg == nil || !strings.EqualFold(strings.TrimSpace(cfg.IdentityBackend), "keyring") {
+		denied = append(denied, unix.SYS_ADD_KEY, unix.SYS_REQUEST_KEY, unix.SYS_KEYCTL)
+	}
+	return arch, denied, nil
 }

@@ -98,16 +98,25 @@ func GenerateStamp(ctx context.Context, material []byte, cost float64, size int)
 		close(resCh)
 	}()
 
+	var res result
+	var retErr error
 	select {
 	case r := <-resCh:
+		res = r
 		if r.stamp == nil {
-			return nil, 0, ctx.Err()
+			retErr = ctx.Err()
 		}
-		return r.stamp, StampValue(material, r.stamp), nil
 	case <-ctx.Done():
-		<-resCh
-		return nil, 0, ctx.Err()
+		retErr = ctx.Err()
 	}
+	// Workers read material while copying it into their search buffers;
+	// join them before returning so callers can wipe material safely.
+	cancel()
+	wg.Wait()
+	if retErr != nil {
+		return nil, 0, retErr
+	}
+	return res.stamp, StampValue(material, res.stamp), nil
 }
 
 // GenerateStampedKey generates an X25519 keypair whose public key carries the
@@ -166,14 +175,23 @@ func GenerateStampedKey(ctx context.Context, material []byte, cost float64) (pri
 		close(resCh)
 	}()
 
+	var res result
+	var retErr error
 	select {
 	case r := <-resCh:
+		res = r
 		if r.pub == [32]byte{} && r.priv == [32]byte{} {
-			return priv, pub, 0, ctx.Err()
+			retErr = ctx.Err()
 		}
-		return r.priv, r.pub, StampValue(material, r.pub[:]), nil
 	case <-ctx.Done():
-		<-resCh
-		return priv, pub, 0, ctx.Err()
+		retErr = ctx.Err()
 	}
+	// Workers read material while copying it into their search buffers;
+	// join them before returning so callers can wipe material safely.
+	cancel()
+	wg.Wait()
+	if retErr != nil {
+		return priv, pub, 0, retErr
+	}
+	return res.priv, res.pub, StampValue(material, res.pub[:]), nil
 }

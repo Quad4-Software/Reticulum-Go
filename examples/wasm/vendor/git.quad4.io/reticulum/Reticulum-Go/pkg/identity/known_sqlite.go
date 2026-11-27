@@ -244,40 +244,51 @@ func loadKnownDestinationsFromDB() bool {
 	return true
 }
 
-// saveKnownDestinationsDB flushes the in-memory table to sqlite. Returns
-// true when the sqlite backend handled the write.
-func saveKnownDestinationsDB() bool {
+// markKnownDestDBDirtyLocked queues one changed in-memory row for SQLite
+// write-behind persistence. knownDestinationsLock must be held by the caller.
+func markKnownDestDBDirtyLocked(hashKey destMapKey, e knownDestEntry, meta knownDestMeta) {
+	s := knownStore.Load()
+	if s == nil || !e.hasPublicKey() {
+		return
+	}
+	rem := float64(meta.rememberedAt)
+	if rem == 0 {
+		rem = float64(time.Now().Unix())
+	}
+	s.MarkDirty(&sqlitestore.KnownDestEntry{
+		DestinationHash: hashKey[:],
+		LastHeard:       rem,
+		PacketHash:      e.pktHash,
+		PublicKey:       e.publicKeyBytes(),
+		AppData:         e.app,
+		Used:            float64(meta.lastUsed),
+		Stamp:           e.stamp,
+		StampValue:      e.stampValue,
+		LRCost:          e.lrCost,
+	})
+}
+
+func markKnownDestDBDeletedLocked(hashKey destMapKey) {
+	if s := knownStore.Load(); s != nil {
+		s.MarkDeleted(hashKey[:])
+	}
+}
+
+// saveKnownDestinationsDB flushes rows already marked dirty by Remember,
+// retention, ratchet updates, and cleaning. Returns true when the sqlite
+// backend handled the write.
+func saveKnownDestinationsDB() (handled bool, flushed bool) {
 	s := knownStore.Load()
 	if s == nil {
-		return false
+		return false, false
 	}
-	knownDestinationsLock.RLock()
-	defer knownDestinationsLock.RUnlock()
-	for hashKey, e := range knownDestinations {
-		if !e.hasPublicKey() {
-			continue
-		}
-		meta := knownDestMetaByKey[hashKey]
-		rem := float64(meta.rememberedAt)
-		if rem == 0 {
-			rem = float64(time.Now().Unix())
-		}
-		s.MarkDirty(&sqlitestore.KnownDestEntry{
-			DestinationHash: append([]byte(nil), hashKey[:]...),
-			LastHeard:       rem,
-			PacketHash:      e.pktHash,
-			PublicKey:       e.publicKeyBytes(),
-			AppData:         e.app,
-			Used:            float64(meta.lastUsed),
-			Stamp:           e.stamp,
-			StampValue:      e.stampValue,
-			LRCost:          e.lrCost,
-		})
+	if s.PendingCount() == 0 {
+		return true, true
 	}
 	if err := s.Flush(); err != nil {
 		debug.Log(debug.DebugInfo, "Known destinations DB flush failed", "error", err)
-		return true
+		return true, false
 	}
 	s.Checkpoint()
-	return true
+	return true, true
 }

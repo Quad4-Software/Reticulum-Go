@@ -32,6 +32,11 @@ func PrettyHex(b []byte) string {
 	return "<" + h[:6] + "..." + h[len(h)-6:] + ">"
 }
 
+// FullHex formats b as <hex> without truncation.
+func FullHex(b []byte) string {
+	return "<" + hex.EncodeToString(b) + ">"
+}
+
 // SizeString formats a byte count with SI prefixes.
 func SizeString(num float64, suffix string) string {
 	units := [...]string{"", "K", "M", "G", "T", "P", "E", "Z"}

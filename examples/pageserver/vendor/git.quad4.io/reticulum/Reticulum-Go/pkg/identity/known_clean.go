@@ -109,6 +109,7 @@ func RetainKnownDestination(destHash []byte) {
 	}
 	meta.lastUsed = -1
 	knownDestMetaByKey[key] = meta
+	markKnownDestDBDirtyLocked(key, knownDestinations[key], meta)
 	markKnownDestinationsDirty()
 }
 
@@ -197,6 +198,7 @@ func CleanKnownDestinations(hasPath func([]byte) bool) CleanKnownDestinationsRes
 		}
 		delete(knownDestinations, key)
 		deleteKnownDestMetaLocked(key)
+		markKnownDestDBDeletedLocked(key)
 		result.Removed++
 	}
 	knownDestinationsLock.Unlock()
