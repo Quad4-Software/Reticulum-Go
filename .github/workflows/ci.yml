@@ -229,7 +229,11 @@ jobs:
             protocols:
               - 'protocols/**'
               - 'go.mod'
+              - 'go.sum'
               - 'pkg/**'
+              - 'internal/**'
+              - 'vendor/**'
+              - 'scripts/ci/check-protocols-vendor.sh'
 
       # Manual dispatch has no push or PR diff for paths-filter, so every
       # category counts as changed like a full push run (docs_only stays
@@ -315,6 +319,29 @@ jobs:
         run: |
           go build ./...
           go test -short ./...
+
+      - name: Vendor sync gate
+        run: sh scripts/ci/check-protocols-vendor.sh
+
+      - name: Race test lxmf and golxmd
+        working-directory: protocols
+        timeout-minutes: 15
+        run: go test -race -short -count=1 ./pkg/lxmf ./internal/golxmd ./cmd/golxmd ./internal/faultproxy
+
+      # Hermetic non-short tests that CI used to skip entirely: the matrix
+      # suite (TestMatrix_* exercises shared-instance owner forwarding), the
+      # adversarial/property/chaos audit battery, and other Short-gated tests
+      # that need no Python. Anything needing Python stays in protocols-live.
+      - name: Hermetic non-short protocols tests
+        working-directory: protocols
+        timeout-minutes: 20
+        run: |
+          go test -count=1 -timeout 15m -run 'TestMatrix_' ./pkg/lxmf
+          go test -count=1 -timeout 15m -run 'TestAdversarial|TestPBT_|TestChaos|TestStress|TestLeak_' ./pkg/lxmf
+          go test -count=1 -timeout 10m ./internal/faultproxy
+          go test -count=1 -timeout 15m -run 'TestAdversarial|TestChaos|TestE2E|TestDial|TestHubClient' ./pkg/rrc ./pkg/librrc
+          go test -count=1 -timeout 10m -run 'TestRunSelfCheck' ./internal/golxmd
+          go test -count=1 -timeout 15m -run 'TestSim' ./tests/lxst/integration
 
   lint:
     name: Lint
@@ -496,6 +523,45 @@ jobs:
           RUN_LIVE_INTEROP: "1"
           PYTHON_INTEROP: ${{ github.workspace }}/.venv/bin/python
         run: go run ./scripts/ci/testsummary -count=1 -timeout 30m ./tests/interop/
+
+      - name: Verify workspace clean
+        uses: $/.github/actions/verify-workspace-clean
+
+  protocols-live:
+    name: Protocols live (Go/Python LXMF)
+    needs: changes
+    if: github.event_name != 'pull_request' || needs.changes.outputs.protocols == 'true' || needs.changes.outputs.ci == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
+        with:
+          egress-policy: block
+          allowed-endpoints: ${{ env.HR_ENDPOINTS }}
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup CI
+        uses: $/.github/actions/setup-ci
+        with:
+          go_version: ${{ env.CI_GO_VERSION }}
+          task_version: ${{ env.CI_TASK_VERSION }}
+
+      - name: Python venv, RNS, LXMF, and pyserial
+        run: sh scripts/ci/setup-venv-pip.sh 'rns==1.6.1' 'lxmf==1.3.1' 'pyserial'
+
+      # -p 1: stamp generation saturates all cores per test, so parallel
+      # packages starve each other and produce false path-resolution timeouts.
+      - name: Run protocols live interop suite
+        working-directory: protocols
+        env:
+          RUN_LIVE_INTEROP: "1"
+          LXMF_PYTHON: ${{ github.workspace }}/.venv/bin/python
+          PYTHON_INTEROP: ${{ github.workspace }}/.venv/bin/python
+        run: go test -p 1 -count=1 -timeout 35m -run 'Interop_Live' ./pkg/lxmf/...
 
       - name: Verify workspace clean
         uses: $/.github/actions/verify-workspace-clean

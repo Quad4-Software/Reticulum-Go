@@ -245,6 +245,41 @@ tasks:
     cmds:
       - go test ./...
 
+  check:protocols-vendor:
+    desc: Fail if protocols/vendor is stale relative to the root module
+    cmds:
+      - sh scripts/ci/check-protocols-vendor.sh
+
+  test:protocols:matrix:
+    desc: Hermetic non-short protocols tests (matrix, adversarial, chaos, property)
+    dir: protocols
+    cmds:
+      - go test -count=1 -timeout 15m -run 'TestMatrix_' ./pkg/lxmf
+      - go test -count=1 -timeout 15m -run 'TestAdversarial|TestPBT_|TestChaos|TestStress|TestLeak_' ./pkg/lxmf
+      - go test -count=1 -timeout 10m ./internal/faultproxy
+
+  test:protocols:race:
+    desc: Race-test lxmf, golxmd, and faultproxy
+    dir: protocols
+    cmds:
+      - go test -race -short -count=1 ./pkg/lxmf ./internal/golxmd ./cmd/golxmd ./internal/faultproxy
+
+  test:protocols:live:
+    desc: Live Go/Python LXMF interop suite (needs python venv with rns+lxmf)
+    dir: protocols
+    env:
+      RUN_LIVE_INTEROP: '1'
+    cmds:
+      - go test -p 1 -count=1 -timeout 35m -run 'Interop_Live' ./pkg/lxmf/...
+
+  test:ci:protocols:
+    desc: Aggregate of the CI protocols job steps
+    cmds:
+      - task: protocols-build
+      - sh scripts/ci/check-protocols-vendor.sh
+      - task: test:protocols:race
+      - task: test:protocols:matrix
+
   vendor-sync:
     desc: Refresh vendor trees from Reticulum-Go-Deps
     cmds:
