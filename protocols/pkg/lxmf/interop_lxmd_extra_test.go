@@ -48,6 +48,7 @@ func TestInterop_Live_GolxmdOnInboundHook(t *testing.T) {
 	readyPath := filepath.Join(home, "ready.json")
 	cmd := exec.Command(bin,
 		"--config", home,
+		"--rnsconfig", writeGolxmdRNSConfig(t),
 		"--udp-listen", fmt.Sprintf("127.0.0.1:%d", goPort),
 		"--udp-forward", fmt.Sprintf("127.0.0.1:%d", pyPort),
 		"--ready-file", readyPath,
@@ -498,6 +499,7 @@ func TestInterop_Live_GolxmdImportsPythonPeers(t *testing.T) {
 	cmd := exec.Command(bin,
 		"--config", goHome,
 		"--propagation-node",
+		"--rnsconfig", writeGolxmdRNSConfig(t),
 		"--udp-listen", fmt.Sprintf("127.0.0.1:%d", goPort),
 		"--udp-forward", fmt.Sprintf("127.0.0.1:%d", pyPort),
 		"--ready-file", readyPath,
@@ -563,7 +565,7 @@ func writeSharedInstanceRNSConfig(t *testing.T, dir string, sharedPort, hubTCPPo
 
 [logging]
   loglevel = 4
-
+`+interopStampsSection+`
 [interfaces]
 
   [[TCP Server Interface]]
@@ -591,6 +593,7 @@ func writeSharedClientRNSConfig(t *testing.T, dir string, sharedPort int) {
 
 [logging]
   loglevel = 4
+`+interopStampsSection+`
 `, sharedPort)
 	if err := os.WriteFile(filepath.Join(dir, "config"), []byte(cfg), 0o600); err != nil {
 		t.Fatal(err)

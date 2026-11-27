@@ -12,6 +12,7 @@ import (
 	"runtime"
 	"sync"
 	"testing"
+	"time"
 
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/destination"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity"
@@ -246,4 +247,17 @@ func interopCall(t *testing.T, req map[string]any) interopResponse {
 		t.Fatalf("interop %v failed: %s", req["cmd"], detail)
 	}
 	return resp
+}
+
+// reannounce throttles anti-flake re-announces in live test wait loops so
+// they fit the per-destination burst budget (8 per 10s) instead of tripping
+// the limiter and getting dropped. The zero value fires immediately on the
+// first call.
+type reannounce struct{ last time.Time }
+
+func (r *reannounce) maybe(d *destination.Destination) {
+	if time.Since(r.last) >= 1500*time.Millisecond {
+		_ = d.Announce(false, nil, nil)
+		r.last = time.Now()
+	}
 }

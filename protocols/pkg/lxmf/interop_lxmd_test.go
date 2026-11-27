@@ -38,6 +38,22 @@ func requireRealLXMD(t *testing.T) string {
 	return ""
 }
 
+// interopStampsSection zeroes the proof-of-work stamp costs for hermetic
+// test networks. Announces and path requests still carry stamps, so the
+// wire format is unchanged, but generation finishes immediately instead of
+// blocking emission for tens of seconds. Python rnsd/lxmd and golxmd both
+// apply the [stamps] section of the config file they share, so one writer
+// covers the two sides. Enforcement stays off, matching production
+// defaults.
+const interopStampsSection = `
+[stamps]
+  destination_cost = 0
+  destination_value = 0
+  pr_cost = 0
+  pr_value = 0
+  lr_cost = 0
+`
+
 func writeInteropRNSConfig(t *testing.T, dir string, listenPort, forwardPort int) {
 	t.Helper()
 	if err := os.MkdirAll(filepath.Join(dir, "storage", "identities"), 0o700); err != nil {
@@ -51,7 +67,7 @@ func writeInteropRNSConfig(t *testing.T, dir string, listenPort, forwardPort int
 
 [logging]
   loglevel = 4
-
+`+interopStampsSection+`
 [interfaces]
 
   [[UDP Interface]]
@@ -80,7 +96,7 @@ func writeHubRNSConfig(t *testing.T, dir string, port int) {
 
 [logging]
   loglevel = 4
-
+`+interopStampsSection+`
 [interfaces]
 
   [[TCP Server Interface]]
@@ -107,7 +123,7 @@ func writeTCPClientRNSConfig(t *testing.T, dir string, hubPort int) {
 
 [logging]
   loglevel = 4
-
+`+interopStampsSection+`
 [interfaces]
 
   [[Hub]]
@@ -119,6 +135,27 @@ func writeTCPClientRNSConfig(t *testing.T, dir string, hubPort int) {
 	if err := os.WriteFile(filepath.Join(dir, "config"), []byte(cfg), 0o600); err != nil {
 		t.Fatal(err)
 	}
+}
+
+// writeGolxmdRNSConfig writes a minimal rns config carrying the zero-cost
+// [stamps] section and no interfaces. golxmd takes its interfaces from the
+// --udp-listen/--udp-forward flags in these tests, so the config only keeps
+// golxmd's stamp costs aligned with the python side of the network.
+func writeGolxmdRNSConfig(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "storage", "identities"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	cfg := `[reticulum]
+  enable_transport = Yes
+  share_instance = No
+  shared_instance_port = 0
+` + interopStampsSection
+	if err := os.WriteFile(filepath.Join(dir, "config"), []byte(cfg), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return dir
 }
 
 func startPythonRnsd(t *testing.T, configDir string) *lxmdProcess {
@@ -290,49 +327,6 @@ print(d.hash.hex())
 	return strings.TrimSpace(string(out))
 }
 
-func pythonControlHash(t *testing.T, identityPath string) string {
-	t.Helper()
-	py := interopPythonPath()
-	if py == "" {
-		t.Skip("python LXMF unavailable")
-	}
-	script := fmt.Sprintf(`import RNS,LXMF
-id=RNS.Identity.from_file(%q)
-d=RNS.Destination(id,RNS.Destination.OUT,RNS.Destination.SINGLE,LXMF.APP_NAME,"propagation","control")
-print(d.hash.hex())
-`, identityPath)
-	cmd := exec.Command(py, "-c", script)
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		t.Fatalf("python control hash: %v\n%s", err, out)
-	}
-	return strings.TrimSpace(string(out))
-}
-
-// waitPythonStampCache waits until python has completed and persisted the
-// announce stamps for the given destination hashes. A fresh destination
-// stamp costs python tens of seconds of proof of work even on fast
-// hardware, and a node cannot answer path requests for a destination
-// before its stamp exists. The file appears only when generation
-// finished, so this gates on the real condition.
-func waitPythonStampCache(t *testing.T, rnsDir string, hashes ...string) {
-	t.Helper()
-	deadline := time.Now().Add(240 * time.Second)
-	for time.Now().Before(deadline) {
-		found := 0
-		for _, h := range hashes {
-			if _, err := os.Stat(filepath.Join(rnsDir, "storage", "stamps", h+".dstamp")); err == nil {
-				found++
-			}
-		}
-		if found == len(hashes) {
-			return
-		}
-		time.Sleep(500 * time.Millisecond)
-	}
-	t.Fatalf("python stamp cache incomplete after 240s for %v", hashes)
-}
-
 func TestInterop_Live_PythonLXMDQueriesGolxmd(t *testing.T) {
 	lxmdPath := requireRealLXMD(t)
 	bin := buildGolxmdBinary(t)
@@ -354,6 +348,7 @@ func TestInterop_Live_PythonLXMDQueriesGolxmd(t *testing.T) {
 	cmd := exec.Command(bin,
 		"--config", goHome,
 		"--propagation-node",
+		"--rnsconfig", writeGolxmdRNSConfig(t),
 		"--udp-listen", fmt.Sprintf("127.0.0.1:%d", goPort),
 		"--udp-forward", fmt.Sprintf("127.0.0.1:%d", pyPort),
 		"--ready-file", readyPath,
@@ -417,22 +412,37 @@ func TestInterop_Live_GolxmdQueriesPythonLXMD(t *testing.T) {
 	waitPythonLXMDStarted(t, pyHome, 30*time.Second)
 
 	propHash := pythonPropagationHash(t, filepath.Join(pyHome, "identity"))
-	controlHash := pythonControlHash(t, filepath.Join(pyHome, "identity"))
-	waitPythonStampCache(t, pyRNS, propHash, controlHash)
-	query := exec.Command(bin,
-		"--config", clientHome,
-		"--status", "--peers",
-		"--remote", propHash,
-		"--timeout", "12",
-		"--udp-listen", fmt.Sprintf("127.0.0.1:%d", goQueryPort),
-		"--udp-forward", fmt.Sprintf("127.0.0.1:%d", pyNodePort),
-	)
-	out, err := query.CombinedOutput()
-	if err != nil {
-		t.Fatalf("golxmd status exit=%v output=%s\npython lxmd=%s", err, out, pyProc.buf.String())
+	// Probe the real end-to-end condition in a retry loop: golxmd can
+	// resolve the python propagation node and complete a control query.
+	// Python lxmd emits its first announces only after the deferred job
+	// delay, so the first attempts legitimately fail. Waiting on stamp
+	// cache files instead would couple the test to python internals that
+	// change with the stamp cost configuration.
+	goRNS := writeGolxmdRNSConfig(t)
+	deadline := time.Now().Add(90 * time.Second)
+	var out []byte
+	for {
+		query := exec.Command(bin,
+			"--config", clientHome,
+			"--rnsconfig", goRNS,
+			"--status", "--peers",
+			"--remote", propHash,
+			"--timeout", "12",
+			"--udp-listen", fmt.Sprintf("127.0.0.1:%d", goQueryPort),
+			"--udp-forward", fmt.Sprintf("127.0.0.1:%d", pyNodePort),
+		)
+		var err error
+		out, err = query.CombinedOutput()
+		if err == nil && strings.Contains(string(out), "LXMF Propagation Node") {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("golxmd status never succeeded, last exit=%v output=%s\npython lxmd=%s", err, out, pyProc.buf.String())
+		}
+		time.Sleep(3 * time.Second)
 	}
 	text := string(out)
-	if !strings.Contains(text, "LXMF Propagation Node") || !strings.Contains(text, hex.EncodeToString(staticPeer)) {
+	if !strings.Contains(text, hex.EncodeToString(staticPeer)) {
 		t.Fatalf("unexpected golxmd output:\n%s\npython lxmd:\n%s", text, pyProc.buf.String())
 	}
 }
@@ -496,6 +506,7 @@ func TestInterop_Live_GolxmdImportsPythonState(t *testing.T) {
 	cmd := exec.Command(bin,
 		"--config", goHome,
 		"--propagation-node",
+		"--rnsconfig", writeGolxmdRNSConfig(t),
 		"--udp-listen", fmt.Sprintf("127.0.0.1:%d", goPort),
 		"--udp-forward", fmt.Sprintf("127.0.0.1:%d", pyPort),
 		"--ready-file", readyPath,

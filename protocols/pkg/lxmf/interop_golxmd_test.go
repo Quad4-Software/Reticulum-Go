@@ -112,6 +112,7 @@ func TestInterop_Live_GoPropagationGoGolxmd(t *testing.T) {
 	readyPath := filepath.Join(home, "ready.json")
 	daemon := exec.Command(bin,
 		"--propagation-node",
+		"--rnsconfig", writeGolxmdRNSConfig(t),
 		"--udp-listen", "127.0.0.1:43210",
 		"--udp-forward", "127.0.0.1:43211",
 		"--ready-file", readyPath,
@@ -186,12 +187,13 @@ func TestInterop_Live_GoPropagationGoGolxmd(t *testing.T) {
 
 	_ = dest1.Announce(false, nil, nil)
 	pathDeadline := time.Now().Add(pathEstablishWait)
+	var reann reannounce
 	for !tr.HasPath(h2) {
 		if time.Now().After(pathDeadline) {
 			t.Fatalf("no path to golxmd PN log=%s", stderr.String())
 		}
-		_ = dest1.Announce(false, nil, nil)
-		time.Sleep(40 * time.Millisecond)
+		reann.maybe(dest1)
+		time.Sleep(100 * time.Millisecond)
 	}
 
 	if remote, err := identity.Recall(h2); err == nil && remote != nil {
@@ -338,12 +340,13 @@ func TestInterop_Live_GoDeliveryGolxmd(t *testing.T) {
 	}
 
 	deadline := time.Now().Add(25 * time.Second)
+	var reann reannounce
 	for !tr.HasPath(destHash) {
 		if time.Now().After(deadline) {
 			t.Fatalf("no path to golxmd delivery log=%s", stderr.String())
 		}
-		_ = messenger.Destination().Announce(false, nil, nil)
-		time.Sleep(50 * time.Millisecond)
+		reann.maybe(messenger.Destination())
+		time.Sleep(100 * time.Millisecond)
 	}
 
 	wantText := "hello from go to golxmd"
@@ -431,6 +434,7 @@ func startGolxmdDaemon(t *testing.T, root, home string, opts golxmdDaemonOpts) (
 
 	readyPath := filepath.Join(home, "ready.json")
 	args := []string{
+		"--rnsconfig", writeGolxmdRNSConfig(t),
 		"--udp-listen", "127.0.0.1:" + strconv.Itoa(opts.listenPort),
 		"--udp-forward", "127.0.0.1:" + strconv.Itoa(opts.forwardPort),
 		"--ready-file", readyPath,

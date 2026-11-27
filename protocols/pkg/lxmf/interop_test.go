@@ -749,12 +749,13 @@ func TestInterop_Live_GoMessengerPythonRecv(t *testing.T) {
 	identity.Remember(nil, dstHash, pub, nil)
 
 	deadline := time.Now().Add(20 * time.Second)
+	var reann reannounce
 	for !tr.HasPath(dstHash) {
 		if time.Now().After(deadline) {
 			t.Fatal("path timeout to python lxmf dest")
 		}
 		_ = tr.RequestPath(dstHash, "", nil, true)
-		_ = messenger.Destination().Announce(false, nil, nil)
+		reann.maybe(messenger.Destination())
 		time.Sleep(100 * time.Millisecond)
 	}
 

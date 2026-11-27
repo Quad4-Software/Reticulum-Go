@@ -324,6 +324,20 @@ def cmd_ticket_stamp(req: dict[str, Any]) -> dict[str, Any]:
     return {"ok": True, "stamp": _hex(stamp)}
 
 
+# Zero-cost stamps for hermetic test networks. Announces and path requests
+# still carry stamps, so the wire format is unchanged, but generation
+# finishes immediately instead of blocking emission on proof of work.
+# Enforcement stays off on both sides, matching the production default.
+TEST_STAMPS = """
+[stamps]
+  destination_cost = 0
+  destination_value = 0
+  pr_cost = 0
+  pr_value = 0
+  lr_cost = 0
+"""
+
+
 def _write_rns_config(configdir: Path, listen_port: int, forward_port: int, loglevel: int = 0) -> None:
     configdir.mkdir(parents=True, exist_ok=True)
     (configdir / "storage").mkdir(exist_ok=True)
@@ -336,7 +350,7 @@ def _write_rns_config(configdir: Path, listen_port: int, forward_port: int, logl
 
 [logging]
   loglevel = {loglevel}
-
+{TEST_STAMPS}
 [interfaces]
 
   [[UDP Interface]]
@@ -362,7 +376,7 @@ def _write_rns_config_tcp(configdir: Path, hub_port: int, loglevel: int = 0) -> 
 
 [logging]
   loglevel = {loglevel}
-
+{TEST_STAMPS}
 [interfaces]
 
   [[Hub]]
@@ -670,7 +684,13 @@ def cmd_live_prop_node(req: dict[str, Any]) -> dict[str, Any]:
         purged = False
         deadline = time.time() + duration_s
         while time.time() < deadline and not Path(stop_path).exists():
-            router.announce_propagation_node()
+            # Announce the destination directly. LXMRouter
+            # announce_propagation_node sleeps NODE_ANNOUNCE_DELAY (20s)
+            # before every emission, a production anti-flap measure that
+            # would eat most of the test budget here. The destination
+            # carries the propagation node app data as default_app_data,
+            # so the direct announce is identical on the wire.
+            router.propagation_destination.announce()
             if initial_entries > 0 and len(router.propagation_entries) == 0:
                 purged = True
             time.sleep(0.3)

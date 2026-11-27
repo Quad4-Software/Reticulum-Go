@@ -42,7 +42,7 @@ func writeGolxmdTCPClientRNSConfig(t *testing.T, dir string, targetPort int) {
 
 [logging]
   loglevel = 4
-
+`+interopStampsSection+`
 [interfaces]
 
   [[Hub]]

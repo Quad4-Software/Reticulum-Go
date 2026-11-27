@@ -164,11 +164,12 @@ func TestInterop_Live_GoFetchPythonNode(t *testing.T) {
 	// The Python node announces its propagation destination. Wait for the
 	// path and identity to land.
 	deadline = time.Now().Add(30 * time.Second)
+	var reann reannounce
 	for !tr.HasPath(pnHash) {
 		if time.Now().After(deadline) {
 			t.Fatal("no path to python propagation node")
 		}
-		_ = dest.Announce(false, nil, nil)
+		reann.maybe(dest)
 		time.Sleep(100 * time.Millisecond)
 	}
 	deadline = time.Now().Add(30 * time.Second)
@@ -314,10 +315,13 @@ func TestInterop_Live_PythonFetchGoNode(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Keep announcing the node until the Python fetch completes.
+	// Keep announcing the node until the Python fetch completes. The
+	// cadence fits the per-destination burst budget. Faster looping only
+	// trips the limiter and gets the copies dropped.
 	done := make(chan struct{})
 	go func() {
-		ticker := time.NewTicker(300 * time.Millisecond)
+		_ = pnDest.Announce(false, nil, nil)
+		ticker := time.NewTicker(1500 * time.Millisecond)
 		defer ticker.Stop()
 		for {
 			select {
