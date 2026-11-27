@@ -2,8 +2,21 @@
 package lxmf
 
 import (
+	"runtime/debug"
+
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity"
 )
+
+func recoverRequestHandler(name string, fn func(string, []byte, []byte, []byte, *identity.Identity, int64) any) func(string, []byte, []byte, []byte, *identity.Identity, int64) any {
+	return func(path string, data []byte, requestID, linkID []byte, remoteIdentity *identity.Identity, requestedAt int64) (out any) {
+		defer func() {
+			if rec := recover(); rec != nil {
+				Error("request handler panic", "handler", name, "panic", rec, "stack", string(debug.Stack()))
+			}
+		}()
+		return fn(path, data, requestID, linkID, remoteIdentity, requestedAt)
+	}
+}
 
 func (r *Router) statsGetRequestHandler(path string, data []byte, requestID, linkID []byte, remoteIdentity *identity.Identity, requestedAt int64) any {
 	_ = path

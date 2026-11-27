@@ -69,6 +69,7 @@ type Peer struct {
 	TXBytes  int64
 
 	peeringKeyMu sync.Mutex
+	mu           sync.RWMutex
 }
 
 // UnhandledCount returns messages queued for this peer.
@@ -173,22 +174,34 @@ func (p *Peer) sync() {
 	}
 	// Upstream establishes a new link from IDLE and re-offers on the
 	// existing link from LINK_READY. Other states are in flight.
-	if p.State != PeerStateIdle && p.State != PeerStateLinkReady {
+	p.mu.RLock()
+	state := p.State
+	nextSync := p.NextSyncAttempt
+	lastHeard := p.LastHeard
+	p.mu.RUnlock()
+	if state != PeerStateIdle && state != PeerStateLinkReady {
 		return
 	}
+	p.mu.Lock()
 	p.LastSyncAttempt = float64(time.Now().Unix())
+	p.mu.Unlock()
 
-	if time.Now().Unix() < int64(p.NextSyncAttempt) {
+	if time.Now().Unix() < int64(nextSync) {
 		// LXMF: a peer postponed by backoff that we have not heard from
 		// since the last sync attempt is marked not alive.
-		if p.LastSyncAttempt > p.LastHeard {
+		p.mu.Lock()
+		if p.LastSyncAttempt > lastHeard {
 			p.Alive = false
 		}
+		p.mu.Unlock()
 		return
 	}
 	// Upstream requires all announced stamp and peering costs to be
 	// known before syncing. Unset costs are stored as -1.
-	if p.PropagationStampCost < 0 || p.PropagationStampCostFlex < 0 || p.PeeringCost < 0 {
+	p.mu.RLock()
+	stampCostKnown := p.PropagationStampCost >= 0 && p.PropagationStampCostFlex >= 0 && p.PeeringCost >= 0
+	p.mu.RUnlock()
+	if !stampCostKnown {
 		return
 	}
 	if !p.peeringKeyReady() {
@@ -417,7 +430,7 @@ func (p *Peer) handleOfferResponse(receipt *link.RequestReceipt) {
 				}
 				return
 			case PeerErrorThrottled:
-				p.NextSyncAttempt = float64(time.Now().Unix()) + pnStampThrottleSeconds
+				p.NextSyncAttempt = float64(time.Now().Unix()) + p.router.cfg.Propagation.StampThrottleSeconds()
 				return
 			case PeerErrorNoAccess:
 				p.router.unpeer(p.DestinationHash, 0)
@@ -611,6 +624,8 @@ func peerFromBytes(r *Router, data []byte) (*Peer, error) {
 }
 
 func (p *Peer) toBytes() ([]byte, error) {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
 	dict := map[string]any{
 		"destination_hash":                   p.DestinationHash,
 		"peering_timebase":                   p.PeeringTimebase,

@@ -41,6 +41,9 @@ func startTransport(cfg TransportConfig, log *slog.Logger) (*transport.Transport
 	if err := tr.Start(); err != nil {
 		return nil, nil, err
 	}
+	if err := tr.InitializePathRequestHandler(); err != nil {
+		return nil, nil, fmt.Errorf("path request handler: %w", err)
+	}
 
 	var started []interfaces.Interface
 	attach := func(name string, iface interfaces.Interface) error {
@@ -75,14 +78,34 @@ func startTransport(cfg TransportConfig, log *slog.Logger) (*transport.Transport
 		return tr, started, nil
 	}
 
-	useUnix := common.SharedInstanceUsesUnix(rc.SharedInstanceType)
-	lc, err := interfaces.NewLocalClientInterface(common.DefaultSharedInstancePort, "default", useUnix, backbone.Get())
-	if err == nil {
-		if aerr := attach(lc.GetName(), lc); aerr == nil {
-			log.Info("attached to reticulum shared instance")
-			return tr, started, nil
+	sharedPort := common.DefaultSharedInstancePort
+	shareInstance := true
+	instanceType := rc.SharedInstanceType
+	instanceName := "default"
+	if rnsDir != "" {
+		if rcfg, err := rnsnode.LoadOfficialDir(rnsDir); err == nil {
+			if rcfg.SharedInstancePort != 0 {
+				sharedPort = rcfg.SharedInstancePort
+			}
+			if rcfg.SharedInstanceType != "" {
+				instanceType = rcfg.SharedInstanceType
+			}
+			if rcfg.InstanceName != "" {
+				instanceName = rcfg.InstanceName
+			}
+			shareInstance = rcfg.ShareInstance
 		}
-		log.Info("shared instance not available")
+	}
+	useUnix := common.SharedInstanceUsesUnix(instanceType)
+	if shareInstance {
+		lc, err := interfaces.NewLocalClientInterface(sharedPort, instanceName, useUnix, backbone.Get())
+		if err == nil {
+			if aerr := attach(lc.GetName(), lc); aerr == nil {
+				log.Info("attached to reticulum shared instance")
+				return tr, started, nil
+			}
+			log.Info("shared instance not available")
+		}
 	}
 
 	if n := attachFromRNSConfig(rnsDir, tr, attach, log); n > 0 {

@@ -10,8 +10,10 @@ import (
 	"time"
 
 	"git.quad4.io/libraries/msgpack/v5/pkg/msgpack"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/common"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/destination"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/interfaces"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/link"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/transport"
 	"git.quad4.io/reticulum/Reticulum-Go/protocols/pkg/lxmf"
@@ -34,7 +36,8 @@ func QueryStatus(opts RemoteOptions) (map[string]any, error) {
 	if err != nil {
 		return nil, err
 	}
-	if m, ok := resp.(map[string]any); ok {
+	m := asMap(resp)
+	if len(m) != 0 {
 		return m, nil
 	}
 	return nil, fmt.Errorf("empty response received")
@@ -224,6 +227,9 @@ func remoteTransport(opts RemoteOptions) (*identity.Identity, *transport.Transpo
 		UDPListen:    opts.UDPListen,
 		UDPForward:   opts.UDPForward,
 	}, log)
+	if err == nil {
+		waitInterfacesOnline(ifaces, 8*time.Second)
+	}
 	if err != nil {
 		if closer != nil {
 			_ = closer.Close()
@@ -276,6 +282,21 @@ func resolveRemoteIdentity(opts RemoteOptions, tr *transport.Transport) (*identi
 		}
 		if !tr.HasPath(destHash) {
 			_ = tr.RequestPath(destHash, "", nil, true)
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+}
+
+func waitInterfacesOnline(ifaces []interfaces.Interface, maxWait time.Duration) {
+	if len(ifaces) == 0 {
+		return
+	}
+	deadline := time.Now().Add(maxWait)
+	for time.Now().Before(deadline) {
+		for _, ie := range ifaces {
+			if ni, ok := ie.(common.NetworkInterface); ok && ni.IsOnline() {
+				return
+			}
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
@@ -500,10 +521,37 @@ func sanitizeName(s string) string {
 }
 
 func asMap(v any) map[string]any {
-	if m, ok := v.(map[string]any); ok {
-		return m
+	out := make(map[string]any)
+	switch m := v.(type) {
+	case map[string]any:
+		for k, val := range m {
+			out[normalizeDecodedKey(k)] = val
+		}
+	case map[any]any:
+		for k, val := range m {
+			out[normalizeDecodedKey(k)] = val
+		}
 	}
-	return map[string]any{}
+	return out
+}
+
+func normalizeDecodedKey(v any) string {
+	switch k := v.(type) {
+	case string:
+		if len(k) == lxmf.DestinationLength {
+			return hex.EncodeToString([]byte(k))
+		}
+		return k
+	case []byte:
+		if len(k) == lxmf.DestinationLength {
+			return hex.EncodeToString(k)
+		}
+		return string(k)
+	case [16]byte:
+		return hex.EncodeToString(k[:])
+	default:
+		return fmt.Sprint(v)
+	}
 }
 
 func asFloat(v any) float64 {
@@ -518,9 +566,19 @@ func asFloat(v any) float64 {
 		return float64(n)
 	case int32:
 		return float64(n)
+	case int16:
+		return float64(n)
+	case int8:
+		return float64(n)
+	case uint:
+		return float64(n)
 	case uint64:
 		return float64(n)
 	case uint8:
+		return float64(n)
+	case uint16:
+		return float64(n)
+	case uint32:
 		return float64(n)
 	case []byte:
 		return float64(len(n))

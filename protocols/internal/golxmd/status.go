@@ -208,7 +208,14 @@ func (s *Service) startStatusReporter() {
 			case <-s.stop:
 				return
 			case <-t.C:
-				printOperatorStatusLine(buildOperatorSummary(s))
+				func() {
+					defer func() {
+						if rec := recover(); rec != nil && s.log != nil {
+							s.log.Error("status reporter panic", "panic", rec)
+						}
+					}()
+					printOperatorStatusLine(buildOperatorSummary(s))
+				}()
 			}
 		}
 	})

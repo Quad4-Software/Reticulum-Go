@@ -11,11 +11,18 @@ func DefaultHome() string {
 	if v := os.Getenv("GOLXMD_HOME"); v != "" {
 		return expandPath(v)
 	}
+	if info, err := os.Stat(filepath.Join("/etc/lxmd", "config")); err == nil && !info.IsDir() {
+		return "/etc/lxmd"
+	}
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return ".golxmd"
+		return ".lxmd"
 	}
-	return filepath.Join(home, ".golxmd")
+	xdg := filepath.Join(home, ".config", "lxmd")
+	if info, err := os.Stat(filepath.Join(xdg, "config")); err == nil && !info.IsDir() {
+		return xdg
+	}
+	return filepath.Join(home, ".lxmd")
 }
 
 func DefaultConfigPath() string {
@@ -56,7 +63,7 @@ func DefaultRNSConfigDir() string {
 	if err != nil {
 		return ""
 	}
-	return filepath.Join(home, ".reticulum-go")
+	return filepath.Join(home, ".reticulum")
 }
 
 // ResolveRNSConfigDir returns override when set, otherwise DefaultRNSConfigDir.

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"os/exec"
+	"strings"
 	"time"
 
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/common"
@@ -166,8 +167,7 @@ func (r *Router) handleDeliveryPayload(lxmfData []byte, method byte, noStampEnfo
 	}
 
 	if r.onInbound != "" && savedPath != "" {
-		cmd := exec.Command(r.onInbound, savedPath) // #nosec G204 -- operator configured hook
-		_ = cmd.Run()
+		runInboundHook(r.onInbound, savedPath)
 	}
 
 	Info("router delivered message", "hash", hex.EncodeToString(msg.Hash), "method", method)
@@ -208,4 +208,57 @@ func resourceAdvertisedSize(adv any) int64 {
 		}
 	}
 	return 0
+}
+
+func splitHookCommand(command string) ([]string, error) {
+	var args []string
+	var cur strings.Builder
+	var quote byte
+	escaped := false
+	flush := func() {
+		if cur.Len() > 0 {
+			args = append(args, cur.String())
+			cur.Reset()
+		}
+	}
+	for i := 0; i < len(command); i++ {
+		c := command[i]
+		switch {
+		case escaped:
+			cur.WriteByte(c)
+			escaped = false
+		case c == '\\' && quote != '\'':
+			escaped = true
+		case quote != 0:
+			if c == quote {
+				quote = 0
+			} else {
+				cur.WriteByte(c)
+			}
+		case c == '\'' || c == '"':
+			quote = c
+		case c == ' ' || c == '\t':
+			flush()
+		default:
+			cur.WriteByte(c)
+		}
+	}
+	if quote != 0 {
+		return nil, errors.New("unbalanced quotes")
+	}
+	flush()
+	return args, nil
+}
+
+func runInboundHook(command, savedPath string) {
+	args, err := splitHookCommand(command)
+	if err != nil || len(args) == 0 {
+		Warning("on_inbound command not runnable", "command", command, "error", err)
+		return
+	}
+	args = append(args, savedPath)
+	cmd := exec.Command(args[0], args[1:]...) // #nosec G204 -- operator configured hook
+	if err := cmd.Run(); err != nil {
+		Warning("on_inbound command failed", "command", command, "error", err)
+	}
 }

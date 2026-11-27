@@ -5,6 +5,7 @@ import (
 	"bufio"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -23,6 +24,8 @@ const (
 	deferredJobsDelay = 10 * time.Second
 	jobsInterval      = 5 * time.Second
 )
+
+var ErrIdentityInvalid = errors.New("could not load the primary identity")
 
 type Config struct {
 	HomeDir          string
@@ -71,7 +74,7 @@ func NewService(cfg Config, lxmfCfg lxmf.Config, log *slog.Logger) *Service {
 func (s *Service) Start() error {
 	id, err := identity.FromFile(s.cfg.IdentityPath)
 	if err != nil {
-		return fmt.Errorf("identity: %w", err)
+		return fmt.Errorf("identity: %w: %w", ErrIdentityInvalid, err)
 	}
 
 	tr, ifaces, err := startTransport(TransportConfig{
@@ -92,7 +95,7 @@ func (s *Service) Start() error {
 
 	router, err := lxmf.NewRouter(id, tr, lxmf.RouterOptions{
 		Config:      s.lxmfCfg,
-		StoragePath: s.cfg.StorageDir,
+		StoragePath: filepath.Join(s.cfg.StorageDir, "lxmf"),
 		MessagesDir: s.cfg.MessagesDir,
 		OnInbound:   onInbound,
 	})
@@ -209,6 +212,7 @@ func (s *Service) startAnnounceWorkers() {
 		if s.lxmfCfg.Propagation.EnableNode && s.lxmfCfg.Propagation.AnnounceAtStart {
 			s.announcePropagationOnce()
 		}
+		s.announceControlOnce()
 		s.lastPeerAnnounce = time.Now()
 		s.lastNodeAnnounce = time.Now()
 	})
@@ -247,6 +251,24 @@ func (s *Service) tickAnnounces() {
 			s.lastNodeAnnounce = now
 		}
 	}
+}
+
+func (s *Service) announceControlOnce() {
+	if s.router == nil || !s.lxmfCfg.Propagation.EnableNode {
+		return
+	}
+	if s.router.ControlAllowCount() <= 1 {
+		return
+	}
+	dest := s.router.ControlDestination()
+	if dest == nil {
+		return
+	}
+	if err := dest.Announce(false, nil, nil); err != nil {
+		s.log.Debug("control announce failed", "error", err)
+		return
+	}
+	s.log.Debug("control destination announced")
 }
 
 func (s *Service) announceDeliveryOnce() {

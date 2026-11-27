@@ -48,6 +48,9 @@ func (r *Router) persistPath(name string) string {
 }
 
 func (r *Router) peersDir() string {
+	if r.usesImportedState() {
+		return filepath.Join(r.importRoot(), "peers")
+	}
 	return filepath.Join(r.storagePath, "peers")
 }
 

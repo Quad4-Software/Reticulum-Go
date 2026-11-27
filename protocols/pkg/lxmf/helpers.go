@@ -585,6 +585,15 @@ func asInt64(v any) (int64, bool) {
 			return 0, false
 		}
 		return int64(x), true
+	case float32:
+		f := float64(x)
+		if f == float64(int64(f)) {
+			return int64(f), true
+		}
+	case float64:
+		if x == float64(int64(x)) {
+			return int64(x), true
+		}
 	}
 	return 0, false
 }

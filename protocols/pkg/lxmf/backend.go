@@ -82,6 +82,9 @@ func ensureBackend() {
 // With RNS_LXSTAMP_BACKEND=auto (default) it uses an OpenCL GPU when one is
 // detected (NVIDIA, AMD, or Intel ICD) and falls back to CPU on any failure.
 func GenerateStamp(ctx context.Context, messageID []byte, stampCost, expandRounds int) ([]byte, int, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	if stampCost <= 0 {
 		return nil, 0, errors.New("lxmf: stampCost must be positive")
 	}

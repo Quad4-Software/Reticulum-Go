@@ -535,7 +535,7 @@ func (r *Router) throttlePeer(destHash []byte) {
 	}
 	key := peerKey(destHash)
 	r.propMu.Lock()
-	r.throttledPeers[key] = float64(time.Now().Unix()) + pnStampThrottleSeconds
+	r.throttledPeers[key] = float64(time.Now().Unix()) + r.cfg.Propagation.StampThrottleSeconds()
 	r.propMu.Unlock()
 }
 

@@ -255,7 +255,7 @@ func (r *Router) EnablePropagation() error {
 	if err != nil {
 		return err
 	}
-	storeDir := filepath.Join(r.storagePath, "messagestore")
+	storeDir := r.preparePythonStateImport()
 	store, err := NewMessageStore(storeDir, r.cfg.Propagation.MessageStorageLimitMB, prioritised)
 	if err != nil {
 		return err
@@ -270,10 +270,10 @@ func (r *Router) EnablePropagation() error {
 		r.propagationLinkEstablished(v)
 	})
 
-	if err := propDest.RegisterRequestHandlerAny(PathOffer, r.offerRequestHandler, destination.AllowAll, nil); err != nil {
+	if err := propDest.RegisterRequestHandlerAny(PathOffer, recoverRequestHandler(PathOffer, r.offerRequestHandler), destination.AllowAll, nil); err != nil {
 		return err
 	}
-	if err := propDest.RegisterRequestHandlerAny(PathMessageGet, r.messageGetRequestHandler, destination.AllowAll, nil); err != nil {
+	if err := propDest.RegisterRequestHandlerAny(PathMessageGet, recoverRequestHandler(PathMessageGet, r.messageGetRequestHandler), destination.AllowAll, nil); err != nil {
 		return err
 	}
 
@@ -288,13 +288,13 @@ func (r *Router) EnablePropagation() error {
 			allowed = append(allowed, h)
 		}
 	}
-	if err := controlDest.RegisterRequestHandlerAny(PathStatsGet, r.statsGetRequestHandler, destination.AllowList, allowed); err != nil {
+	if err := controlDest.RegisterRequestHandlerAny(PathStatsGet, recoverRequestHandler(PathStatsGet, r.statsGetRequestHandler), destination.AllowList, allowed); err != nil {
 		return err
 	}
-	if err := controlDest.RegisterRequestHandlerAny(PathSyncRequest, r.peerSyncRequestHandler, destination.AllowList, allowed); err != nil {
+	if err := controlDest.RegisterRequestHandlerAny(PathSyncRequest, recoverRequestHandler(PathSyncRequest, r.peerSyncRequestHandler), destination.AllowList, allowed); err != nil {
 		return err
 	}
-	if err := controlDest.RegisterRequestHandlerAny(PathUnpeerRequest, r.peerUnpeerRequestHandler, destination.AllowList, allowed); err != nil {
+	if err := controlDest.RegisterRequestHandlerAny(PathUnpeerRequest, recoverRequestHandler(PathUnpeerRequest, r.peerUnpeerRequestHandler), destination.AllowList, allowed); err != nil {
 		return err
 	}
 
@@ -375,6 +375,18 @@ func (r *Router) PropagationDestination() *destination.Destination {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.propagationDest
+}
+
+func (r *Router) ControlDestination() *destination.Destination {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.controlDest
+}
+
+func (r *Router) ControlAllowCount() int {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return len(r.controlAllow)
 }
 
 func (r *Router) isOwnPropagationHash(h []byte) bool {

@@ -47,6 +47,7 @@ type PropagationConfig struct {
 	PropagationSyncMaxAcceptedKB     float64
 	PropagationStampCostTarget       int
 	PropagationStampCostFlexibility  int
+	PropagationStampThrottleMinutes  float64
 	PeeringCost                      int
 	RemotePeeringCostMax             int
 	PrioritiseDestinations           []string
@@ -87,6 +88,7 @@ func DefaultConfig() Config {
 			PropagationSyncMaxAcceptedKB:     10240,
 			PropagationStampCostTarget:       16,
 			PropagationStampCostFlexibility:  3,
+			PropagationStampThrottleMinutes:  5,
 			PeeringCost:                      18,
 			RemotePeeringCostMax:             26,
 			MaxPeers:                         20,
@@ -118,6 +120,7 @@ func ParseConfig(r io.Reader) (Config, error) {
 	if err != nil {
 		return cfg, err
 	}
+	warnUnknownConfigKeys(sections)
 
 	if section, ok := sections["lxmf"]; ok {
 		if v, ok := section["display_name"]; ok {
@@ -182,6 +185,7 @@ func ParseConfig(r io.Reader) (Config, error) {
 			if cfg.Propagation.PropagationMessageMaxAcceptedKB < 0.38 {
 				cfg.Propagation.PropagationMessageMaxAcceptedKB = 0.38
 			}
+			cfg.Propagation.PropagationTransferMaxAcceptedKB = cfg.Propagation.PropagationMessageMaxAcceptedKB
 		}
 		if v, ok := section["propagation_sync_max_accepted_size"]; ok {
 			cfg.Propagation.PropagationSyncMaxAcceptedKB = parseFloatOrZero(v)
@@ -194,6 +198,9 @@ func ParseConfig(r io.Reader) (Config, error) {
 		}
 		if v, ok := section["propagation_stamp_cost_flexibility"]; ok {
 			cfg.Propagation.PropagationStampCostFlexibility = max(parseInt(v), 0)
+		}
+		if v, ok := section["propagation_stamp_throttle"]; ok {
+			cfg.Propagation.PropagationStampThrottleMinutes = parseFloatOrZero(v)
 		}
 		if v, ok := section["peering_cost"]; ok {
 			cfg.Propagation.PeeringCost = max(parseInt(v), 0)
@@ -281,6 +288,7 @@ func WriteConfig(cfg Config, w io.Writer) error {
 		{"propagation_sync_max_accepted_size", floatStr(cfg.Propagation.PropagationSyncMaxAcceptedKB)},
 		{"propagation_stamp_cost_target", strconv.Itoa(cfg.Propagation.PropagationStampCostTarget)},
 		{"propagation_stamp_cost_flexibility", strconv.Itoa(cfg.Propagation.PropagationStampCostFlexibility)},
+		{"propagation_stamp_throttle", floatStr(cfg.Propagation.PropagationStampThrottleMinutes)},
 		{"peering_cost", strconv.Itoa(cfg.Propagation.PeeringCost)},
 		{"remote_peering_cost_max", strconv.Itoa(cfg.Propagation.RemotePeeringCostMax)},
 		{"prioritise_destinations", strings.Join(cfg.Propagation.PrioritiseDestinations, ", ")},
@@ -305,6 +313,14 @@ func WriteDefaultConfigFile(path string) error {
 		return err
 	}
 	return os.Rename(tmp, path)
+}
+
+func (p PropagationConfig) StampThrottleSeconds() float64 {
+	seconds := p.PropagationStampThrottleMinutes * 60
+	if seconds < 180 {
+		return 180
+	}
+	return seconds
 }
 
 // StaticPeerHashes parses StaticPeers as destination-length hex hashes.
@@ -463,6 +479,43 @@ func readSectionedKV(r io.Reader) (map[string]map[string]string, error) {
 		return nil, err
 	}
 	return out, nil
+}
+
+func warnUnknownConfigKeys(sections map[string]map[string]string) {
+	knownSections := map[string]map[string]struct{}{
+		"lxmf": {
+			"display_name": {}, "announce_at_start": {}, "announce_interval": {},
+			"delivery_transfer_max_accepted_size": {}, "stamp_cost": {}, "on_inbound": {},
+		},
+		"propagation": {
+			"enable_node": {}, "node_name": {}, "auth_required": {}, "announce_at_start": {},
+			"announce_interval": {}, "autopeer": {}, "autopeer_maxdepth": {}, "message_storage_limit": {},
+			"propagation_transfer_max_accepted_size": {}, "propagation_message_max_accepted_size": {},
+			"propagation_sync_max_accepted_size": {}, "propagation_stamp_cost_target": {},
+			"propagation_stamp_cost_flexibility": {}, "propagation_stamp_throttle": {}, "peering_cost": {},
+			"remote_peering_cost_max": {}, "prioritise_destinations": {}, "control_allowed": {},
+			"static_peers": {}, "max_peers": {}, "from_static_only": {}, "max_inbound_syncs": {},
+			"sequential_pn_stamp_validation": {}, "static_peers_bypass_sequential": {},
+		},
+		"logging": {"loglevel": {}},
+	}
+	for _, section := range SectionNames(sections) {
+		known, sectionKnown := knownSections[section]
+		if !sectionKnown {
+			Warning("unknown lxmf config section", "section", section)
+			continue
+		}
+		keys := make([]string, 0, len(sections[section]))
+		for key := range sections[section] {
+			keys = append(keys, key)
+		}
+		sort.Strings(keys)
+		for _, key := range keys {
+			if _, ok := known[key]; !ok {
+				Warning("unknown lxmf config key", "section", section, "key", key)
+			}
+		}
+	}
 }
 
 // SectionNames returns map keys sorted.

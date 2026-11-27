@@ -4,47 +4,76 @@ package lxmf
 import (
 	"encoding/hex"
 	"time"
+
+	"git.quad4.io/libraries/msgpack/v5/pkg/msgpack"
 )
+
+type binKey string
+
+func (k binKey) EncodeMsgpack(enc *msgpack.Encoder) error {
+	return enc.EncodeBytes([]byte(k))
+}
 
 // compileStats returns propagation node statistics compatible with upstream lxmd msgpack.
 func (r *Router) compileStats() map[string]any {
 	if !r.propagationEnabled {
 		return nil
 	}
-	peerStats := map[any]any{}
+	peerStats := map[binKey]any{}
 	r.peersMu.RLock()
 	for _, peer := range r.peers {
 		peerType := "discovered"
 		if r.isStaticPeer(peer.DestinationHash) {
 			peerType = "static"
 		}
+		peer.mu.RLock()
+		state := peer.State
+		alive := peer.Alive
+		lastHeard := peer.LastHeard
+		nextSyncAttempt := peer.NextSyncAttempt
+		lastSyncAttempt := peer.LastSyncAttempt
+		syncBackoff := peer.SyncBackoff
+		peeringTimebase := peer.PeeringTimebase
+		ler := peer.LinkEstablishmentRate
+		str := peer.SyncTransferRate
+		transferLimit := peer.PropagationTransferLimit
+		syncLimit := peer.PropagationSyncLimit
+		stampCost := peer.PropagationStampCost
+		stampCostFlex := peer.PropagationStampCostFlex
+		peeringCost := peer.PeeringCost
+		rxBytes := peer.RXBytes
+		txBytes := peer.TXBytes
+		offered := peer.Offered
+		outgoing := peer.Outgoing
+		incoming := peer.Incoming
+		peer.mu.RUnlock()
 		// Upstream keys peer stats by the raw destination hash bytes.
-		peerStats[peer.DestinationHash] = map[string]any{
+		peerStats[binKey(peer.DestinationHash)] = map[string]any{
 			"type":                   peerType,
-			"state":                  peer.State,
-			"alive":                  peer.Alive,
+			"state":                  state,
+			"alive":                  alive,
 			"name":                   peer.Name(),
-			"last_heard":             int(peer.LastHeard),
-			"next_sync_attempt":      peer.NextSyncAttempt,
-			"last_sync_attempt":      peer.LastSyncAttempt,
-			"sync_backoff":           peer.SyncBackoff,
-			"peering_timebase":       peer.PeeringTimebase,
-			"ler":                    int(peer.LinkEstablishmentRate),
-			"str":                    int(peer.SyncTransferRate),
-			"transfer_limit":         peer.PropagationTransferLimit,
-			"sync_limit":             peer.PropagationSyncLimit,
-			"target_stamp_cost":      peer.PropagationStampCost,
-			"stamp_cost_flexibility": peer.PropagationStampCostFlex,
-			"peering_cost":           peer.PeeringCost,
+			"last_heard":             int(lastHeard),
+			"next_sync_attempt":      nextSyncAttempt,
+			"last_sync_attempt":      lastSyncAttempt,
+			"sync_backoff":           syncBackoff,
+			"peering_timebase":       peeringTimebase,
+			"ler":                    int(ler),
+			"str":                    int(str),
+			"transfer_limit":         transferLimit,
+			"sync_limit":             syncLimit,
+			"target_stamp_cost":      stampCost,
+			"stamp_cost_flexibility": stampCostFlex,
+			"peering_cost":           peeringCost,
 			"peering_key":            peer.PeeringKeyValue(),
 			"network_distance":       r.transport.HopsTo(peer.DestinationHash),
-			"rx_bytes":               peer.RXBytes,
-			"tx_bytes":               peer.TXBytes,
+			"rx_bytes":               rxBytes,
+			"tx_bytes":               txBytes,
 			"acceptance_rate":        peer.AcceptanceRate(),
 			"messages": map[string]any{
-				"offered":   peer.Offered,
-				"outgoing":  peer.Outgoing,
-				"incoming":  peer.Incoming,
+				"offered":   offered,
+				"outgoing":  outgoing,
+				"incoming":  incoming,
 				"unhandled": peer.UnhandledCount(r),
 			},
 		}
@@ -103,7 +132,22 @@ func (r *Router) compileStats() map[string]any {
 
 // PropagationStats returns propagation node statistics for local inspection.
 func (r *Router) PropagationStats() map[string]any {
-	return r.compileStats()
+	stats := r.compileStats()
+	if stats == nil {
+		return nil
+	}
+	local := make(map[string]any, len(stats))
+	for k, v := range stats {
+		local[k] = v
+	}
+	peers := make(map[string]any)
+	if wirePeers, ok := stats["peers"].(map[binKey]any); ok {
+		for key, peer := range wirePeers {
+			peers[hex.EncodeToString([]byte(key))] = peer
+		}
+	}
+	local["peers"] = peers
+	return local
 }
 
 func peerKey(hash []byte) string {

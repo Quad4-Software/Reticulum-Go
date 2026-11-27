@@ -2,17 +2,61 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity"
 	"git.quad4.io/reticulum/Reticulum-Go/protocols/internal/golxmd"
 	"git.quad4.io/reticulum/Reticulum-Go/protocols/pkg/lxmf"
 )
+
+type countFlag int
+
+func (c *countFlag) String() string { return fmt.Sprint(int(*c)) }
+func (c *countFlag) Set(v string) error {
+	if v == "true" {
+		*c++
+		return nil
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil {
+		return err
+	}
+	*c = countFlag(n)
+	return nil
+}
+func (c *countFlag) IsBoolFlag() bool { return true }
+
+func expandCountArgs(args []string) []string {
+	out := make([]string, 0, len(args))
+	for _, arg := range args {
+		if len(arg) > 2 && strings.HasPrefix(arg, "-") && !strings.HasPrefix(arg, "--") {
+			compact := true
+			for _, ch := range arg[1:] {
+				if ch != 'v' && ch != 'q' {
+					compact = false
+					break
+				}
+			}
+			if compact {
+				for _, ch := range arg[1:] {
+					out = append(out, "-"+string(ch))
+				}
+				continue
+			}
+		}
+		out = append(out, arg)
+	}
+	return out
+}
 
 func main() {
 	os.Exit(run(os.Args[1:]))
@@ -25,10 +69,17 @@ func run(args []string) int {
 	configDir := fs.String("config", "", "path to golxmd config directory")
 	rnsConfig := fs.String("rnsconfig", "", "path to Reticulum config directory (default ~/.reticulum-go)")
 	propagationNode := fs.Bool("propagation-node", false, "run an LXMF propagation node")
+	fs.BoolVar(propagationNode, "p", false, "run an LXMF propagation node")
 	onInbound := fs.String("on-inbound", "", "executable to run when a message is received")
-	verbose := fs.Int("v", 0, "increase log verbosity")
-	quiet := fs.Int("q", 0, "decrease log verbosity")
+	fs.StringVar(onInbound, "i", "", "executable to run when a message is received")
+	verbose := new(countFlag)
+	quiet := new(countFlag)
+	fs.Var(verbose, "v", "increase log verbosity")
+	fs.Var(verbose, "verbose", "increase log verbosity")
+	fs.Var(quiet, "q", "decrease log verbosity")
+	fs.Var(quiet, "quiet", "decrease log verbosity")
 	serviceMode := fs.Bool("service", false, "suppress console output (logs still go to file)")
+	fs.BoolVar(serviceMode, "s", false, "suppress console output (logs still go to file)")
 	selfCheck := fs.Bool("self-check", false, "verify home directories and storage read/write")
 	logFile := fs.String("log-file", "", "log file path (default ~/.golxmd/logfile)")
 	noLogFile := fs.Bool("no-log-file", false, "disable file logging")
@@ -36,8 +87,10 @@ func run(args []string) int {
 	showPeers := fs.Bool("peers", false, "display peered nodes")
 	syncPeer := fs.String("sync", "", "request sync with the specified peer")
 	unpeer := fs.String("break", "", "break peering with the specified peer")
+	fs.StringVar(unpeer, "b", "", "break peering with the specified peer")
 	timeout := fs.Float64("timeout", 0, "timeout in seconds for query operations")
 	remote := fs.String("remote", "", "remote propagation node destination hash")
+	fs.StringVar(remote, "r", "", "remote propagation node destination hash")
 	identityPath := fs.String("identity", "", "path to identity used for remote requests")
 	exampleConfig := fs.Bool("exampleconfig", false, "print verbose configuration example and exit")
 	showVersion := fs.Bool("version", false, "print version and exit")
@@ -45,12 +98,12 @@ func run(args []string) int {
 	udpForward := fs.String("udp-forward", "", "UDP forward host:port")
 	readyFile := fs.String("ready-file", "", "write ready JSON when daemon is running")
 
-	if err := fs.Parse(args); err != nil {
+	if err := fs.Parse(expandCountArgs(args)); err != nil {
 		return 2
 	}
 
 	if *showVersion {
-		fmt.Println(golxmd.Version)
+		fmt.Printf("lxmd %s\n", golxmd.Version)
 		return 0
 	}
 	if *exampleConfig {
@@ -85,6 +138,20 @@ func run(args []string) int {
 	}
 
 	if *showStatus || *showPeers || *syncPeer != "" || *unpeer != "" {
+		if *identityPath == "" {
+			if _, err := os.Stat(home); err != nil {
+				fmt.Fprintln(os.Stderr, "golxmd: specified configuration directory does not exist, exiting now")
+				return 201
+			}
+		}
+		if _, err := os.Stat(identPath); err != nil {
+			fmt.Fprintln(os.Stderr, "golxmd: identity file not found in specified configuration directory, exiting now")
+			return 202
+		}
+		if _, err := identity.FromFile(identPath); err != nil {
+			fmt.Fprintf(os.Stderr, "golxmd: could not load the primary identity from %s\n", identPath)
+			return 4
+		}
 		to := 5 * time.Second
 		if *timeout > 0 {
 			to = time.Duration(*timeout * float64(time.Second))
@@ -95,8 +162,10 @@ func run(args []string) int {
 			IdentityPath: identPath,
 			RemoteHash:   *remote,
 			Timeout:      to,
-			Verbosity:    *verbose,
-			Quietness:    *quiet,
+			Verbosity:    int(*verbose),
+			Quietness:    int(*quiet),
+			UDPListen:    *udpListen,
+			UDPForward:   *udpForward,
 		}
 		if *syncPeer != "" {
 			if err := golxmd.RequestSync(*syncPeer, remoteOpts); err != nil {
@@ -117,7 +186,7 @@ func run(args []string) int {
 		stats, err := golxmd.QueryStatus(remoteOpts)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "golxmd: %v\n", err)
-			return 1
+			return exitCodeForRemoteErr(err)
 		}
 		golxmd.PrintStatus(stats, *showStatus, *showPeers)
 		return 0
@@ -130,13 +199,12 @@ func run(args []string) int {
 	}
 	if created {
 		golxmd.PrintFirstRunNotice(cfgPath, identPath, storageDir, golxmd.ResolveRNSConfigDir(*rnsConfig))
-		return 0
 	}
 
 	lxmfCfg, err := lxmf.LoadConfig(cfgPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "golxmd: load config: %v\n", err)
-		return 1
+		return 255
 	}
 	if *propagationNode {
 		lxmfCfg.Propagation.EnableNode = true
@@ -145,7 +213,7 @@ func run(args []string) int {
 		lxmfCfg.LXMF.OnInbound = *onInbound
 	}
 
-	logPath := golxmd.DefaultLogPath()
+	logPath := filepath.Join(home, "logfile")
 	if *logFile != "" {
 		logPath = *logFile
 	}
@@ -153,13 +221,13 @@ func run(args []string) int {
 		logPath = ""
 	}
 
-	consoleLogs := *verbose > 0 && !*serviceMode
+	consoleLogs := int(*verbose) > 0 && !*serviceMode
 	log, closer, err := golxmd.ConfigureLogging(golxmd.LogConfig{
 		Level:     lxmfCfg.Logging.Level,
 		Console:   consoleLogs,
 		File:      logPath,
-		Verbosity: *verbose,
-		Quietness: *quiet,
+		Verbosity: int(*verbose),
+		Quietness: int(*quiet),
 	})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "golxmd: logging: %v\n", err)
@@ -189,13 +257,16 @@ func run(args []string) int {
 		UDPListen:        *udpListen,
 		UDPForward:       *udpForward,
 		ForcePropagation: *propagationNode,
-		Verbosity:        *verbose,
-		Quietness:        *quiet,
+		Verbosity:        int(*verbose),
+		Quietness:        int(*quiet),
 		OnInbound:        *onInbound,
 	}, lxmfCfg, log)
 
 	if err := svc.Start(); err != nil {
 		fmt.Fprintf(os.Stderr, "golxmd: start: %v\n", err)
+		if errors.Is(err, golxmd.ErrIdentityInvalid) {
+			return 4
+		}
 		return 1
 	}
 	defer svc.Stop()
@@ -208,7 +279,12 @@ func run(args []string) int {
 
 func exitCodeForRemoteErr(err error) int {
 	msg := err.Error()
+	if strings.Contains(msg, "timed out") {
+		return 200
+	}
 	switch msg {
+	case "empty response received":
+		return 207
 	case "remote received no identity":
 		return 203
 	case "access denied":
