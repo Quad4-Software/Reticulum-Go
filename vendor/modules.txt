@@ -98,7 +98,7 @@ golang.org/x/crypto/internal/alias
 golang.org/x/crypto/internal/poly1305
 # golang.org/x/mod v0.43.0
 ## explicit; go 1.26.0
-# golang.org/x/net v0.62.0
+# golang.org/x/net v0.63.0
 ## explicit; go 1.26.0
 golang.org/x/net/bpf
 golang.org/x/net/http/httpguts
@@ -130,7 +130,7 @@ golang.org/x/text/unicode/norm
 # kernel.org/pub/linux/libs/security/libcap/psx v1.2.78
 ## explicit; go 1.11
 kernel.org/pub/linux/libs/security/libcap/psx
-# modernc.org/libc v1.80.1
+# modernc.org/libc v1.82.0
 ## explicit; go 1.26.0
 modernc.org/libc
 modernc.org/libc/errno
@@ -161,7 +161,7 @@ modernc.org/libc/wctype
 # modernc.org/mathutil v1.7.1
 ## explicit; go 1.21
 modernc.org/mathutil
-# modernc.org/memory v1.12.1
+# modernc.org/memory v1.13.1
 ## explicit; go 1.23.0
 modernc.org/memory
 # modernc.org/sqlite v1.62.0
