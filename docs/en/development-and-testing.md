@@ -65,8 +65,9 @@ trusting a green checkmark.
   `LXMF_PYTHON`/`PYTHON_INTEROP` to the venv python the way the harness
   resolution expects. Runs with `-p 1` because stamp generation saturates
   all cores and parallel packages produce false path-resolution timeouts.
-- Vendor sync: `scripts/ci/check-protocols-vendor.sh` regenerates
-  `protocols/vendor` and fails if regeneration changes anything. Root
+- Vendor sync: `scripts/ci/check-protocols-vendor.sh` compares the
+  vendored copy of the parent module under `protocols/vendor` with the repo
+  root and fails on any difference. It works offline. Root
   module changes under `pkg/`, `internal/`, or `vendor/` trigger the
   protocols jobs because protocols vendors the parent module.
 

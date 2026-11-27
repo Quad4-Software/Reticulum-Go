@@ -1,44 +1,33 @@
 #!/bin/sh
-# Verify protocols/vendor is in sync with the parent module.
-# protocols/go.mod replaces the parent module with the repo root, so any
-# change to root pkg/ or internal/ code that protocols depends on must be
-# re-vendored (cd protocols && go mod vendor) or protocols builds and tests
-# run against stale copies.
-#
-# The check regenerates the vendor tree and compares it to the tree as it
-# was before regeneration: if regeneration changes nothing, the vendor was
-# in sync. Comparing against the pre-run state (not git HEAD) keeps the
-# gate correct on dirty working trees as well as in CI.
+# Verify the vendored copy of the parent module under protocols/vendor matches
+# the repo root. protocols/go.mod replaces the parent module with the repo
+# root, so a root change that protocols depends on must be re-vendored
+# (cd protocols && go mod vendor) or protocols builds and tests run against
+# stale copies. Works offline: it compares files, it does not run go mod vendor.
 set -eu
 
 WS="${GITEA_WORKSPACE:-${GITHUB_WORKSPACE:-.}}"
 cd "$WS" || exit 1
 
-if [ ! -d protocols/vendor ]; then
-	echo "check-protocols-vendor: protocols/vendor missing entirely" >&2
+vroot=protocols/vendor/git.quad4.io/reticulum/Reticulum-Go
+if [ ! -d "$vroot" ]; then
+	echo "check-protocols-vendor: $vroot missing" >&2
 	exit 1
 fi
 
-snapshot() {
-	find protocols/vendor -type f -print0 | sort -z | xargs -0 sha256sum 2>/dev/null | sha256sum | awk '{print $1}'
-}
+stale=0
+for f in $(cd "$vroot" && find . -type f | sed 's|^\./||' | sort); do
+	if [ ! -f "$f" ]; then
+		echo "check-protocols-vendor: vendored $f has no source in the repo root" >&2
+		stale=1
+	elif ! cmp -s "$f" "$vroot/$f"; then
+		echo "check-protocols-vendor: $f differs from the vendored copy" >&2
+		stale=1
+	fi
+done
 
-before=$(snapshot)
-
-(
-	cd protocols
-	GOFLAGS='' go mod vendor
-)
-
-after=$(snapshot)
-
-if [ "$before" = "$after" ]; then
-	echo "check-protocols-vendor: protocols/vendor is in sync"
-	exit 0
+if [ "$stale" -ne 0 ]; then
+	echo "check-protocols-vendor: protocols/vendor is STALE. Fix with: (cd protocols && go mod vendor) and commit the result." >&2
+	exit 1
 fi
-
-echo "check-protocols-vendor: protocols/vendor is STALE." >&2
-echo "A root-module change reached protocols/go.mod's replace target without" >&2
-echo "re-vendoring. Fix with: (cd protocols && go mod vendor) and commit the result." >&2
-git diff --stat -- protocols/vendor 2>/dev/null | tail -5 >&2 || true
-exit 1
+echo "check-protocols-vendor: protocols/vendor is in sync"
