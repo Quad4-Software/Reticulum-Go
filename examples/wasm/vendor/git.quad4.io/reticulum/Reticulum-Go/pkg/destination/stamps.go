@@ -250,6 +250,9 @@ func stamperWorker(ctx context.Context, jobs chan stampJob) {
 			if err := job.dest.Announce(job.pathResponse, job.tag, job.attachedIface); err != nil {
 				debug.Log(debug.DebugWarning, "Stamped announce send failed",
 					"dest_hash", job.dest.hexhash(), "error", err)
+			} else {
+				debug.Log(debug.DebugInfo, "Stamped announce emitted",
+					"dest_hash", job.dest.hexhash(), "path_response", job.pathResponse)
 			}
 		}
 	}
