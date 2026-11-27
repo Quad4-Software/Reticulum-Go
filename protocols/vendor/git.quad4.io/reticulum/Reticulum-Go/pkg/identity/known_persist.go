@@ -32,9 +32,12 @@ var (
 	knownPersistLast     atomic.Int64
 )
 
-// KnownPersistMinInterval is the minimum gap between dirty flushes of
-// known_destinations. Shutdown uses SaveKnownDestinationsSync (force).
-const KnownPersistMinInterval = 30 * time.Second
+// KnownPersistMinInterval is the minimum gap between dirty full-table writes
+// of the legacy known_destinations file. Python Reticulum persists full
+// tables every 12 hours. SQLite write-behind rows use the shorter
+// kd_flush_interval below. Shutdown uses SaveKnownDestinationsSync (force).
+const KnownPersistMinInterval = 12 * time.Hour
+const knownDestDBFlushInterval = 10 * time.Second
 
 // knownDestRecord is a fully-decoded, package-state-independent known
 // destination entry. decodeKnownDestinations produces these without
@@ -221,11 +224,43 @@ func InitKnownDestinationsPersistence(configPath string, inMemory bool) {
 		_ = os.MkdirAll(dir, 0o700)
 	}
 
+	// Rows remembered before persistence initialization would otherwise never
+	// enter SQLite now that normal operation is row-level write-behind rather
+	// than a whole-table rewrite. Snapshot just the pre-existing rows before
+	// opening storage; rows loaded from the DB must not be written back.
+	type preInitRow struct {
+		key   destMapKey
+		entry knownDestEntry
+		meta  knownDestMeta
+	}
+	var preInitRows []preInitRow
+	knownDestinationsLock.RLock()
+	preInitRows = make([]preInitRow, 0, len(knownDestinations))
+	for key, entry := range knownDestinations {
+		row := preInitRow{key: key, entry: entry, meta: knownDestMetaByKey[key]}
+		row.entry.pktHash = append([]byte(nil), entry.pktHash...)
+		row.entry.pubKey = append([]byte(nil), entry.pubKey...)
+		row.entry.app = append([]byte(nil), entry.app...)
+		row.entry.stamp = append([]byte(nil), entry.stamp...)
+		preInitRows = append(preInitRows, row)
+	}
+	knownDestinationsLock.RUnlock()
+
 	// RNS 1.6.0: SQLite known_destinations.db when the driver is available,
 	// with legacy-file import and automatic fallback.
 	initKnownStore(configPath)
 	if !loadKnownDestinationsFromDB() {
 		loadKnownDestinationsFromDisk(configPath)
+	}
+	if knownStore.Load() != nil {
+		for _, row := range preInitRows {
+			markKnownDestDBDirtyLocked(row.key, row.entry, row.meta)
+		}
+	} else {
+		// Python starts the 12 hour full-table persistence clock at startup.
+		// SQLite keeps a zero clock so its first ten-second write-behind flush
+		// is not artificially delayed.
+		knownPersistLast.Store(time.Now().UnixNano())
 	}
 }
 
@@ -312,6 +347,15 @@ func PersistKnownDestinationsIfDirty() {
 	saveKnownDestinations(false)
 }
 
+// PersistKnownDestinationsNowIfDirty writes pending state without waiting for
+// the periodic interval, but still does nothing when the table is clean. Used
+// when the last local client detaches from a shared instance.
+func PersistKnownDestinationsNowIfDirty() {
+	if knownPersistDirty.Load() {
+		saveKnownDestinations(true)
+	}
+}
+
 func saveKnownDestinations(force bool) {
 	if knownPersistMemory.Load() || knownPersistDisabled.Load() {
 		return
@@ -321,7 +365,11 @@ func saveKnownDestinations(force bool) {
 			return
 		}
 		last := knownPersistLast.Load()
-		if last != 0 && time.Since(time.Unix(0, last)) < KnownPersistMinInterval {
+		interval := KnownPersistMinInterval
+		if knownStore.Load() != nil {
+			interval = knownDestDBFlushInterval
+		}
+		if last != 0 && time.Since(time.Unix(0, last)) < interval {
 			return
 		}
 	}
@@ -333,10 +381,12 @@ func saveKnownDestinations(force bool) {
 	gen := knownPersistGen.Load()
 
 	// SQLite backend (RNS 1.6.0) handles the write; legacy path otherwise.
-	if saveKnownDestinationsDB() {
-		knownPersistLast.Store(time.Now().UnixNano())
-		if knownPersistGen.Load() == gen {
-			knownPersistDirty.Store(false)
+	if handled, flushed := saveKnownDestinationsDB(); handled {
+		if flushed {
+			knownPersistLast.Store(time.Now().UnixNano())
+			if knownPersistGen.Load() == gen {
+				knownPersistDirty.Store(false)
+			}
 		}
 		return
 	}

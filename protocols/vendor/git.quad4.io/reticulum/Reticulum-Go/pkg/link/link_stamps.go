@@ -133,14 +133,14 @@ func (l *Link) stampThenEstablish(destHash []byte, cost float64) {
 	}
 	go l.startWatchdog()
 	debug.Log(debug.DebugVerbose, "Stamped link request sent",
-		"link_id", fmt.Sprintf("%x", l.linkID), "cost", cost)
+		"link_id", debug.Hex(l.linkID), "cost", cost)
 }
 
 // failStampedEstablish closes the link with teardown reason STAMP_FAILURE,
 // mirrors Python Link.__stamp_failed.
 func (l *Link) failStampedEstablish(destHash []byte, err error) {
 	debug.Log(debug.DebugWarning, "Link request stamp generation failed",
-		"dest_hash", fmt.Sprintf("%x", destHash), "error", err)
+		"dest_hash", debug.Hex(destHash), "error", err)
 	l.mutex.Lock()
 	if l.transport != nil {
 		l.transport.EndOutboundEstablish(destHash)

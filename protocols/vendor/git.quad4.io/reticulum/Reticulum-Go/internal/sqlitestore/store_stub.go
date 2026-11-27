@@ -13,6 +13,7 @@ type AnnounceCache struct{}
 func OpenKnownDestinations(dbPath string, hashWidth int, readOnly bool) (*KnownDestinationsStore, error) {
 	return nil, ErrUnavailable
 }
+func (s *KnownDestinationsStore) PendingCount() int                         { return 0 }
 func (s *KnownDestinationsStore) MarkDirty(e *KnownDestEntry)               {}
 func (s *KnownDestinationsStore) MarkDeleted(destHash []byte)               {}
 func (s *KnownDestinationsStore) MarkRatchetDirty(destHash, ratchet []byte) {}

@@ -53,7 +53,7 @@ func (t *Transport) InitializeBlackholePublish() error {
 	t.mutex.Unlock()
 
 	debug.Log(debug.DebugInfo, "Enabled blackhole publish",
-		"destination", fmt.Sprintf("%x", dest.GetHash()))
+		"destination", debug.Hex(dest.GetHash()))
 	// RNS 1.6.0: the blackhole destination registers a type requirement so
 	// [filter] required_only nodes learn to admit its announces.
 	if t.destFilters != nil {

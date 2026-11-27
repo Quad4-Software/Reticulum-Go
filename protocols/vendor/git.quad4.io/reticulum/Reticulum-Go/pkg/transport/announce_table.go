@@ -10,8 +10,6 @@ import (
 	"os"
 	"time"
 
-	"sync/atomic"
-
 	"git.quad4.io/libraries/msgpack/v5/pkg/msgpack"
 
 	"path/filepath"
@@ -403,13 +401,13 @@ func (t *Transport) emitAnnounceTableEntry(key hash16, entry *PathAnnounceEntry)
 	raw, err := t.buildPathResponseWire(entry)
 	if err != nil {
 		debug.Log(debug.DebugVerbose, "Failed to build path response announce",
-			"dest_hash", fmt.Sprintf("%x", entry.Packet.DestinationHash), "error", err)
+			"dest_hash", debug.Hex(entry.Packet.DestinationHash), "error", err)
 		return
 	}
 
 	if debug.Enabled(debug.DebugInfo) {
 		debug.Log(debug.DebugInfo, "Rebroadcasting announce as path response",
-			"dest_hash", fmt.Sprintf("%x", entry.Packet.DestinationHash),
+			"dest_hash", debug.Hex(entry.Packet.DestinationHash),
 			"hops", entry.AnnounceHops,
 			"iface", entry.AttachedInterface.GetName())
 	}
@@ -429,7 +427,7 @@ func (t *Transport) emitAnnounceTableEntry(key hash16, entry *PathAnnounceEntry)
 		t.announceTable[key] = held
 		if debug.Enabled(debug.DebugVerbose) {
 			debug.Log(debug.DebugVerbose, "Reinserting held announce into table",
-				"dest_hash", fmt.Sprintf("%x", entry.Packet.DestinationHash))
+				"dest_hash", debug.Hex(entry.Packet.DestinationHash))
 		}
 	} else if cur, ok := t.announceTable[key]; ok && cur == entry && entry.BlockRebroadcasts {
 		// Path responses are one-shot for the attached interface.
@@ -542,26 +540,40 @@ func openAnnounceCacheDB(storagePath string) *sqlitestore.AnnounceCache {
 	return db
 }
 
-var announceCacheFlushCounter atomic.Int64
+const (
+	announceCacheFlushInterval = 15 * time.Second
+	announceCacheCleanInterval = 5 * time.Minute
+)
 
-// maintainAnnounceCacheDB flushes the announce-cache DB roughly every 15s
-// (Python ac_flush_interval) and cleans entries not backing active paths.
+// maintainAnnounceCacheDB flushes pending announce rows on the Python
+// ac_flush_interval and cleans entries not backing active paths on the
+// separate five minute cache-clean interval. Clean already flushes pending
+// rows inside one SQLite lock, so it is not followed by a second flush.
 func (t *Transport) maintainAnnounceCacheDB() {
 	if t == nil || t.announceCacheDB == nil {
 		return
 	}
-	if announceCacheFlushCounter.Add(1)%3 != 0 { // 5s tick -> ~15s
+	db := t.announceCacheDB
+	now := time.Now()
+	flushDue := t.announceCacheLastFlush.IsZero() || now.Sub(t.announceCacheLastFlush) >= announceCacheFlushInterval
+	cleanDue := t.announceCacheLastClean.IsZero() || now.Sub(t.announceCacheLastClean) >= announceCacheCleanInterval
+
+	if cleanDue {
+		t.announceCacheLastClean = now
+		t.announceCacheLastFlush = now
+		t.mutex.RLock()
+		active := make([][]byte, 0, len(t.paths))
+		for k := range t.paths {
+			active = append(active, k[:])
+		}
+		t.mutex.RUnlock()
+		_, _ = db.Clean(active)
 		return
 	}
-	t.mutex.RLock()
-	active := make([][]byte, 0, len(t.paths))
-	for k := range t.paths {
-		active = append(active, k[:])
+	if flushDue || db.PendingCount() > announceCacheMaxPending {
+		t.announceCacheLastFlush = now
+		_, _ = db.Flush()
 	}
-	db := t.announceCacheDB
-	t.mutex.RUnlock()
-	_, _ = db.Clean(active)
-	_, _ = db.Flush()
 }
 
 func (t *Transport) closeAnnounceCacheDB() {

@@ -80,12 +80,12 @@ func (l *Link) handleResourceProof(pkt *packet.Packet) error {
 			debug.DebugVerbose,
 			"Ignoring invalid outgoing resource proof",
 			"resource_hash",
-			fmt.Sprintf("%x", resourceHash),
+			debug.Hex(resourceHash),
 		)
 		return nil
 	}
 
-	debug.Log(debug.DebugVerbose, "Outgoing resource proof received", "resource_hash", fmt.Sprintf("%x", resourceHash))
+	debug.Log(debug.DebugVerbose, "Outgoing resource proof received", "resource_hash", debug.Hex(resourceHash))
 	if out.IsSplit() && out.GetSegmentIndex() < out.GetTotalSegments() {
 		if err := out.PrepareNextOutboundSegment(l.encrypt, l.resourceSDU()); err != nil {
 			l.signalOutgoingResourceComplete()
@@ -134,8 +134,8 @@ func (l *Link) processResourceAdvertisement(plaintext []byte) error {
 
 	if adv.Split {
 		debug.Log(debug.DebugVerbose, "Accepting split resource advertisement",
-			"hash", fmt.Sprintf("%x", adv.Hash),
-			"original", fmt.Sprintf("%x", adv.OriginalHash),
+			"hash", debug.Hex(adv.Hash),
+			"original", debug.Hex(adv.OriginalHash),
 			"segment", adv.SegmentIndex,
 			"total", adv.TotalSegments)
 	}
@@ -166,7 +166,7 @@ func (l *Link) processResourceAdvertisement(plaintext []byte) error {
 		l.requestMutex.RUnlock()
 
 		if matched == nil {
-			debug.Log(debug.DebugVerbose, "Received response resource advertisement for unknown request", "request_id", fmt.Sprintf("%x", requestID))
+			debug.Log(debug.DebugVerbose, "Received response resource advertisement for unknown request", "request_id", debug.Hex(requestID))
 			return nil
 		}
 		if matched.maxResponseSize > 0 && int(adv.TransferSize) > matched.maxResponseSize {
@@ -341,9 +341,9 @@ func (l *Link) dispatchOutgoingResourceRequests(plaintext []byte) {
 			debug.DebugVerbose,
 			"Ignoring resource request: hash mismatch",
 			"request_hash",
-			fmt.Sprintf("%x", resourceHash),
+			debug.Hex(resourceHash),
 			"out_hash",
-			fmt.Sprintf("%x", out.GetHash()),
+			debug.Hex(out.GetHash()),
 		)
 		return
 	}
@@ -383,7 +383,7 @@ func (l *Link) dispatchOutgoingResourceRequests(plaintext []byte) {
 		debug.DebugVerbose,
 		"Outgoing resource part request selection",
 		"resource_hash",
-		fmt.Sprintf("%x", resourceHash),
+		debug.Hex(resourceHash),
 		"requested_hashes",
 		len(reqHashes)/resource.MapHashLen,
 		"selected_parts",
@@ -396,7 +396,7 @@ func (l *Link) dispatchOutgoingResourceRequests(plaintext []byte) {
 			debug.DebugVerbose,
 			"Outgoing resource request matched no parts",
 			"resource_hash",
-			fmt.Sprintf("%x", resourceHash),
+			debug.Hex(resourceHash),
 			"requested_hashes",
 			len(reqHashes)/resource.MapHashLen,
 			"receiver_min_part",
@@ -422,9 +422,9 @@ func (l *Link) dispatchOutgoingResourceRequests(plaintext []byte) {
 			debug.DebugVerbose,
 			"Outgoing resource received HMU request",
 			"resource_hash",
-			fmt.Sprintf("%x", resourceHash),
+			debug.Hex(resourceHash),
 			"anchor_hash",
-			fmt.Sprintf("%x", hmuAnchorHash),
+			debug.Hex(hmuAnchorHash),
 			"receiver_min_part",
 			receiverMinPart,
 		)
@@ -506,7 +506,7 @@ func (l *Link) sendResourceHashmapUpdate(out *resource.Resource, sdu int, anchor
 	if len(hashmap) == 0 {
 		// Match Python Resource.request_hashed_data_maps (RNS 1.3.9).
 		debug.Log(debug.DebugError, "Resource HMU error, cancelling transfer",
-			"resource_hash", fmt.Sprintf("%x", out.GetHash()))
+			"resource_hash", debug.Hex(out.GetHash()))
 		out.Cancel()
 		l.signalOutgoingResourceComplete()
 		return -1, errors.New("empty hashmap update")
@@ -523,7 +523,7 @@ func (l *Link) sendResourceHashmapUpdate(out *resource.Resource, sdu int, anchor
 		debug.DebugVerbose,
 		"Outgoing HMU sent",
 		"resource_hash",
-		fmt.Sprintf("%x", out.GetHash()),
+		debug.Hex(out.GetHash()),
 		"segment",
 		segment,
 		"entries",
@@ -645,7 +645,7 @@ func (l *Link) handleResourceRequest(pkt *packet.Packet) error {
 				debug.DebugVerbose,
 				"Dropping excess resource request",
 				"link_id",
-				fmt.Sprintf("%x", l.linkID),
+				debug.Hex(l.linkID),
 			)
 			health.Inc(l.attachedIfaceName(), health.KindResourceReqDrop)
 			return nil

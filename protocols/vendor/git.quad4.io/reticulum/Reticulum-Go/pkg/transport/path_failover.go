@@ -4,7 +4,6 @@
 package transport
 
 import (
-	"fmt"
 	"sort"
 	"time"
 
@@ -297,7 +296,7 @@ func (t *Transport) promoteBackupPath(key [PathMapKeySize]byte) (uint8, bool) {
 
 	if debug.Enabled(debug.DebugInfo) {
 		debug.Log(debug.DebugInfo, "Promoted backup path after failure",
-			"dest_hash", fmt.Sprintf("%x", key[:8]), "iface", b.ifaceName, "hops", b.hops)
+			"dest_hash", debug.Hex(key[:8]), "iface", b.ifaceName, "hops", b.hops)
 	}
 	return b.hops, true
 }

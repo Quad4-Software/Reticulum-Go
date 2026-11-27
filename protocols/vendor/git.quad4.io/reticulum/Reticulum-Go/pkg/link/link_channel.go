@@ -4,8 +4,6 @@
 package link
 
 import (
-	"fmt"
-
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/channel"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/common"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/debug"
@@ -65,7 +63,7 @@ func (l *Link) handleChannelPacket(pkt *packet.Packet) error {
 	if proveErr := l.ProvePacket(pkt); proveErr != nil {
 		debug.Log(debug.DebugWarning, "Failed to prove channel packet", "error", proveErr)
 	} else {
-		debug.Log(debug.DebugVerbose, "Proved channel packet", "link_id", fmt.Sprintf("%x", l.linkID))
+		debug.Log(debug.DebugVerbose, "Proved channel packet", "link_id", debug.Hex(l.linkID))
 	}
 	return err
 }
@@ -76,11 +74,11 @@ func (l *Link) queueEarlyChannel(pkt *packet.Packet) {
 	l.earlyChannelMu.Lock()
 	defer l.earlyChannelMu.Unlock()
 	if len(l.earlyChannel) >= maxEarlyChannelPackets {
-		debug.Log(debug.DebugWarning, "Dropping early channel packet, queue full", "link_id", fmt.Sprintf("%x", l.linkID))
+		debug.Log(debug.DebugWarning, "Dropping early channel packet, queue full", "link_id", debug.Hex(l.linkID))
 		return
 	}
 	l.earlyChannel = append(l.earlyChannel, pkt)
-	debug.Log(debug.DebugVerbose, "Queued early channel packet until link active", "link_id", fmt.Sprintf("%x", l.linkID), "queued", len(l.earlyChannel))
+	debug.Log(debug.DebugVerbose, "Queued early channel packet until link active", "link_id", debug.Hex(l.linkID), "queued", len(l.earlyChannel))
 }
 
 // markChannelReady releases the channel gate and requeues packets that
