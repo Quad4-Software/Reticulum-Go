@@ -8,3 +8,4 @@
 | [rrc.md](rrc.md) | RRC hub and client |
 | [lxst.md](lxst.md) | LXST telephony |
 | [gorrcd.md](gorrcd.md) | Go RRC hub daemon |
+| [golxmd.md](golxmd.md) | golxmd propagation node daemon |

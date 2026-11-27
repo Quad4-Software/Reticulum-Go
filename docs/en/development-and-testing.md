@@ -43,6 +43,37 @@ Forgejo: `.forgejo/workflows/ci.yml` runs bootstrap plus `run.sh`.
 
 Pinned versions: `scripts/ci/versions.env` and `scripts/ci/dev-tools.env`.
 
+## What CI runs
+
+Not every test in the tree runs in CI; knowing which do matters before
+trusting a green checkmark.
+
+- Root module (`pkg`, `cmd`, `internal`, `tests`): the `test` job runs
+  `go test ./...` without `-short`, so tests gated on `testing.Short()`
+  in the root module do run. Tests gated on `RUN_LIVE_INTEROP` run only in
+  the `test-live-interop` job, and only under `./tests/interop/`.
+- Protocols module (`protocols/`): the `protocols` job runs
+  `go test -short ./...`, a race pass over the lxmf/golxmd/faultproxy
+  packages, and a hermetic non-short step covering the `TestMatrix_*`
+  suite, the adversarial/property/chaos audit battery, and selected
+  rrc/lxst/golxmd hermetic tests. Other Short-gated protocols tests
+  (stress variants, some e2e) still only run locally via `go test ./...`
+  without `-short`.
+- Live Go/Python LXMF interop (`RUN_LIVE_INTEROP=1` tests in
+  `protocols/pkg/lxmf`, golxmd vs Python lxmd): the `protocols-live` job,
+  which builds a venv with pinned `rns` and `lxmf` releases and sets
+  `LXMF_PYTHON`/`PYTHON_INTEROP` to the venv python the way the harness
+  resolution expects. Runs with `-p 1` because stamp generation saturates
+  all cores and parallel packages produce false path-resolution timeouts.
+- Vendor sync: `scripts/ci/check-protocols-vendor.sh` regenerates
+  `protocols/vendor` and fails if regeneration changes anything. Root
+  module changes under `pkg/`, `internal/`, or `vendor/` trigger the
+  protocols jobs because protocols vendors the parent module.
+
+Tests that still never run in CI: fuzz targets (run locally or in the
+fuzz workflow), the heavy stress suites behind their own env gates, and
+anything needing hardware, external network, or non-x86 platforms.
+
 ## Build automation reference
 
 | Make | Manual / notes |
